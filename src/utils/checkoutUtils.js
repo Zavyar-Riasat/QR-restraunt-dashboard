@@ -87,8 +87,7 @@ export const handleWhatsAppCheckout = ({
     message += `• Delivery Fee: Rs. ${Number(deliveryFee).toLocaleString('en-PK')}\n`;
   }
   message += `• *TOTAL PAYABLE: Rs. ${Number(finalTotal).toLocaleString('en-PK')}*\n`;
-  message += `------------------------------------\n`;
-  message += `🚀 _Ordered directly via Zero-Commission Web Menu_`;
+  message += `------------------------------------`;
 
   // Log order to orderService
   try {

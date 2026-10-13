@@ -500,8 +500,8 @@ export default function OrdersFeed({
               </div>
 
               <div className="text-center pt-2 text-[10px] text-slate-400 border-t border-dashed border-slate-300">
-                <p>0% Commission Direct WhatsApp Order</p>
-                <p>DineHQ Kitchen Management</p>
+                <p>Direct WhatsApp Order</p>
+                <p>{restaurant?.name || 'Kitchen Order Ticket'}</p>
               </div>
             </div>
 

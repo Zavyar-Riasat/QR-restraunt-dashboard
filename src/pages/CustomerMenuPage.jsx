@@ -326,7 +326,7 @@ export default function CustomerMenuPage() {
           <div className="relative z-10 max-w-2xl space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Zero-Commission Direct Kitchen Menu</span>
+              <span>Official Direct Kitchen Menu</span>
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight leading-tight">
@@ -856,7 +856,7 @@ export default function CustomerMenuPage() {
           </div>
 
           <div className="flex items-center gap-3 text-slate-500">
-            <p>Powered by DineHQ &copy; 2026. Zero-commission WhatsApp ordering.</p>
+            <p>&copy; 2026 {restaurant.name}. Direct WhatsApp Ordering.</p>
             <span className="text-slate-300">•</span>
             <Link
               to="/login"

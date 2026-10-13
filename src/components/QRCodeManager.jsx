@@ -244,7 +244,7 @@ export default function QRCodeManager({ restaurant }) {
                   DIRECT ORDER
                 </span>
                 <p className="text-[10px] font-extrabold uppercase tracking-wider opacity-75">
-                  0% Middleman Fees
+                  Fast & Fresh Delivery
                 </p>
               </div>
             </div>

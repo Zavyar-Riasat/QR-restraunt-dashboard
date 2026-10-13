@@ -443,6 +443,15 @@ export default function OrdersFeed({
               className="p-5 overflow-y-auto max-h-[70vh] bg-amber-50/20 font-mono text-xs text-slate-900 space-y-3 print:max-h-none print:overflow-visible print:bg-white print:p-3 print:text-black print:space-y-2.5"
             >
               <div className="text-center pb-2 border-b border-dashed border-slate-300">
+                {restaurant?.logo_url && (
+                  <div className="mb-2 flex justify-center">
+                    <img
+                      src={restaurant.logo_url}
+                      alt={restaurant.name}
+                      className="max-h-12 max-w-[130px] object-contain mx-auto"
+                    />
+                  </div>
+                )}
                 <h4 className="font-bold text-sm uppercase">{restaurant?.name || 'Kitchen'}</h4>
                 <p className="text-[10px] text-slate-500">KITCHEN ORDER TICKET (KOT)</p>
                 <p className="text-xs font-bold mt-1">ORDER #{printingOrder.id}</p>

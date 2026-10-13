@@ -10,6 +10,7 @@ const initialSeedData = {
     name: 'Burger & Smoke Co.',
     slug: 'burgersmoke',
     whatsapp_number: '923001234567',
+    logo_url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=200&h=200&q=80',
     is_open: true,
     delivery_mode: 'paid',
     delivery_fee: 150,
@@ -173,6 +174,7 @@ export const restaurantService = {
       min_order_amount: 500,
       show_prep_time: true,
       prep_time: '20–30 mins',
+      logo_url: restaurant.logo_url || null,
     };
     try {
       const saved = localStorage.getItem(key);
@@ -261,6 +263,7 @@ export const restaurantService = {
     if (updates.name !== undefined) baseColumns.name = updates.name;
     if (updates.slug !== undefined) baseColumns.slug = updates.slug;
     if (updates.whatsapp_number !== undefined) baseColumns.whatsapp_number = updates.whatsapp_number;
+    if (updates.logo_url !== undefined) baseColumns.logo_url = updates.logo_url;
 
     // 2. Persist extended settings to localStorage
     const extendedKey = `${SETTINGS_PREFIX}${restaurantId}`;
@@ -268,6 +271,7 @@ export const restaurantService = {
       const existingSettings = JSON.parse(localStorage.getItem(extendedKey) || '{}');
       const updatedSettings = {
         ...existingSettings,
+        ...(updates.logo_url !== undefined ? { logo_url: updates.logo_url } : {}),
         ...(updates.is_open !== undefined ? { is_open: updates.is_open } : {}),
         ...(updates.delivery_mode !== undefined ? { delivery_mode: updates.delivery_mode } : {}),
         ...(updates.delivery_fee !== undefined ? { delivery_fee: Number(updates.delivery_fee) } : {}),

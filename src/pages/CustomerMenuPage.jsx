@@ -259,9 +259,17 @@ export default function CustomerMenuPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-600/20 text-white font-bold">
-                <UtensilsCrossed className="w-4 h-4" />
-              </div>
+              {restaurant.logo_url ? (
+                <img
+                  src={restaurant.logo_url}
+                  alt={restaurant.name}
+                  className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-200 shadow-2xs p-0.5 shrink-0"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-600/20 text-white font-bold shrink-0">
+                  <UtensilsCrossed className="w-4 h-4" />
+                </div>
+              )}
               <div>
                 <h1 className="font-heading font-extrabold text-slate-900 text-base sm:text-lg tracking-tight leading-tight">
                   {restaurant.name}
@@ -324,6 +332,15 @@ export default function CustomerMenuPage() {
         {/* Full-Width Restaurant Showcase Banner */}
         <section className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white shadow-xl relative overflow-hidden">
           <div className="relative z-10 max-w-2xl space-y-3">
+            {restaurant.logo_url && (
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-xl border border-white/20 mb-1 inline-block">
+                <img
+                  src={restaurant.logo_url}
+                  alt={restaurant.name}
+                  className="w-full h-full object-contain rounded-xl"
+                />
+              </div>
+            )}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
               <span>Official Direct Kitchen Menu</span>
@@ -848,9 +865,17 @@ export default function CustomerMenuPage() {
       <footer className="mt-auto py-8 border-t border-slate-200 text-center text-xs text-slate-500 bg-white">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-emerald-600 flex items-center justify-center text-white text-xs font-bold">
-              <UtensilsCrossed className="w-3.5 h-3.5" />
-            </div>
+            {restaurant.logo_url ? (
+              <img
+                src={restaurant.logo_url}
+                alt={restaurant.name}
+                className="w-6 h-6 rounded-lg object-contain bg-white border border-slate-200 p-0.5"
+              />
+            ) : (
+              <div className="w-6 h-6 rounded-lg bg-emerald-600 flex items-center justify-center text-white text-xs font-bold">
+                <UtensilsCrossed className="w-3.5 h-3.5" />
+              </div>
+            )}
             <span className="font-bold text-slate-800">{restaurant.name}</span>
             <span>• Direct Ordering Storefront</span>
           </div>

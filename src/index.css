@@ -98,6 +98,14 @@
     print-color-adjust: exact !important;
   }
 
+  #kot-thermal-receipt img {
+    max-height: 44px !important;
+    max-width: 120px !important;
+    object-fit: contain !important;
+    margin: 0 auto 6px auto !important;
+    display: block !important;
+  }
+
   /* Printable flyer container sizing for single page output */
   #printable-flyer {
     display: block !important;

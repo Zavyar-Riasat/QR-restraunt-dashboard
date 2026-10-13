@@ -18,6 +18,9 @@ import {
   User,
   Save,
   CheckCircle2,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -29,6 +32,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
     name: '',
     slug: '',
     whatsapp_number: '',
+    logo_url: '',
     is_open: true,
     delivery_mode: 'paid', // 'paid' | 'free' | 'none'
     delivery_fee: 150,
@@ -59,6 +63,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
         name: restaurant.name || '',
         slug: restaurant.slug || '',
         whatsapp_number: restaurant.whatsapp_number || '',
+        logo_url: restaurant.logo_url || '',
         is_open: restaurant.is_open !== false,
         delivery_mode: restaurant.delivery_mode || (restaurant.delivery_fee === 0 ? 'free' : 'paid'),
         delivery_fee: restaurant.delivery_fee ?? 150,
@@ -133,6 +138,20 @@ export default function StoreSettings({ restaurant, onUpdate }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Logo image file must be smaller than 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({ ...prev, logo_url: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleStoreSubmit = async (e) => {
     e.preventDefault();
     if (!formData.slug.trim()) {
@@ -148,6 +167,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
       setIsSubmitting(true);
       await onUpdate({
         ...formData,
+        logo_url: formData.logo_url?.trim() || null,
         delivery_mode: formData.delivery_mode,
         delivery_fee: formData.delivery_mode === 'paid' ? Number(formData.delivery_fee) || 0 : 0,
         show_min_order: Boolean(formData.show_min_order),
@@ -285,6 +305,77 @@ export default function StoreSettings({ restaurant, onUpdate }) {
               <p className="text-[11px] text-slate-500">
                 When paused, customers browsing your menu are informed that ordering is temporarily paused.
               </p>
+            </div>
+
+            {/* Restaurant Brand Logo */}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3 md:col-span-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />
+                  Store Brand Logo & Receipt Header
+                </label>
+                <span className="text-[11px] text-slate-500">
+                  Displayed on your customer web menu, storefront banner, and printed on order receipts.
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-200/80">
+                {/* Logo Preview */}
+                <div className="w-20 h-20 rounded-xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+                  {formData.logo_url ? (
+                    <img
+                      src={formData.logo_url}
+                      alt="Store Logo Preview"
+                      className="w-full h-full object-contain p-1"
+                    />
+                  ) : (
+                    <div className="text-center p-1">
+                      <Store className="w-6 h-6 text-slate-300 mx-auto" />
+                      <span className="text-[9px] text-slate-400 font-bold block mt-0.5">No Logo</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-2.5 w-full">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 cursor-pointer transition flex items-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload Logo File</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {formData.logo_url && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, logo_url: '' }))}
+                        className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition cursor-pointer flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Remove Logo</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-600">
+                      Or Paste Image URL:
+                    </label>
+                    <input
+                      type="url"
+                      name="logo_url"
+                      value={formData.logo_url}
+                      onChange={handleChange}
+                      placeholder="https://example.com/logo.png"
+                      className="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-emerald-500 transition"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Delivery Fee Setting (Paid / Free / None) */}

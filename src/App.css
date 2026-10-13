@@ -1,0 +1,21 @@
+/* Clean reset for full-width responsive dashboard */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@media print {
+  html, body, #root {
+    min-height: auto !important;
+    height: auto !important;
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
 import { playKitchenChime } from '../services/orderService';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function OrdersFeed({
   orders = [],
@@ -34,6 +35,9 @@ export default function OrdersFeed({
   const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
   const [search, setSearch] = useState('');
   const [printingOrder, setPrintingOrder] = useState(null);
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const reorderUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}`;
 
   const filteredOrders = orders.filter((order) => {
     const matchesFilter =
@@ -499,9 +503,29 @@ export default function OrdersFeed({
                 </div>
               </div>
 
-              <div className="text-center pt-2 text-[10px] text-slate-400 border-t border-dashed border-slate-300">
-                <p>Direct WhatsApp Order</p>
-                <p>{restaurant?.name || 'Kitchen Order Ticket'}</p>
+              {/* Customer Direct Reorder QR Section */}
+              <div className="text-center pt-2.5 border-t border-dashed border-slate-300 space-y-1.5 print:pt-2">
+                <div className="flex flex-col items-center justify-center">
+                  <div className="p-1.5 bg-white rounded-lg border border-slate-200 inline-block shadow-2xs">
+                    <QRCodeSVG
+                      value={reorderUrl}
+                      size={96}
+                      level="M"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-900 mt-1 uppercase tracking-wide">
+                    Scan to Reorder Directly
+                  </p>
+                  <p className="text-[9px] text-slate-500 font-mono break-all max-w-[240px]">
+                    {reorderUrl}
+                  </p>
+                </div>
+
+                <div className="text-[9px] text-slate-500 pt-0.5">
+                  <p className="font-semibold text-slate-700">Thank you for ordering with {restaurant?.name || 'us'}!</p>
+                  <p className="text-[8px] text-slate-400">Direct WhatsApp Kitchen Order</p>
+                </div>
               </div>
             </div>
 

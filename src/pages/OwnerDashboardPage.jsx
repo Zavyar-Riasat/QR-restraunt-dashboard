@@ -279,7 +279,7 @@ export default function OwnerDashboardPage() {
             }`}
           >
             <Bell className="w-3.5 h-3.5 text-amber-400" />
-            <span>Kitchen Orders</span>
+            <span>Orders</span>
             {activeOrdersCount > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold font-mono animate-pulse">
                 {activeOrdersCount}
@@ -320,7 +320,7 @@ export default function OwnerDashboardPage() {
             }`}
           >
             <Printer className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Print Materials</span>
+            <span>Print QR</span>
           </button>
 
           <button
@@ -332,7 +332,7 @@ export default function OwnerDashboardPage() {
             }`}
           >
             <Store className="w-3.5 h-3.5" />
-            <span>Store & WhatsApp</span>
+            <span>Settings</span>
           </button>
         </div>
 
@@ -386,8 +386,8 @@ export default function OwnerDashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="no-print mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-500 bg-white">
-        <p>DineHQ &copy; 2026. Zero-commission direct WhatsApp ordering engine for restaurants and cloud kitchens.</p>
+      <footer className="no-print mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-400 bg-white">
+        <p>DineHQ &copy; 2026</p>
       </footer>
     </div>
   );

@@ -341,18 +341,9 @@ export default function CustomerMenuPage() {
                 />
               </div>
             )}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-bold">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-              <span>Official Direct Kitchen Menu</span>
-            </div>
-
             <h2 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight leading-tight">
-              Order Direct from {restaurant.name}
+              {restaurant.name}
             </h2>
-
-            <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
-              Order fresh food directly from our kitchen with instant WhatsApp confirmation.
-            </p>
 
             {/* Dynamic Manager Configured Storefront Pills */}
             <div className="flex flex-wrap items-center gap-4 pt-1 text-xs font-semibold text-emerald-200">
@@ -537,11 +528,7 @@ export default function CustomerMenuPage() {
                               <p className="text-xs text-amber-800 line-clamp-2 mt-1 font-medium">
                                 📦 {dealInfo.deal_items}
                               </p>
-                            ) : (
-                              <p className="text-xs text-slate-400 mt-1 line-clamp-1 italic">
-                                Freshly prepared to order
-                              </p>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -805,10 +792,6 @@ export default function CustomerMenuPage() {
                       </span>
                     </button>
 
-                    <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>0% app commissions • Direct WhatsApp kitchen order</span>
-                    </div>
                   </div>
                 </form>
               )}

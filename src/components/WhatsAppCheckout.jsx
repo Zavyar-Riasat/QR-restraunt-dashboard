@@ -198,11 +198,6 @@ export default function WhatsAppCheckout({
               : `Send WhatsApp Order (${formatPKR(finalTotal)})`}
           </span>
         </button>
-
-        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 text-center">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-          <span>Dispatched directly to restaurant's official WhatsApp kitchen</span>
-        </div>
       </form>
     </div>
   );

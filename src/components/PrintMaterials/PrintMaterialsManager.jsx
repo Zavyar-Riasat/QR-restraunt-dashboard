@@ -494,13 +494,13 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
             </span>
             <div>
               <h2 className="text-xl font-heading font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                Print Materials Studio
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Print QR
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                   15 Formats
                 </span>
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                Generate print-ready QR materials for tables, packaging, signage, and social media.
+              <p className="text-xs text-slate-500 mt-0.5">
+                Print-ready QR materials for tables, packaging, and signage.
               </p>
             </div>
           </div>

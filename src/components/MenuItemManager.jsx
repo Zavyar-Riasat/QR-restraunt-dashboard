@@ -545,10 +545,7 @@ export default function MenuItemManager({
                 </div>
 
                 {/* Card Actions */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs mt-1">
-                  <span className="text-[10px] text-slate-400">
-                    ID: #{item.id.slice(-5)}
-                  </span>
+                <div className="flex items-center justify-end pt-2 border-t border-slate-100 text-xs mt-1">
 
                   <div className="flex items-center gap-1">
                     <button

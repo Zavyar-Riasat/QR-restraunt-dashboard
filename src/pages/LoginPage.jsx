@@ -77,30 +77,16 @@ export default function LoginPage() {
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-lg shadow-emerald-600/25 mb-4 text-white">
           <UtensilsCrossed className="w-7 h-7" />
         </div>
-        <div className="flex items-center justify-center gap-2 mb-1">
+        <div className="flex items-center justify-center mb-1">
           <h2 className="text-2xl sm:text-3xl font-heading font-extrabold text-slate-900 tracking-tight">
             DineHQ
           </h2>
-          <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            0% Commission
-          </span>
         </div>
-        <p className="text-sm text-slate-500 max-w-sm mx-auto">
-          Secure Restaurant Manager & Kitchen Command Center
-        </p>
       </div>
 
       {/* Main Login Card */}
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
         <div className="bg-white py-8 px-6 sm:px-10 rounded-3xl border border-slate-200/90 shadow-xl shadow-slate-900/5">
-          {/* Role Access Security Notice */}
-          <div className="mb-6 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="text-xs text-slate-600 leading-relaxed">
-              <span className="font-bold text-slate-800">Protected Area: </span>
-              Customers ordering food browse public menus directly. This portal is strictly for authorized restaurant managers and administrators.
-            </div>
-          </div>
 
           {/* Error Banner */}
           {errorMessage && (
@@ -170,7 +156,7 @@ export default function LoginPage() {
                   </>
                 ) : (
                   <>
-                    <span>Enter Manager Portal</span>
+                    <span>Login</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -178,47 +164,49 @@ export default function LoginPage() {
             </div>
           </form>
 
-          {/* Quick Demo Credentials Assistant */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <div className="flex items-center gap-1.5 mb-3 text-xs font-bold text-slate-500 uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Instant Test Credentials</span>
-            </div>
+          {/* Quick Demo Credentials Assistant (Dev Only) */}
+          {import.meta.env.DEV && (
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-1.5 mb-3 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Instant Test Credentials</span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin@dinehq.pk', 'AdminPass123!')}
-                className="p-2.5 text-left rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition group cursor-pointer"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold text-slate-800 group-hover:text-emerald-800">
-                    🛡️ Master Admin
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
-                    Admin
-                  </span>
-                </div>
-                <div className="text-[10px] text-slate-500 font-mono truncate">admin@dinehq.pk</div>
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('admin@dinehq.pk', 'AdminPass123!')}
+                  className="p-2.5 text-left rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-slate-800 group-hover:text-emerald-800">
+                      🛡️ Master Admin
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">
+                      Admin
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono truncate">admin@dinehq.pk</div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('owner@burgersmoke.com', 'OwnerPass123!')}
-                className="p-2.5 text-left rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition group cursor-pointer"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold text-slate-800 group-hover:text-emerald-800">
-                    🍔 Store Manager
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
-                    Owner
-                  </span>
-                </div>
-                <div className="text-[10px] text-slate-500 font-mono truncate">owner@burgersmoke.com</div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('owner@burgersmoke.com', 'OwnerPass123!')}
+                  className="p-2.5 text-left rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-slate-800 group-hover:text-emerald-800">
+                      🍔 Store Manager
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                      Owner
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono truncate">owner@burgersmoke.com</div>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Customer Menu Navigation Link */}

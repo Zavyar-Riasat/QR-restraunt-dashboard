@@ -556,7 +556,7 @@ export default function PrintMaterialTemplate({
             <div className="w-full space-y-1.5 text-left text-xs font-semibold bg-white/70 p-3 rounded-2xl border border-slate-200">
               <div className="flex items-center gap-2 text-slate-800">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>0% Commission • Best Prices</span>
+                <span>Fresh Preparation • Best Prices</span>
               </div>
               <div className="flex items-center gap-2 text-slate-800">
                 <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -645,7 +645,7 @@ export default function PrintMaterialTemplate({
             </div>
 
             <div className="w-full p-2.5 rounded-xl bg-white/80 border border-slate-200/80 text-[10px] text-slate-600 flex items-center justify-between">
-              <span>🚀 0% 3rd-party markup</span>
+              <span>🚀 Direct Kitchen Delivery</span>
               <span className="font-mono text-emerald-700 font-bold">
                 {menuUrl}
               </span>
@@ -700,7 +700,7 @@ export default function PrintMaterialTemplate({
                   Direct Kitchen Promise
                 </h4>
                 <ul className="mt-2 space-y-1 text-[10px] text-slate-600">
-                  <li>• Zero platform markup fees</li>
+                  <li>• Authentic recipes & ingredients</li>
                   <li>• Fresh, priority cooking</li>
                   <li>• Direct WhatsApp chat support</li>
                 </ul>

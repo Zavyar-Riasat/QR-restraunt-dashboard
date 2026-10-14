@@ -130,12 +130,12 @@ export const PRINT_FORMATS = [
     headlines: {
       en: [
         'WELCOME! ORDER DIRECT FROM OUR WHATSAPP KITCHEN',
-        'FAST DELIVERY • ZERO COMMISSION • DIRECT KITCHEN',
+        'FAST DELIVERY • FRESH KITCHEN PREPARATION',
         'SCAN HERE FOR LIVE MENU & INSTANT WHATSAPP ORDER',
       ],
       ur: [
         'خوش آمدید! ہمارے کچن سے براہ راست واٹس ایپ پر آرڈر کریں',
-        'تیز ترین ترسیل • صفر کمیشن • تازہ کچن کھانا',
+        'تیز ترین ترسیل • تازہ کچن کھانا',
         'لائیو مینو اور فوری آرڈر کے لیے یہاں اسکین کریں',
       ],
     },

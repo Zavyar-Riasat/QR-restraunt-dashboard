@@ -273,13 +273,13 @@ export default function AdminPanelPage() {
       {/* Main Admin Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
         {/* Metric Cards */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
               <Store className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Registered Tenants</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Registered Restaurants</p>
               <h3 className="text-2xl font-heading font-extrabold text-slate-900 mt-0.5">
                 {usersList.length}
               </h3>
@@ -294,29 +294,6 @@ export default function AdminPanelPage() {
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Managers</p>
               <h3 className="text-2xl font-heading font-extrabold text-slate-900 mt-0.5">
                 {usersList.filter((u) => u.role === 'owner').length}
-              </h3>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Platform Commission</p>
-              <h3 className="text-2xl font-heading font-extrabold text-slate-900 mt-0.5">0.0%</h3>
-            </div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-              <Shield className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Security Guard</p>
-              <h3 className="text-sm font-bold text-emerald-700 mt-1 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span>Active Middleware</span>
               </h3>
             </div>
           </div>
@@ -335,12 +312,9 @@ export default function AdminPanelPage() {
                 </h2>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Register a new owner with their credentials, direct WhatsApp number, and custom menu slug.
+                Register a new owner with their credentials, WhatsApp number, and menu slug.
               </p>
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full self-start sm:self-auto">
-              Ready for Instant Provisioning
-            </span>
           </div>
 
           {errorMsg && (
@@ -469,8 +443,8 @@ export default function AdminPanelPage() {
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition cursor-pointer"
               >
-                <option value="owner">Restaurant Owner (Dashboard & Kitchen Orders)</option>
-                <option value="admin">Platform Admin (Full Platform Access)</option>
+                <option value="owner">Restaurant Manager</option>
+                <option value="admin">Administrator</option>
               </select>
             </div>
 

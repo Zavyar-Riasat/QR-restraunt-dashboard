@@ -54,9 +54,6 @@ export default function Navbar({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-heading font-extrabold text-slate-900 text-lg tracking-tight">DineHQ</span>
-              <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                0% Commission
-              </span>
             </div>
 
             <div className="flex items-center gap-2 mt-0.5">
@@ -131,9 +128,9 @@ export default function Navbar({
           <button
             onClick={onOpenPreview}
             className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition cursor-pointer"
-            title="Preview Public Customer Menu"
+            title="Preview Customer Menu"
           >
-            <span className="hidden sm:inline">Customer Menu</span>
+            <span className="hidden sm:inline">View Menu</span>
             <span className="sm:hidden">Menu</span>
             <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
           </button>
@@ -151,10 +148,10 @@ export default function Navbar({
             <button
               onClick={handleSignOut}
               className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition cursor-pointer border border-transparent hover:border-rose-200 flex items-center gap-1"
-              title="Sign Out of Kitchen Portal"
+              title="Logout"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>

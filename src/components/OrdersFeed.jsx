@@ -136,10 +136,10 @@ export default function OrdersFeed({
             </div>
             <div>
               <h2 className="text-xl font-heading font-extrabold text-slate-900 tracking-tight">
-                Live Kitchen Order Feed
+                Orders
               </h2>
               <p className="text-xs text-slate-500">
-                Track incoming customer direct WhatsApp orders, print tickets, and dispatch deliveries.
+                Incoming orders, tickets, and status.
               </p>
             </div>
           </div>

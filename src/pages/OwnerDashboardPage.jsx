@@ -10,7 +10,7 @@ import OrdersFeed from '../components/OrdersFeed';
 import { restaurantService } from '../services/restaurantService';
 import { orderService, playKitchenChime } from '../services/orderService';
 import { useAuth } from '../context/AuthContext';
-import { Store, Layers, Utensils, QrCode, Bell } from 'lucide-react';
+import { Store, Layers, Utensils, QrCode, Bell, Printer } from 'lucide-react';
 
 export default function OwnerDashboardPage() {
   const navigate = useNavigate();
@@ -319,8 +319,8 @@ export default function OwnerDashboardPage() {
                 : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80 hover:bg-slate-50'
             }`}
           >
-            <QrCode className="w-3.5 h-3.5" />
-            <span>QR Flyer Studio</span>
+            <Printer className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Print Materials</span>
           </button>
 
           <button

@@ -360,7 +360,10 @@ export default function OwnerDashboardPage() {
           )}
 
           {activeTab === 'qr' && (
-            <QRCodeManager restaurant={restaurant} />
+            <QRCodeManager
+              restaurant={restaurant}
+              onNavigateToSettings={() => setActiveTab('settings')}
+            />
           )}
 
           {activeTab === 'categories' && (

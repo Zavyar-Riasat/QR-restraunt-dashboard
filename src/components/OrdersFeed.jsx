@@ -19,6 +19,7 @@ import {
   ExternalLink,
   X,
   XCircle,
+  MoreVertical,
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
 import { playKitchenChime } from '../services/orderService';
@@ -35,6 +36,7 @@ export default function OrdersFeed({
   const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
   const [search, setSearch] = useState('');
   const [printingOrder, setPrintingOrder] = useState(null);
+  const [openMenuOrderId, setOpenMenuOrderId] = useState(null);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const reorderUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}`;
@@ -249,9 +251,9 @@ export default function OrdersFeed({
                         <span>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </span>
                     </div>
-                    <div className="text-xs font-bold text-slate-800 mt-0.5 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{order.customer_name}</span>
+                    <div className="text-base sm:text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
+                      <User className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{order.customer_name || 'Walk-in / Direct Customer'}</span>
                     </div>
                   </div>
 
@@ -271,18 +273,6 @@ export default function OrdersFeed({
                       <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                       <span className="leading-snug">{order.customer_address}</span>
                     </div>
-                    {order.customer_address && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline shrink-0"
-                        title="Open delivery location in Google Maps"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        <span>Maps</span>
-                      </a>
-                    )}
                   </div>
                   {order.customer_notes && (
                     <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-medium mt-1">
@@ -336,21 +326,21 @@ export default function OrdersFeed({
                     )}
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Payable</span>
-                    <span className="text-base font-extrabold text-slate-900 font-mono">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Payable</span>
+                    <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
                       {formatPKR(order.total_payable)}
                     </span>
                   </div>
                 </div>
 
-                {/* Workflow Buttons */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
+                {/* Workflow Dominant Button + "..." Secondary Actions Menu */}
+                <div className="flex items-center gap-2 pt-1 relative">
                   {order.status === 'new' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'preparing')}
-                      className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-slate-900/10"
                     >
-                      <ChefHat className="w-3.5 h-3.5" />
+                      <ChefHat className="w-4 h-4 text-amber-400" />
                       <span>Accept & Prepare</span>
                     </button>
                   )}
@@ -358,9 +348,9 @@ export default function OrdersFeed({
                   {order.status === 'preparing' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'out_for_delivery')}
-                      className="flex-1 py-2 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-sky-600/20"
                     >
-                      <Truck className="w-3.5 h-3.5" />
+                      <Truck className="w-4 h-4 text-white" />
                       <span>Dispatch for Delivery</span>
                     </button>
                   )}
@@ -368,47 +358,102 @@ export default function OrdersFeed({
                   {order.status === 'out_for_delivery' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'completed')}
-                      className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-600/20"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <CheckCircle2 className="w-4 h-4 text-white" />
                       <span>Mark Delivered</span>
                     </button>
                   )}
 
-                  {/* Print Kitchen Order Ticket (KOT) */}
-                  <button
-                    onClick={() => setPrintingOrder(order)}
-                    className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-200"
-                    title="Print 80mm Kitchen Order Ticket (KOT)"
-                  >
-                    <Printer className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Print KOT</span>
-                  </button>
-
-                  {/* Direct WhatsApp Messaging */}
-                  <button
-                    onClick={() => handleWhatsAppCustomer(order)}
-                    className="py-2 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                    title="Send WhatsApp update to customer"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>WhatsApp</span>
-                  </button>
-
-                  {/* Cancel / Reject Order (if active) */}
-                  {(order.status === 'new' || order.status === 'preparing') && (
-                    <button
-                      onClick={() => {
-                        if (confirm(`Are you sure you want to cancel order #${order.id}?`)) {
-                          onUpdateStatus(order.id, 'cancelled');
-                        }
-                      }}
-                      className="py-2 px-2 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer"
-                      title="Cancel order"
-                    >
-                      <XCircle className="w-4 h-4" />
-                    </button>
+                  {order.status === 'completed' && (
+                    <div className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold text-center flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Order Fulfilled</span>
+                    </div>
                   )}
+
+                  {order.status === 'cancelled' && (
+                    <div className="flex-1 py-2.5 px-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold text-center flex items-center justify-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-rose-600" />
+                      <span>Order Cancelled</span>
+                    </div>
+                  )}
+
+                  {/* "..." Dropdown Menu */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenMenuOrderId(openMenuOrderId === order.id ? null : order.id)}
+                      className="p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200 hover:border-slate-300 flex items-center justify-center"
+                      title="More actions"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {openMenuOrderId === order.id && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-30"
+                          onClick={() => setOpenMenuOrderId(null)}
+                        />
+                        <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                          <button
+                            onClick={() => {
+                              setPrintingOrder(order);
+                              setOpenMenuOrderId(null);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
+                          >
+                            <Printer className="w-4 h-4 text-slate-500" />
+                            <span>Print KOT Ticket</span>
+                          </button>
+
+                          {order.customer_address && (
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => setOpenMenuOrderId(null)}
+                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition"
+                            >
+                              <ExternalLink className="w-4 h-4 text-slate-500" />
+                              <span>View in Maps</span>
+                            </a>
+                          )}
+
+                          {order.customer_phone && (
+                            <button
+                              onClick={() => {
+                                handleWhatsAppCustomer(order);
+                                setOpenMenuOrderId(null);
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition cursor-pointer"
+                            >
+                              <MessageCircle className="w-4 h-4 text-emerald-600" />
+                              <span>WhatsApp Customer</span>
+                            </button>
+                          )}
+
+                          {(order.status === 'new' || order.status === 'preparing') && (
+                            <div className="pt-1 mt-1 border-t border-slate-100">
+                              <button
+                                onClick={() => {
+                                  setOpenMenuOrderId(null);
+                                  if (confirm(`Are you sure you want to cancel order #${order.id}?`)) {
+                                    onUpdateStatus(order.id, 'cancelled');
+                                  }
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition cursor-pointer"
+                              >
+                                <XCircle className="w-4 h-4 text-rose-500" />
+                                <span>Cancel Order</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

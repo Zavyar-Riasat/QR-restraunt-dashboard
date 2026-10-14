@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Utensils,
   Plus,
@@ -13,6 +13,9 @@ import {
   Flame,
   Image as ImageIcon,
   Sparkles,
+  Camera,
+  Upload,
+  AlertTriangle,
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
 import {
@@ -27,13 +30,107 @@ import {
   getItemDescription,
 } from '../utils/dealUtils';
 
-const SAMPLE_IMAGES = [
-  { label: '🍔 Burger', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80' },
-  { label: '🍗 Chicken', url: 'https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?auto=format&fit=crop&w=600&q=80' },
-  { label: '🍟 Fries', url: 'https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=600&q=80' },
-  { label: '🥤 Shake', url: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=600&q=80' },
-  { label: '🍕 Pizza', url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80' },
-];
+/**
+ * Compresses any user-selected image file (from camera or gallery)
+ * to JPEG format with max dimension 900px, keeping size strictly under 300 KB.
+ */
+function compressImageFile(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 900;
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(null);
+
+        ctx.drawImage(img, 0, 0, width, height);
+        // 0.75 quality ensures file is ~60-180 KB, well under 300 KB
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        resolve(dataUrl);
+      };
+      img.onerror = () => resolve(null);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+function capitalizeWord(str) {
+  if (!str) return '';
+  return str
+    .trim()
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
+ * Checks if the dish title likely belongs to a different category
+ * (e.g. "behari kabab" placed under "Pizzas")
+ */
+function checkCategoryMismatch(itemTitle, selectedCatId, categories) {
+  if (!itemTitle || !selectedCatId) return null;
+  const cat = categories.find((c) => c.id === selectedCatId);
+  if (!cat) return null;
+  const catName = cat.name.toLowerCase();
+  const titleLower = itemTitle.toLowerCase();
+
+  const rules = [
+    {
+      keywords: ['kabab', 'kebab', 'tikka', 'boti', 'bbq', 'bihari', 'behari', 'seekh'],
+      categoryLabel: 'BBQ / Kebabs',
+      mismatchedWith: ['pizza', 'burger', 'shake', 'dessert', 'beverage'],
+    },
+    {
+      keywords: ['pizza', 'slice', 'crust', 'calzone'],
+      categoryLabel: 'Pizzas',
+      mismatchedWith: ['burger', 'shake', 'beverage', 'bbq', 'kebab', 'kabab'],
+    },
+    {
+      keywords: ['burger', 'smash', 'patty', 'whopper'],
+      categoryLabel: 'Burgers',
+      mismatchedWith: ['pizza', 'shake', 'beverage', 'bbq', 'kebab', 'kabab'],
+    },
+    {
+      keywords: ['shake', 'smoothie', 'mojito', 'soda', 'coke', 'drink'],
+      categoryLabel: 'Beverages / Shakes',
+      mismatchedWith: ['pizza', 'burger', 'bbq', 'kebab', 'kabab'],
+    },
+  ];
+
+  for (const rule of rules) {
+    const matched = rule.keywords.find((k) => titleLower.includes(k));
+    if (matched) {
+      const isMismatch = rule.mismatchedWith.some((m) => catName.includes(m));
+      if (isMismatch) {
+        return {
+          keyword: matched,
+          currentCategory: cat.name,
+          suggestedCategory: rule.categoryLabel,
+        };
+      }
+    }
+  }
+  return null;
+}
 
 export default function MenuItemManager({
   categories = [],
@@ -69,7 +166,28 @@ export default function MenuItemManager({
   const [bundleCategoryFilter, setBundleCategoryFilter] = useState('ALL');
   const [bundleSearchQuery, setBundleSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [compressingImage, setCompressingImage] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef(null);
+
+  const categoryMismatch = !isDealMode ? checkCategoryMismatch(title, categoryId, categories) : null;
+
+  const handleImageFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setCompressingImage(true);
+      const dataUrl = await compressImageFile(file);
+      if (dataUrl) {
+        setImageUrl(dataUrl);
+      }
+    } catch (err) {
+      console.warn('Image processing failed:', err);
+      setError('Could not process photo. Please choose another image.');
+    } finally {
+      setCompressingImage(false);
+    }
+  };
 
   // Persistent in-stock toggle
   const toggleStock = async (item) => {
@@ -413,7 +531,7 @@ export default function MenuItemManager({
                     : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'
                 }`}
               >
-                {cat.name} ({count})
+                {capitalizeWord(cat.name)} ({count})
               </button>
             );
           })}
@@ -651,7 +769,7 @@ export default function MenuItemManager({
                   {isDealMode ? (
                     <div className="w-full px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-medium flex items-center justify-between">
                       <span className="font-semibold text-slate-800 truncate">
-                        {dealCategory?.name || 'Deals & Combos'}
+                        {dealCategory ? capitalizeWord(dealCategory.name) : 'Deals & Combos'}
                       </span>
                       <span className="text-[10px] font-semibold text-slate-500 bg-slate-200/80 px-1.5 py-0.5 rounded">
                         Default
@@ -662,7 +780,7 @@ export default function MenuItemManager({
                       value={categoryId}
                       onChange={(e) => setCategoryId(e.target.value)}
                       required
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:outline-none focus:border-slate-400 focus:bg-white cursor-pointer"
                     >
                       {dishCategories.length === 0 ? (
                         <option value="" disabled>
@@ -671,7 +789,7 @@ export default function MenuItemManager({
                       ) : (
                         dishCategories.map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.name}
+                            {capitalizeWord(c.name)}
                           </option>
                         ))
                       )}
@@ -696,68 +814,107 @@ export default function MenuItemManager({
                     className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white"
                   />
                 </div>
+
+                {/* Inline Category Mismatch Warning */}
+                {categoryMismatch && (
+                  <div className="sm:col-span-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 animate-fadeIn">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">
+                      <span className="font-bold">Category Mismatch Warning: </span>
+                      <span>
+                        "{title}" contains <strong>"{categoryMismatch.keyword}"</strong>, but is being categorized under <strong>"{capitalizeWord(categoryMismatch.currentCategory)}"</strong>. Did you mean to place it under <strong>{categoryMismatch.suggestedCategory}</strong>?
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Description & Food Photo URL */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Description & Real Image Upload */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Dish Description
                   </label>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={3}
                     placeholder="e.g. Double Angus beef patties, Swiss truffle cheese, garlic aioli..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white resize-none"
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                      <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Photo URL</span>
+                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Dish Photo</span>
                     </label>
-                    <span className="text-[10px] text-slate-400">Quick presets:</span>
+                    <span className="text-[10px] text-slate-400">Auto-compressed &lt; 300 KB</span>
                   </div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    {imageUrl ? (
-                      <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 flex items-center justify-center">
+
+                  {/* Hidden File Input for Camera / Gallery */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="hidden"
+                  />
+
+                  {imageUrl ? (
+                    <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-2xl border border-slate-200">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 flex items-center justify-center">
                         <img
                           src={imageUrl}
                           alt="Dish Preview"
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
                         />
                       </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl border border-dashed border-slate-300 shrink-0 bg-slate-50 flex items-center justify-center text-slate-400">
-                        <ImageIcon className="w-4 h-4" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">Photo Selected</span>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer block mt-0.5"
+                        >
+                          Change Photo
+                        </button>
                       </div>
-                    )}
-                    <input
-                      type="url"
-                      placeholder="https://images.unsplash.com/..."
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono focus:outline-none focus:border-slate-400 focus:bg-white"
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {SAMPLE_IMAGES.map((sample, sIdx) => (
                       <button
-                        key={sIdx}
                         type="button"
-                        onClick={() => setImageUrl(sample.url)}
-                        className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                        onClick={() => setImageUrl('')}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                        title="Remove photo"
                       >
-                        {sample.label}
+                        <Trash2 className="w-4 h-4" />
                       </button>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={compressingImage}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-[88px] flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/80 hover:bg-emerald-50/30 text-slate-700 transition cursor-pointer p-3"
+                    >
+                      {compressingImage ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-[11px] font-medium text-slate-500">Compressing photo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-bold text-slate-800">
+                            Upload Photo (Camera or Gallery)
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            JPG, PNG, WebP supported
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 

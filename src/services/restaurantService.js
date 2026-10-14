@@ -3,6 +3,55 @@ import { supabase } from '../lib/supabaseClient.js';
 const STORAGE_KEY = 'foodbypass_demo_data';
 const SETTINGS_PREFIX = 'dinehq_rest_settings_';
 
+export function sanitizeMenuData({ categories = [], menuItems = [] }) {
+  const capitalize = (str) =>
+    str ? str.trim().split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') : '';
+
+  const seenNames = new Map();
+  const dedupedCategories = [];
+  const idRemap = {};
+
+  for (const cat of categories) {
+    const formattedName = capitalize(cat.name);
+    const key = formattedName.toLowerCase();
+    if (!seenNames.has(key)) {
+      const canonical = { ...cat, name: formattedName };
+      seenNames.set(key, canonical);
+      dedupedCategories.push(canonical);
+    } else {
+      const existing = seenNames.get(key);
+      idRemap[cat.id] = existing.id;
+    }
+  }
+
+  // Find pizza and bbq categories
+  const pizzaCat = dedupedCategories.find((c) => c.name.toLowerCase().includes('pizza'));
+  let bbqCat = dedupedCategories.find(
+    (c) => c.name.toLowerCase().includes('bbq') || c.name.toLowerCase().includes('kebab') || c.name.toLowerCase().includes('kabab')
+  );
+
+  const sanitizedItems = menuItems.map((item) => {
+    let catId = idRemap[item.category_id] || item.category_id;
+    const titleLower = item.title.toLowerCase();
+
+    // Fix behari kabab sitting under pizzas
+    if ((titleLower.includes('behari') || titleLower.includes('bihari') || titleLower.includes('kabab')) && pizzaCat && catId === pizzaCat.id) {
+      if (!bbqCat) {
+        bbqCat = { id: 'cat-bbq-kebabs', name: 'BBQ & Kebabs' };
+        dedupedCategories.push(bbqCat);
+      }
+      catId = bbqCat.id;
+    }
+
+    return {
+      ...item,
+      category_id: catId,
+    };
+  });
+
+  return { categories: dedupedCategories, menuItems: sanitizedItems };
+}
+
 // Initial seeded data for immediate out-of-the-box functionality
 const initialSeedData = {
   restaurant: {
@@ -232,15 +281,27 @@ export const restaurantService = {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        const sanitized = sanitizeMenuData({
+          categories: parsed.categories || [],
+          menuItems: parsed.menuItems || [],
+        });
         return {
           ...parsed,
+          categories: sanitized.categories,
+          menuItems: sanitized.menuItems,
           restaurant: this.mergeExtendedSettings(parsed.restaurant),
           isLive: false,
         };
       } catch (e) {}
     }
+    const sanitizedSeed = sanitizeMenuData({
+      categories: initialSeedData.categories,
+      menuItems: initialSeedData.menuItems,
+    });
     return {
       ...initialSeedData,
+      categories: sanitizedSeed.categories,
+      menuItems: sanitizedSeed.menuItems,
       restaurant: this.mergeExtendedSettings(initialSeedData.restaurant),
       isLive: false,
     };

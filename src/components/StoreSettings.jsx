@@ -21,6 +21,7 @@ import {
   Upload,
   Image as ImageIcon,
   X,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -47,15 +48,18 @@ export default function StoreSettings({ restaurant, onUpdate }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Manager Credentials state
+  // Manager Credentials & Password state
   const [managerAccount, setManagerAccount] = useState(null);
   const [managerEmail, setManagerEmail] = useState('');
-  const [managerPassword, setManagerPassword] = useState('');
   const [managerName, setManagerName] = useState('');
-  const [showManagerPassword, setShowManagerPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [credSaved, setCredSaved] = useState(false);
   const [credError, setCredError] = useState('');
   const [credSubmitting, setCredSubmitting] = useState(false);
+  const [pwdSaved, setPwdSaved] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSubmitting, setPwdSubmitting] = useState(false);
 
   useEffect(() => {
     if (restaurant) {
@@ -87,7 +91,6 @@ export default function StoreSettings({ restaurant, onUpdate }) {
       if (current) {
         setManagerAccount(current);
         setManagerEmail(current.email || user?.email || '');
-        setManagerPassword(current.password || '');
         setManagerName(current.name || user?.name || 'Restaurant Manager');
       } else if (user) {
         setManagerEmail(user.email || '');
@@ -184,17 +187,13 @@ export default function StoreSettings({ restaurant, onUpdate }) {
     }
   };
 
-  const handleSaveCredentials = async (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     setCredError('');
     setCredSaved(false);
 
     if (!managerEmail.trim()) {
       setCredError('Email cannot be empty.');
-      return;
-    }
-    if (!managerPassword.trim()) {
-      setCredError('Password cannot be empty.');
       return;
     }
 
@@ -208,7 +207,6 @@ export default function StoreSettings({ restaurant, onUpdate }) {
       await updateUserCredentials(targetUserId, {
         currentEmail: managerAccount?.email || user?.email,
         email: managerEmail.trim(),
-        password: managerPassword.trim(),
         name: managerName.trim() || `${formData.name} Manager`,
         restaurant_name: formData.name,
         restaurant_slug: formData.slug,
@@ -218,9 +216,52 @@ export default function StoreSettings({ restaurant, onUpdate }) {
       setCredSaved(true);
       setTimeout(() => setCredSaved(false), 3500);
     } catch (err) {
-      setCredError(err.message || 'Failed to update manager credentials.');
+      setCredError(err.message || 'Failed to update manager profile.');
     } finally {
       setCredSubmitting(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPwdError('');
+    setPwdSaved(false);
+
+    if (!currentPassword) {
+      setPwdError('Please enter your current password.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 4) {
+      setPwdError('New password must be at least 4 characters long.');
+      return;
+    }
+
+    if (managerAccount?.password && currentPassword !== managerAccount.password) {
+      setPwdError('The current password you entered is incorrect.');
+      return;
+    }
+
+    try {
+      setPwdSubmitting(true);
+      const targetUserId = managerAccount?.id || user?.id;
+      if (!targetUserId) {
+        throw new Error('Unable to resolve active user account ID.');
+      }
+
+      await updateUserCredentials(targetUserId, {
+        currentEmail: managerAccount?.email || user?.email,
+        password: newPassword.trim(),
+      });
+
+      setManagerAccount((prev) => (prev ? { ...prev, password: newPassword.trim() } : null));
+      setCurrentPassword('');
+      setNewPassword('');
+      setPwdSaved(true);
+      setTimeout(() => setPwdSaved(false), 3500);
+    } catch (err) {
+      setPwdError(err.message || 'Failed to change password.');
+    } finally {
+      setPwdSubmitting(false);
     }
   };
 
@@ -640,113 +681,151 @@ export default function StoreSettings({ restaurant, onUpdate }) {
         </form>
       </div>
 
-      {/* 2. Manager Login Credentials & Profile Management */}
+      {/* 2. Manager Login Profile & Change Password */}
       <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-200">
-          <div>
-            <h2 className="text-xl font-heading font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              <Shield className="w-5 h-5 text-indigo-600" />
-              Manager Login Credentials & Profile
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              View your active login credentials, reveal your password, and update your manager email or password.
-            </p>
-          </div>
-
-          {credSaved && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold animate-fadeIn">
-              <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Credentials Updated!</span>
-            </span>
-          )}
+        <div className="pb-5 border-b border-slate-200">
+          <h2 className="text-xl font-heading font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            <Shield className="w-5 h-5 text-indigo-600" />
+            Manager Profile & Password
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Update your manager account profile or securely change your manager login password.
+          </p>
         </div>
 
-        {credError && (
-          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{credError}</span>
-          </div>
-        )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Form: Profile Details */}
+          <form onSubmit={handleSaveProfile} className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4 flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <User className="w-4 h-4 text-indigo-600" />
+                  Manager Profile
+                </h3>
+                {credSaved && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
+                    Profile Updated
+                  </span>
+                )}
+              </div>
 
-        <form onSubmit={handleSaveCredentials} className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Manager Name */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-indigo-600" />
-                Manager Full Name
-              </label>
-              <input
-                type="text"
-                value={managerName}
-                onChange={(e) => setManagerName(e.target.value)}
-                placeholder="e.g. Burger & Smoke Manager"
-                required
-                className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 transition shadow-2xs"
-              />
-              <p className="text-[11px] text-slate-500">Your profile display name in the dashboard.</p>
-            </div>
+              {credError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>{credError}</span>
+                </div>
+              )}
 
-            {/* Login Email */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-indigo-600" />
-                Manager Login Email
-              </label>
-              <input
-                type="email"
-                value={managerEmail}
-                onChange={(e) => setManagerEmail(e.target.value)}
-                placeholder="manager@yourstore.com"
-                required
-                className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-indigo-500 transition shadow-2xs"
-              />
-              <p className="text-[11px] text-slate-500">Used to sign into your restaurant management portal.</p>
-            </div>
-
-            {/* Manager Password with View Toggle */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-indigo-600" />
-                  Manager Password
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Manager Full Name
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowManagerPassword(!showManagerPassword)}
-                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer transition"
-                >
-                  {showManagerPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                  <span>{showManagerPassword ? 'Hide Password' : 'View Password'}</span>
-                </button>
-              </div>
-              <div className="relative">
                 <input
-                  type={showManagerPassword ? 'text' : 'password'}
-                  value={managerPassword}
-                  onChange={(e) => setManagerPassword(e.target.value)}
-                  placeholder="Enter new password"
+                  type="text"
+                  value={managerName}
+                  onChange={(e) => setManagerName(e.target.value)}
+                  placeholder="e.g. Burger & Smoke Manager"
                   required
-                  className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-indigo-500 transition shadow-2xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 transition shadow-2xs"
                 />
+                <p className="text-[11px] text-slate-500">Your profile display name in the dashboard.</p>
               </div>
-              <p className="text-[11px] text-slate-500">
-                Click "View Password" above to inspect your password in plain text.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex justify-end pt-1">
-            <button
-              type="submit"
-              disabled={credSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-indigo-600/20 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>{credSubmitting ? 'Updating Credentials...' : 'Update Login Credentials'}</span>
-            </button>
-          </div>
-        </form>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Manager Login Email
+                </label>
+                <input
+                  type="email"
+                  value={managerEmail}
+                  onChange={(e) => setManagerEmail(e.target.value)}
+                  placeholder="manager@yourstore.com"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-indigo-500 transition shadow-2xs"
+                />
+                <p className="text-[11px] text-slate-500">Used to sign in to your restaurant management portal.</p>
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={credSubmitting}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{credSubmitting ? 'Saving Profile...' : 'Save Profile'}</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Right Form: Change Password (No View Password toggle) */}
+          <form onSubmit={handleChangePassword} className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4 flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-indigo-600" />
+                  Change Password
+                </h3>
+                {pwdSaved && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
+                    Password Changed!
+                  </span>
+                )}
+              </div>
+
+              {pwdError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>{pwdError}</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-indigo-500 transition shadow-2xs"
+                />
+                <p className="text-[11px] text-slate-500">Provide your existing manager login password.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password (min. 4 characters)"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-indigo-500 transition shadow-2xs"
+                />
+                <p className="text-[11px] text-slate-500">Set a secure new password for your account.</p>
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={pwdSubmitting}
+                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md shadow-slate-900/10 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>{pwdSubmitting ? 'Updating...' : 'Change Password'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -32,6 +32,8 @@ import {
   Lock,
   Truck,
   Power,
+  Globe,
+  ArrowRight,
 } from 'lucide-react';
 import {
   isDeal,
@@ -43,6 +45,79 @@ import {
 } from '../utils/dealUtils';
 import { useAuth } from '../context/AuthContext';
 
+const UI_TRANSLATIONS = {
+  en: {
+    all_items: 'All Items',
+    deals_combos: 'Deals & Combos',
+    search_placeholder: 'Search dishes, ingredients, deals...',
+    no_dishes: 'No dishes found',
+    no_dishes_sub: 'Try searching for something else or pick another category.',
+    prep: 'Prep',
+    delivery: 'Delivery',
+    free_delivery: 'Free Delivery',
+    min_order: 'Min Order',
+    kitchen_paused: 'Kitchen Orders Paused',
+    kitchen_paused_sub: 'The kitchen is currently not taking new orders.',
+    add: 'Add',
+    choose_options: 'Select Options',
+    save: 'Save',
+    off: 'off',
+    items: 'items',
+    item: 'item',
+    view_order: 'View Order',
+    your_order: 'Your Order',
+    subtotal: 'Subtotal',
+    delivery_fee: 'Delivery Fee',
+    total_payable: 'Total Payable',
+    send_whatsapp: 'Send WhatsApp Order',
+    customer_name: 'Your Name',
+    customer_name_placeholder: 'e.g. Ali Khan',
+    customer_phone: 'WhatsApp Phone Number',
+    customer_phone_placeholder: '03001234567',
+    customer_address: 'Delivery Address',
+    customer_address_placeholder: 'House / Apt #, Street, Area, City',
+    special_notes: 'Cooking / Delivery Instructions',
+    special_notes_placeholder: 'e.g. Less spicy, leave at door',
+    order_success: 'Order Submitted to Kitchen!',
+    order_success_sub: 'Your WhatsApp conversation has opened. Press Send in WhatsApp to confirm your order.',
+  },
+  ur: {
+    all_items: 'تمام ڈشز',
+    deals_combos: 'ڈیلز اور کمبوز',
+    search_placeholder: 'ڈشز، اجزاء یا ڈیلز تلاش کریں...',
+    no_dishes: 'کوئی ڈش نہیں ملی',
+    no_dishes_sub: 'کچھ اور تلاش کریں یا کوئی دوسرا زمرہ منتخب کریں۔',
+    prep: 'تیاری',
+    delivery: 'ڈیلیوری',
+    free_delivery: 'مفت ڈیلیوری',
+    min_order: 'کم از کم آرڈر',
+    kitchen_paused: 'کچن آرڈرز بند ہیں',
+    kitchen_paused_sub: 'کچن اس وقت نئے آرڈرز وصول نہیں کر رہا۔',
+    add: 'شامل کریں',
+    choose_options: 'اختیارات منتخب کریں',
+    save: 'بچت',
+    off: 'رعایت',
+    items: 'اشیاء',
+    item: 'آئٹم',
+    view_order: 'آرڈر دیکھیں',
+    your_order: 'آپ کا آرڈر',
+    subtotal: 'سب ٹوٹل',
+    delivery_fee: 'ڈیلیوری فیس',
+    total_payable: 'کل قابل ادائیگی رقم',
+    send_whatsapp: 'واٹس ایپ پر آرڈر بھیجیں',
+    customer_name: 'آپ کا نام',
+    customer_name_placeholder: 'مثال: علی خان',
+    customer_phone: 'واٹس ایپ موبائل نمبر',
+    customer_phone_placeholder: '03001234567',
+    customer_address: 'ڈیلیوری کا پتہ',
+    customer_address_placeholder: 'مکان نمبر، گلی، علاقہ، شہر',
+    special_notes: 'خصوصی ہدایات',
+    special_notes_placeholder: 'مثال: کم مرچ، دروازے پر دستک دیں',
+    order_success: 'آرڈر کچن کو روانہ کر دیا گیا!',
+    order_success_sub: 'آپ کی واٹس ایپ چیٹ کھل چکی ہے۔ واٹس ایپ میں سینڈ کا بٹن دبائیں۔',
+  },
+};
+
 export default function CustomerMenuPage() {
   const { user } = useAuth();
   const { slug } = useParams();
@@ -51,6 +126,9 @@ export default function CustomerMenuPage() {
   const [restaurant, setRestaurant] = useState(null);
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+  const [lang, setLang] = useState('en'); // 'en' or 'ur'
+
+  const t = UI_TRANSLATIONS[lang] || UI_TRANSLATIONS.en;
 
   // Filter & Search
   const [activeCategory, setActiveCategory] = useState('ALL');
@@ -181,7 +259,24 @@ export default function CustomerMenuPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const formatCategoryName = (name) => {
+    if (!name) return '';
+    return name
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   const dealItemsList = menuItems.filter(isDeal);
+
+  // Deduplicate categories, removing any duplicate "Deals & Combos" tab if we have dedicated Deals
+  const displayCategories = categories.filter((cat) => {
+    const norm = (cat.name || '').toLowerCase().trim();
+    if (dealItemsList.length > 0 && (norm.includes('deal') || norm.includes('combo') || cat.id === 'cat-deals')) {
+      return false;
+    }
+    return true;
+  });
 
   // Filtering
   const filteredItems = menuItems.filter((item) => {
@@ -207,7 +302,7 @@ export default function CustomerMenuPage() {
 
   const getCategoryName = (catId) => {
     const cat = categories.find((c) => c.id === catId);
-    return cat ? cat.name : 'General';
+    return cat ? formatCategoryName(cat.name) : 'General';
   };
 
   if (loading) {
@@ -287,6 +382,17 @@ export default function CustomerMenuPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Urdu / English Language Switcher */}
+            <button
+              type="button"
+              onClick={() => setLang((l) => (l === 'en' ? 'ur' : 'en'))}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold border border-slate-200 transition cursor-pointer"
+              title={lang === 'en' ? 'اردو میں تبدیل کریں' : 'Switch to English'}
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{lang === 'en' ? 'اردو' : 'English'}</span>
+            </button>
+
             {/* Mobile/Tablet Header Cart Trigger (< lg) */}
             <button
               type="button"
@@ -294,7 +400,7 @@ export default function CustomerMenuPage() {
               className="lg:hidden relative px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition flex items-center gap-1.5 cursor-pointer"
             >
               <ShoppingBag className="w-4 h-4 text-emerald-700" />
-              <span className="hidden sm:inline">Cart</span>
+              <span className="hidden sm:inline">{t.your_order}</span>
               {totalItemCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white text-[10px] font-mono font-bold">
                   {totalItemCount}
@@ -321,9 +427,9 @@ export default function CustomerMenuPage() {
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm font-medium flex items-center gap-3 shadow-xs animate-fadeIn">
             <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
             <div>
-              <p className="font-bold text-rose-950">Kitchen Orders Currently Paused</p>
+              <p className="font-bold text-rose-950">{t.kitchen_paused}</p>
               <p className="text-xs text-rose-800 mt-0.5">
-                Our kitchen is momentarily catching up with orders. You can browse dishes below, but checkout is temporarily paused.
+                {t.kitchen_paused_sub}
               </p>
             </div>
           </div>
@@ -350,26 +456,26 @@ export default function CustomerMenuPage() {
               {restaurant?.show_prep_time !== false && (restaurant?.prep_time || '20–30 mins') && (
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>Prep: {restaurant?.prep_time || '20–30 mins'}</span>
+                  <span>{t.prep}: {restaurant?.prep_time || '20–30 mins'}</span>
                 </div>
               )}
               {restaurant?.delivery_mode !== 'none' && (
                 <div className="flex items-center gap-1.5">
                   <Truck className="w-3.5 h-3.5 text-emerald-300" />
                   <span>
-                    Delivery:{' '}
+                    {t.delivery}:{' '}
                     {restaurant?.delivery_mode === 'free'
-                      ? 'Free'
+                      ? t.free_delivery
                       : deliveryFee > 0
                       ? formatPKR(deliveryFee)
-                      : 'Free'}
+                      : t.free_delivery}
                   </span>
                 </div>
               )}
               {checkMinOrder && minOrder > 0 && (
                 <div className="flex items-center gap-1.5">
                   <ShoppingBag className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>Min Order: {formatPKR(minOrder)}</span>
+                  <span>{t.min_order}: {formatPKR(minOrder)}</span>
                 </div>
               )}
             </div>
@@ -386,7 +492,7 @@ export default function CustomerMenuPage() {
                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search dishes, ingredients, deals..."
+                  placeholder={t.search_placeholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-slate-400 shadow-2xs transition"
@@ -403,7 +509,7 @@ export default function CustomerMenuPage() {
                       : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  All Items ({menuItems.length})
+                  {t.all_items} ({menuItems.length})
                 </button>
 
                 {dealItemsList.length > 0 && (
@@ -415,11 +521,11 @@ export default function CustomerMenuPage() {
                         : 'bg-amber-50 text-amber-900 border border-amber-200/80 hover:bg-amber-100'
                     }`}
                   >
-                    <span>Deals & Combos ({dealItemsList.length})</span>
+                    <span>{t.deals_combos} ({dealItemsList.length})</span>
                   </button>
                 )}
 
-                {categories.map((cat) => {
+                {displayCategories.map((cat) => {
                   const count = menuItems.filter((i) => i.category_id === cat.id).length;
                   return (
                     <button
@@ -431,7 +537,7 @@ export default function CustomerMenuPage() {
                           : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      {cat.name} ({count})
+                      {formatCategoryName(cat.name)} ({count})
                     </button>
                   );
                 })}
@@ -442,9 +548,9 @@ export default function CustomerMenuPage() {
             {filteredItems.length === 0 ? (
               <div className="text-center py-16 border border-dashed border-slate-200 rounded-3xl p-6 bg-white">
                 <UtensilsCrossed className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm font-bold text-slate-800">No dishes found</p>
+                <p className="text-sm font-bold text-slate-800">{t.no_dishes}</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Try searching for something else or pick another category.
+                  {t.no_dishes_sub}
                 </p>
               </div>
             ) : (
@@ -491,7 +597,7 @@ export default function CustomerMenuPage() {
 
                           {isSoldOut ? (
                             <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
-                              Sold Out
+                              {lang === 'ur' ? 'ختم ہو چکا' : 'Sold Out'}
                             </span>
                           ) : hasVariants ? (
                             <span className="text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
@@ -507,11 +613,11 @@ export default function CustomerMenuPage() {
                             <img
                               src={itemImage}
                               alt={item.title}
-                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-slate-200 shrink-0"
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-slate-200 shrink-0 shadow-2xs"
                             />
                           ) : (
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                              <UtensilsCrossed className="w-6 h-6" />
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-50/80 border border-emerald-100/90 flex items-center justify-center text-emerald-600 shrink-0 shadow-2xs">
+                              <UtensilsCrossed className="w-6 h-6 stroke-[1.75]" />
                             </div>
                           )}
 
@@ -548,7 +654,7 @@ export default function CustomerMenuPage() {
                           </div>
                           {savings > 0 && (
                             <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded mt-0.5 w-fit">
-                              Save {formatPKR(savings)} ({savingsPercent}% off)
+                              {t.save} {formatPKR(savings)} ({savingsPercent}% {t.off})
                             </span>
                           )}
                         </div>
@@ -558,7 +664,7 @@ export default function CustomerMenuPage() {
                             disabled
                             className="px-3.5 py-2 rounded-xl font-bold text-xs bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
                           >
-                            Sold Out
+                            {lang === 'ur' ? 'ختم ہو چکا' : 'Sold Out'}
                           </button>
                         ) : (
                           <button
@@ -566,7 +672,7 @@ export default function CustomerMenuPage() {
                             className="px-3.5 py-2 rounded-xl font-semibold text-xs transition flex items-center gap-1.5 cursor-pointer text-white bg-slate-900 hover:bg-slate-800 shadow-2xs"
                           >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>{itemIsDeal ? 'Choose Deal' : 'Add'}</span>
+                            <span>{itemIsDeal ? (lang === 'ur' ? 'ڈیل منتخب کریں' : 'Choose Deal') : hasVariants ? t.choose_options : t.add}</span>
                           </button>
                         )}
                       </div>
@@ -800,25 +906,25 @@ export default function CustomerMenuPage() {
         </div>
       </main>
 
-      {/* Floating Bottom Cart Bar on Mobile Viewports (< lg) */}
+      {/* Sticky Bottom Cart Bar on Mobile Viewports (< lg) */}
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 p-4 bg-gradient-to-t from-slate-50 via-slate-50/95 to-transparent pointer-events-none">
-          <div className="max-w-md mx-auto pointer-events-auto">
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900 border-t border-slate-800 shadow-2xl p-3 safe-area-inset-bottom">
+          <div className="max-w-md mx-auto">
             <button
               onClick={() => setIsMobileCartOpen(true)}
-              className="w-full py-3.5 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm shadow-xl shadow-emerald-600/30 flex items-center justify-between transition cursor-pointer"
+              className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm shadow-xl shadow-emerald-950/40 flex items-center justify-between transition cursor-pointer active:scale-[0.99]"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-white text-emerald-700 flex items-center justify-center text-xs font-mono font-black">
-                  {totalItemCount}
-                </div>
-                <span>View Cart & Checkout</span>
+              <div className="flex items-center gap-2 font-mono font-bold tracking-tight text-white text-xs sm:text-sm">
+                <span>
+                  {totalItemCount} {totalItemCount === 1 ? t.item : t.items}
+                </span>
+                <span className="text-emerald-300">•</span>
+                <span>{formatPKR(finalTotal)}</span>
+                <span className="text-emerald-300">•</span>
+                <span className="font-heading font-black">{t.view_order}</span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-base font-black">
-                  {formatPKR(finalTotal)}
-                </span>
+              <div className="flex items-center gap-1">
                 <ChevronRight className="w-4 h-4 stroke-[3]" />
               </div>
             </button>

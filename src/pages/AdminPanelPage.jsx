@@ -34,7 +34,13 @@ export default function AdminPanelPage() {
   const [usersList, setUsersList] = useState(() => getRegisteredUsers());
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [revealedPasswords, setRevealedPasswords] = useState({});
+
+  // Reset Password modal state
+  const [resetPasswordAccount, setResetPasswordAccount] = useState(null);
+  const [newResetPassword, setNewResetPassword] = useState('');
+  const [resetSubmitting, setResetSubmitting] = useState(false);
+  const [resetSuccessMsg, setResetSuccessMsg] = useState('');
+  const [resetErrorMsg, setResetErrorMsg] = useState('');
 
   // Editing credentials modal state
   const [editingAccount, setEditingAccount] = useState(null);
@@ -116,6 +122,51 @@ export default function AdminPanelPage() {
       setEditErrorMsg(err.message || 'Failed to update credentials.');
     } finally {
       setEditSubmitting(false);
+    }
+  };
+
+  const handleOpenResetPassword = (account) => {
+    setResetPasswordAccount(account);
+    setNewResetPassword('');
+    setResetSuccessMsg('');
+    setResetErrorMsg('');
+  };
+
+  const handleGenerateResetPassword = () => {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+    let pwd = '';
+    for (let i = 0; i < 12; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewResetPassword(pwd);
+  };
+
+  const handleSaveResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetPasswordAccount) return;
+    if (!newResetPassword || newResetPassword.length < 4) {
+      setResetErrorMsg('New password must be at least 4 characters long.');
+      return;
+    }
+
+    try {
+      setResetSubmitting(true);
+      setResetErrorMsg('');
+      await updateUserCredentials(resetPasswordAccount.id, {
+        currentEmail: resetPasswordAccount.email,
+        password: newResetPassword.trim(),
+      });
+
+      const refreshed = getRegisteredUsers();
+      setUsersList(refreshed);
+      setResetSuccessMsg(`Password for ${resetPasswordAccount.email} has been reset successfully!`);
+      setTimeout(() => {
+        setResetPasswordAccount(null);
+      }, 1500);
+    } catch (err) {
+      setResetErrorMsg(err.message || 'Failed to reset password.');
+    } finally {
+      setResetSubmitting(false);
     }
   };
 
@@ -590,7 +641,7 @@ export default function AdminPanelPage() {
               <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200/80">
                 <tr>
                   <th className="px-6 py-3.5">Restaurant / Tenant</th>
-                  <th className="px-6 py-3.5">Manager Credentials</th>
+                  <th className="px-6 py-3.5">Manager Account</th>
                   <th className="px-6 py-3.5">WhatsApp Orders</th>
                   <th className="px-6 py-3.5">Role</th>
                   <th className="px-6 py-3.5">Status</th>
@@ -609,7 +660,6 @@ export default function AdminPanelPage() {
                     const slug = account.restaurant_slug || 'burgersmoke';
                     const menuLink = `${window.location.origin}/${slug}`;
                     const isProtectedMaster = account.email === 'admin@dinehq.pk';
-                    const isPasswordRevealed = Boolean(revealedPasswords[account.id]);
 
                     return (
                       <tr key={account.id} className="hover:bg-slate-50/60 transition">
@@ -636,34 +686,15 @@ export default function AdminPanelPage() {
                           </div>
                         </td>
 
-                        {/* Manager Email & Password */}
+                        {/* Manager Account & Email (No passwords displayed) */}
                         <td className="px-6 py-4">
                           <div>
-                            <p className="font-bold text-slate-800">{account.email}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[11px] font-mono text-slate-600 font-semibold">
-                                PWD:{' '}
-                                {account.password
-                                  ? isPasswordRevealed
-                                    ? account.password
-                                    : '••••••••••••'
-                                  : 'OAuth / Cloud'}
-                              </span>
-                              {account.password && (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleRevealPassword(account.id)}
-                                  className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
-                                  title={isPasswordRevealed ? 'Hide password' : 'Show password'}
-                                >
-                                  {isPasswordRevealed ? (
-                                    <EyeOff className="w-3.5 h-3.5 text-indigo-600" />
-                                  ) : (
-                                    <Eye className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-                              )}
-                            </div>
+                            <p className="font-bold text-slate-900 text-xs sm:text-sm">
+                              {account.name || 'Store Manager'}
+                            </p>
+                            <p className="font-mono text-xs text-slate-500 mt-0.5">
+                              {account.email}
+                            </p>
                           </div>
                         </td>
 
@@ -696,11 +727,22 @@ export default function AdminPanelPage() {
                         {/* Actions */}
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Edit Credentials & Details */}
+                            {/* Reset Password Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenResetPassword(account)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition border border-indigo-200 cursor-pointer"
+                              title={`Reset password for ${account.email}`}
+                            >
+                              <Key className="w-3 h-3" />
+                              <span>Reset Password</span>
+                            </button>
+
+                            {/* Edit Store Details */}
                             <button
                               onClick={() => handleStartEdit(account)}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
-                              title="Edit Manager Credentials & Details"
+                              title="Edit Store Details"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
@@ -851,24 +893,19 @@ export default function AdminPanelPage() {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      Manager Password
+                      New Password (Optional)
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowEditPassword(!showEditPassword)}
-                      className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer"
-                    >
-                      {showEditPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                      <span>{showEditPassword ? 'Hide' : 'Show Password'}</span>
-                    </button>
                   </div>
                   <input
-                    type={showEditPassword ? 'text' : 'password'}
-                    required
+                    type="password"
+                    placeholder="Leave blank to keep existing password"
                     value={editForm.password}
                     onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    To reset manager password directly, you can also use the "Reset Password" button in the table.
+                  </p>
                 </div>
 
                 <div>
@@ -904,6 +941,101 @@ export default function AdminPanelPage() {
                       <Check className="w-3.5 h-3.5" />
                     )}
                     <span>{editSubmitting ? 'Saving...' : 'Save Changes'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Dedicated Reset Password Modal */}
+        {resetPasswordAccount && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <Key className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-extrabold text-slate-900 text-base">
+                      Reset Password
+                    </h3>
+                    <p className="text-xs text-slate-500 font-mono">
+                      {resetPasswordAccount.email}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setResetPasswordAccount(null)}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {resetErrorMsg && (
+                <div className="p-3 my-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{resetErrorMsg}</span>
+                </div>
+              )}
+
+              {resetSuccessMsg && (
+                <div className="p-3 my-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{resetSuccessMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveResetPassword} className="space-y-4 pt-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      New Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateResetPassword}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3 text-indigo-500" />
+                      <span>Generate Strong</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={newResetPassword}
+                    onChange={(e) => setNewResetPassword(e.target.value)}
+                    placeholder="Enter new password (min. 4 characters)"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Store manager will use this new password to sign into their command dashboard.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setResetPasswordAccount(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetSubmitting}
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {resetSubmitting ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    <span>{resetSubmitting ? 'Resetting...' : 'Set New Password'}</span>
                   </button>
                 </div>
               </form>

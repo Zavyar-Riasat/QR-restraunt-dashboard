@@ -1,77 +1,23 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Utensils,
   Plus,
   Trash2,
-  SlidersHorizontal,
   Search,
-  Check,
-  AlertCircle,
-  X,
   Edit2,
   Package,
-  Flame,
-  Image as ImageIcon,
-  Sparkles,
-  Camera,
-  Upload,
-  AlertTriangle,
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
 import {
   isDeal,
   getItemDealInfo,
   getItemVariants,
-  incrementDealItem,
-  decrementDealItem,
-  getDealItemQuantity,
   getItemAvailability,
   getItemImage,
   getItemDescription,
 } from '../utils/dealUtils';
-
-/**
- * Compresses any user-selected image file (from camera or gallery)
- * to JPEG format with max dimension 900px, keeping size strictly under 300 KB.
- */
-function compressImageFile(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxDim = 900;
-        let width = img.naturalWidth || img.width;
-        let height = img.naturalHeight || img.height;
-
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve(null);
-
-        ctx.drawImage(img, 0, 0, width, height);
-        // 0.75 quality ensures file is ~60-180 KB, well under 300 KB
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
-        resolve(dataUrl);
-      };
-      img.onerror = () => resolve(null);
-      img.src = e.target.result;
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
+import DealFlowModal from './DealFlowModal';
+import DishFormModal from './DishFormModal';
 
 function capitalizeWord(str) {
   if (!str) return '';
@@ -82,56 +28,6 @@ function capitalizeWord(str) {
     .join(' ');
 }
 
-/**
- * Checks if the dish title likely belongs to a different category
- * (e.g. "behari kabab" placed under "Pizzas")
- */
-function checkCategoryMismatch(itemTitle, selectedCatId, categories) {
-  if (!itemTitle || !selectedCatId) return null;
-  const cat = categories.find((c) => c.id === selectedCatId);
-  if (!cat) return null;
-  const catName = cat.name.toLowerCase();
-  const titleLower = itemTitle.toLowerCase();
-
-  const rules = [
-    {
-      keywords: ['kabab', 'kebab', 'tikka', 'boti', 'bbq', 'bihari', 'behari', 'seekh'],
-      categoryLabel: 'BBQ / Kebabs',
-      mismatchedWith: ['pizza', 'burger', 'shake', 'dessert', 'beverage'],
-    },
-    {
-      keywords: ['pizza', 'slice', 'crust', 'calzone'],
-      categoryLabel: 'Pizzas',
-      mismatchedWith: ['burger', 'shake', 'beverage', 'bbq', 'kebab', 'kabab'],
-    },
-    {
-      keywords: ['burger', 'smash', 'patty', 'whopper'],
-      categoryLabel: 'Burgers',
-      mismatchedWith: ['pizza', 'shake', 'beverage', 'bbq', 'kebab', 'kabab'],
-    },
-    {
-      keywords: ['shake', 'smoothie', 'mojito', 'soda', 'coke', 'drink'],
-      categoryLabel: 'Beverages / Shakes',
-      mismatchedWith: ['pizza', 'burger', 'bbq', 'kebab', 'kabab'],
-    },
-  ];
-
-  for (const rule of rules) {
-    const matched = rule.keywords.find((k) => titleLower.includes(k));
-    if (matched) {
-      const isMismatch = rule.mismatchedWith.some((m) => catName.includes(m));
-      if (isMismatch) {
-        return {
-          keyword: matched,
-          currentCategory: cat.name,
-          suggestedCategory: rule.categoryLabel,
-        };
-      }
-    }
-  }
-  return null;
-}
-
 export default function MenuItemManager({
   categories = [],
   menuItems = [],
@@ -139,9 +35,13 @@ export default function MenuItemManager({
   onUpdateMenuItem,
   onDeleteMenuItem,
 }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('ALL');
+
+  // Modals state
+  const [isDealModalOpen, setIsDealModalOpen] = useState(false);
+  const [isDishModalOpen, setIsDishModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState(null);
 
   // Categories partition
   const dealCategory = categories.find(
@@ -150,44 +50,6 @@ export default function MenuItemManager({
   const dishCategories = categories.filter(
     (c) => !(c.name.toLowerCase().includes('deal') || c.name.toLowerCase().includes('combo'))
   );
-
-  // Form State
-  const [editingItemId, setEditingItemId] = useState(null);
-  const [isDealMode, setIsDealMode] = useState(false);
-  const [categoryId, setCategoryId] = useState('');
-  const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
-  const [originalPrice, setOriginalPrice] = useState('');
-  const [dealItems, setDealItems] = useState('');
-  const [dealBadge, setDealBadge] = useState('Hot Deal');
-  const [imageUrl, setImageUrl] = useState('');
-  const [description, setDescription] = useState('');
-  const [optionsGroups, setOptionsGroups] = useState([]);
-  const [bundleCategoryFilter, setBundleCategoryFilter] = useState('ALL');
-  const [bundleSearchQuery, setBundleSearchQuery] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [compressingImage, setCompressingImage] = useState(false);
-  const [error, setError] = useState('');
-  const fileInputRef = useRef(null);
-
-  const categoryMismatch = !isDealMode ? checkCategoryMismatch(title, categoryId, categories) : null;
-
-  const handleImageFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setCompressingImage(true);
-      const dataUrl = await compressImageFile(file);
-      if (dataUrl) {
-        setImageUrl(dataUrl);
-      }
-    } catch (err) {
-      console.warn('Image processing failed:', err);
-      setError('Could not process photo. Please choose another image.');
-    } finally {
-      setCompressingImage(false);
-    }
-  };
 
   // Persistent in-stock toggle
   const toggleStock = async (item) => {
@@ -211,192 +73,58 @@ export default function MenuItemManager({
     await onUpdateMenuItem(item.id, { variants: updatedVariants });
   };
 
-  const handleOpenAddModal = () => {
-    setEditingItemId(null);
-    setIsDealMode(false);
-    setCategoryId(dishCategories[0]?.id || categories[0]?.id || '');
-    setTitle('');
-    setPrice('');
-    setOriginalPrice('');
-    setDealItems('');
-    setDealBadge('Hot Deal');
-    setImageUrl('');
-    setDescription('');
-    setOptionsGroups([]);
-    setError('');
-    setIsModalOpen(true);
+  const handleOpenCreateDeal = () => {
+    setItemToEdit(null);
+    setIsDealModalOpen(true);
   };
 
-  const handleOpenCreateDealModal = () => {
-    setEditingItemId(null);
-    setIsDealMode(true);
-    setCategoryId(dealCategory?.id || categories[0]?.id || '');
-    setTitle('');
-    setPrice('');
-    setOriginalPrice('');
-    setDealItems('');
-    setDealBadge('Hot Deal');
-    setImageUrl('');
-    setDescription('');
-    setOptionsGroups([]);
-    setBundleCategoryFilter('ALL');
-    setBundleSearchQuery('');
-    setError('');
-    setIsModalOpen(true);
+  const handleOpenAddDish = () => {
+    setItemToEdit(null);
+    setIsDishModalOpen(true);
   };
 
-  const handleOpenEditModal = (item) => {
-    const deal = getItemDealInfo(item);
-    setEditingItemId(item.id);
-    const itemIsDeal = Boolean(deal);
-    setIsDealMode(itemIsDeal);
-    setCategoryId(
-      itemIsDeal
-        ? dealCategory?.id || item.category_id || categories[0]?.id || ''
-        : item.category_id || dishCategories[0]?.id || categories[0]?.id || ''
-    );
-    setTitle(item.title || '');
-    setPrice(item.price ? String(item.price) : '');
-    setOriginalPrice(deal?.original_price ? String(deal.original_price) : '');
-    setDealItems(deal?.deal_items || '');
-    setDealBadge(deal?.badge || 'Hot Deal');
-    setImageUrl(getItemImage(item) || '');
-    setDescription(getItemDescription(item) || '');
-    setOptionsGroups(getItemVariants(item));
-    setBundleCategoryFilter('ALL');
-    setBundleSearchQuery('');
-    setError('');
-    setIsModalOpen(true);
-  };
-
-  // Option Builders
-  const addOptionGroup = (type = 'single') => {
-    setOptionsGroups([
-      ...optionsGroups,
-      {
-        id: `opt-grp-${Date.now()}`,
-        name: type === 'single' ? 'Size / Portion' : 'Add-on Options',
-        type: type,
-        options: [
-          { id: `opt-${Date.now()}-1`, name: 'Regular', price_delta: 0 },
-          { id: `opt-${Date.now()}-2`, name: 'Large', price_delta: 150 },
-        ],
-      },
-    ]);
-  };
-
-  const removeGroup = (index) => {
-    setOptionsGroups(optionsGroups.filter((_, i) => i !== index));
-  };
-
-  const updateGroupName = (index, value) => {
-    const updated = [...optionsGroups];
-    updated[index].name = value;
-    setOptionsGroups(updated);
-  };
-
-  const updateGroupType = (index, type) => {
-    const updated = [...optionsGroups];
-    updated[index].type = type;
-    setOptionsGroups(updated);
-  };
-
-  const addChoiceToGroup = (groupIndex) => {
-    const updated = [...optionsGroups];
-    updated[groupIndex].options.push({
-      id: `opt-${Date.now()}-${updated[groupIndex].options.length + 1}`,
-      name: '',
-      price_delta: 0,
-    });
-    setOptionsGroups(updated);
-  };
-
-  const updateChoice = (groupIndex, choiceIndex, field, value) => {
-    const updated = [...optionsGroups];
-    updated[groupIndex].options[choiceIndex][field] =
-      field === 'price_delta' ? parseFloat(value) || 0 : value;
-    setOptionsGroups(updated);
-  };
-
-  const removeChoice = (groupIndex, choiceIndex) => {
-    const updated = [...optionsGroups];
-    updated[groupIndex].options = updated[groupIndex].options.filter((_, i) => i !== choiceIndex);
-    setOptionsGroups(updated);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const finalCategoryId = isDealMode ? (dealCategory?.id || categoryId) : categoryId;
-    if (!finalCategoryId) {
-      setError('Please select a category.');
-      return;
-    }
-    if (!title.trim()) {
-      setError('Please enter a name.');
-      return;
-    }
-    if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
-      setError('Please enter a valid price.');
-      return;
-    }
-
-    const cleanedVariants = optionsGroups
-      .filter((grp) => grp.name.trim() !== '')
-      .map((grp) => ({
-        ...grp,
-        options: grp.options.filter((opt) => opt.name.trim() !== ''),
-      }));
-
-    // Preserve stock availability status if editing an existing dish
-    const existingItem = editingItemId ? menuItems.find((i) => i.id === editingItemId) : null;
-    const currentAvailability = existingItem ? getItemAvailability(existingItem) : true;
-
-    let variantsPayload;
-    if (isDealMode) {
-      variantsPayload = {
-        is_deal: true,
-        is_available: currentAvailability,
-        image_url: imageUrl.trim(),
-        description: description.trim(),
-        original_price: parseFloat(originalPrice) || 0,
-        deal_items: dealItems.trim(),
-        badge: dealBadge.trim() || 'Hot Deal',
-        options: cleanedVariants,
-      };
+  const handleOpenEdit = (item) => {
+    setItemToEdit(item);
+    if (isDeal(item)) {
+      setIsDealModalOpen(true);
     } else {
-      variantsPayload = {
-        is_available: currentAvailability,
-        image_url: imageUrl.trim(),
-        description: description.trim(),
-        options: cleanedVariants,
-      };
+      setIsDishModalOpen(true);
     }
+  };
 
-    try {
-      setIsSubmitting(true);
-      setError('');
+  const handleSaveDeal = async ({ itemId, category_id, title, price, variants }) => {
+    if (itemId) {
+      await onUpdateMenuItem(itemId, {
+        category_id,
+        title,
+        price,
+        variants,
+      });
+    } else {
+      await onCreateMenuItem({
+        category_id,
+        title,
+        price,
+        variants,
+      });
+    }
+  };
 
-      if (editingItemId) {
-        await onUpdateMenuItem(editingItemId, {
-          category_id: finalCategoryId,
-          title: title.trim(),
-          price: parseFloat(price),
-          variants: variantsPayload,
-        });
-      } else {
-        await onCreateMenuItem({
-          category_id: finalCategoryId,
-          title: title.trim(),
-          price: parseFloat(price),
-          variants: variantsPayload,
-        });
-      }
-
-      setIsModalOpen(false);
-    } catch (err) {
-      setError(err.message || 'Failed to save item.');
-    } finally {
-      setIsSubmitting(false);
+  const handleSaveDish = async ({ itemId, category_id, title, price, variants }) => {
+    if (itemId) {
+      await onUpdateMenuItem(itemId, {
+        category_id,
+        title,
+        price,
+        variants,
+      });
+    } else {
+      await onCreateMenuItem({
+        category_id,
+        title,
+        price,
+        variants,
+      });
     }
   };
 
@@ -428,52 +156,35 @@ export default function MenuItemManager({
     return cat ? cat.name : 'General';
   };
 
-  const parsedPrice = parseFloat(price) || 0;
-  const parsedOriginal = parseFloat(originalPrice) || 0;
-  const modalSavings = parsedOriginal > parsedPrice ? parsedOriginal - parsedPrice : 0;
-  const modalSavingsPercent =
-    parsedOriginal > 0 && modalSavings > 0
-      ? Math.round((modalSavings / parsedOriginal) * 100)
-      : 0;
-
-  const availableBundleDishes = menuItems
-    .filter((m) => !isDeal(m))
-    .filter((m) => {
-      const matchesCategory =
-        bundleCategoryFilter === 'ALL' || m.category_id === bundleCategoryFilter;
-      const matchesSearch =
-        !bundleSearchQuery ||
-        m.title.toLowerCase().includes(bundleSearchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
-
   return (
-    <div className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-5">
+    <div className="bg-white border border-[#F0E4D7] rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
       {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#F0E4D7]">
         <div>
-          <h2 className="text-lg font-heading font-bold text-slate-900 tracking-tight">
+          <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight">
             Menu Items & Deals
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-[#7A6A5C] mt-0.5">
             Manage your dishes, combo bundles, and live kitchen inventory.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          {/* Create Deal Button - Secondary button: white with orange outline */}
           <button
-            onClick={handleOpenCreateDealModal}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200/80 transition cursor-pointer flex items-center gap-1.5"
+            onClick={handleOpenCreateDeal}
+            className="px-4 py-2.5 rounded-2xl bg-white hover:bg-[#FFF1E6] text-[#F26B1D] text-xs sm:text-sm font-bold border-2 border-[#F26B1D] transition cursor-pointer flex items-center gap-2 shadow-2xs"
           >
-            <Plus className="w-3.5 h-3.5 text-slate-600" />
+            <Package className="w-4 h-4 text-[#F26B1D]" />
             <span>Create Deal</span>
           </button>
 
+          {/* Add Dish Button - Primary button: warm orange */}
           <button
-            onClick={handleOpenAddModal}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition cursor-pointer flex items-center gap-1.5"
+            onClick={handleOpenAddDish}
+            className="px-5 py-2.5 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 transition cursor-pointer flex items-center gap-2"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Add Dish</span>
           </button>
         </div>
@@ -483,24 +194,24 @@ export default function MenuItemManager({
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         {/* Search */}
         <div className="relative flex-1 max-w-sm">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9E8E81]" />
           <input
             type="text"
-            placeholder="Search items, ingredients, bundles..."
+            placeholder="Search dishes, ingredients, deals..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8.5 pr-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs placeholder:text-slate-400 focus:outline-none focus:border-slate-400 focus:bg-white transition"
+            className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs sm:text-sm placeholder:text-[#9E8E81] focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
           />
         </div>
 
-        {/* Category Pills */}
+        {/* Category Pills (Soft colored chips) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <button
             onClick={() => setSelectedCategoryTab('ALL')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
               selectedCategoryTab === 'ALL'
-                ? 'bg-slate-900 text-white shadow-2xs font-semibold'
-                : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'
+                ? 'bg-[#F26B1D] text-white shadow-xs'
+                : 'bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
             }`}
           >
             All Items ({menuItems.length})
@@ -509,13 +220,13 @@ export default function MenuItemManager({
           {dealItemsList.length > 0 && (
             <button
               onClick={() => setSelectedCategoryTab('DEALS')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
                 selectedCategoryTab === 'DEALS'
-                  ? 'bg-slate-900 text-white shadow-2xs font-semibold'
-                  : 'bg-amber-50/70 text-amber-900 hover:bg-amber-100/70 border border-amber-200/70'
+                  ? 'bg-[#F26B1D] text-white shadow-xs'
+                  : 'bg-[#FEF3D9] text-[#B87000] hover:bg-[#FDE7B6] border border-[#FCE1A8]'
               }`}
             >
-              <span>Deals & Combos ({dealItemsList.length})</span>
+              <span>🔥 Deals ({dealItemsList.length})</span>
             </button>
           )}
 
@@ -525,10 +236,10 @@ export default function MenuItemManager({
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategoryTab(cat.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
                   selectedCategoryTab === cat.id
-                    ? 'bg-slate-900 text-white shadow-2xs font-semibold'
-                    : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'
+                    ? 'bg-[#F26B1D] text-white shadow-xs'
+                    : 'bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
                 }`}
               >
                 {capitalizeWord(cat.name)} ({count})
@@ -538,19 +249,19 @@ export default function MenuItemManager({
         </div>
       </div>
 
-      {/* Dishes Grid */}
+      {/* Dishes & Deals Grid */}
       {filteredItems.length === 0 ? (
-        <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50/40">
-          <Utensils className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-          <p className="text-xs font-bold text-slate-700">No items found</p>
-          <p className="text-xs text-slate-400 mt-0.5 max-w-xs mx-auto">
+        <div className="text-center py-16 border-2 border-dashed border-[#F0E4D7] rounded-3xl p-6 bg-[#FFF9F2]/50">
+          <Utensils className="w-10 h-10 text-[#9E8E81] mx-auto mb-2" />
+          <p className="text-base font-bold text-[#2B2118]">No items found</p>
+          <p className="text-xs text-[#7A6A5C] mt-1 max-w-xs mx-auto">
             {menuItems.length === 0
-              ? 'Add single dishes or combos to build your live menu.'
+              ? 'Add single dishes or deals to build your live menu.'
               : 'Try searching for another dish or clear filters.'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredItems.map((item) => {
             const isAvailable = getItemAvailability(item);
             const isSoldOut = !isAvailable;
@@ -564,84 +275,92 @@ export default function MenuItemManager({
             return (
               <div
                 key={item.id}
-                className={`p-4 rounded-2xl border transition flex flex-col justify-between shadow-2xs ${
+                className={`p-4 rounded-2xl border transition flex flex-col justify-between shadow-xs ${
                   isSoldOut
-                    ? 'bg-slate-100/70 border-slate-300 opacity-65'
-                    : 'bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-xs'
+                    ? 'bg-[#FFF9F2]/50 border-[#F0E4D7] opacity-60'
+                    : itemIsDeal
+                    ? 'bg-gradient-to-b from-[#FEF3D9]/30 to-white border-[#FCE1A8] hover:shadow-md'
+                    : 'bg-white border-[#F0E4D7] hover:border-[#FCD8BF] hover:shadow-md'
                 }`}
               >
                 <div>
                   {/* Top Badges and In-Stock toggle */}
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px] font-bold text-[#D95A12] bg-[#FFF1E6] px-2 py-0.5 rounded-lg border border-[#FCD8BF]/60">
                         {getCategoryName(item.category_id)}
                       </span>
 
                       {itemIsDeal && (
-                        <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/70">
-                          {dealInfo.badge || 'Deal'}
+                        <span className="text-[10px] font-extrabold text-[#B87000] bg-[#FEF3D9] px-2.5 py-0.5 rounded-lg border border-[#FCE1A8]">
+                          🔥 {dealInfo.badge || 'Deal'}
                         </span>
                       )}
                     </div>
 
-                    {/* Stock switch (Persistent) */}
+                    {/* Stock switch (Consistent Green/Red) */}
                     <button
                       type="button"
                       onClick={() => toggleStock(item)}
-                      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold border transition cursor-pointer shrink-0 ${
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer shrink-0 ${
                         isSoldOut
-                          ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          ? 'bg-[#FDECEC] text-[#E5484D] border-[#F9C3C5] hover:bg-[#FCD9DA]'
+                          : 'bg-[#E7F6EC] text-[#1F9D55] border-[#C0E9CE] hover:bg-[#D5EFE0]'
                       }`}
                       title={isSoldOut ? 'Mark back In Stock' : 'Mark as Sold Out'}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isSoldOut ? 'bg-rose-500' : 'bg-emerald-500'}`}></span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSoldOut ? 'bg-[#E5484D]' : 'bg-[#1F9D55]'}`}></span>
                       <span>{isSoldOut ? 'Sold Out' : 'In Stock'}</span>
                     </button>
                   </div>
 
                   {/* Image & Title & Price Display */}
-                  <div className="flex gap-3 mb-2">
+                  <div className="flex gap-3 mb-2.5">
                     {itemImage ? (
                       <img
                         src={itemImage}
                         alt={item.title}
-                        className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0"
+                        className="w-16 h-16 rounded-xl object-cover border border-[#F0E4D7] shrink-0"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                        <Utensils className="w-6 h-6" />
+                      <div className="w-16 h-16 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-center text-[#9E8E81] shrink-0">
+                        <Utensils className="w-7 h-7" />
                       </div>
                     )}
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-1">
-                        <h3 className="font-heading font-bold text-slate-900 text-sm leading-snug truncate">
+                        <h3 className="font-heading font-extrabold text-[#2B2118] text-sm leading-snug line-clamp-2">
                           {item.title}
                         </h3>
-                        <span className="text-sm font-bold text-slate-900 font-mono shrink-0">
-                          {formatPKR(item.price)}
-                        </span>
                       </div>
 
-                      {itemDesc ? (
-                        <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <span className="text-sm font-extrabold text-[#F26B1D] font-mono">
+                          {formatPKR(item.price)}
+                        </span>
+                        {itemIsDeal && dealInfo.original_price > item.price && (
+                          <span className="text-xs text-[#9E8E81] line-through font-mono">
+                            {formatPKR(dealInfo.original_price)}
+                          </span>
+                        )}
+                      </div>
+
+                      {itemDesc && !itemIsDeal && (
+                        <p className="text-[11px] text-[#7A6A5C] line-clamp-2 mt-1">
                           {itemDesc}
                         </p>
-                      ) : (
-                        <p className="text-[10px] text-slate-400 italic mt-0.5">No description</p>
                       )}
                     </div>
                   </div>
 
                   {/* Deal Bundle Summary */}
                   {itemIsDeal && dealInfo.deal_items && (
-                    <div className="mb-2 p-2 rounded-xl bg-amber-50/70 border border-amber-200/60 text-xs">
-                      <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-0.5">
+                    <div className="mb-2 p-2.5 rounded-xl bg-[#FEF3D9] border border-[#FCE1A8] text-xs">
+                      <p className="text-[10px] font-extrabold text-[#B87000] uppercase tracking-wider mb-1">
                         📦 Included in Deal:
                       </p>
-                      <p className="text-slate-700 font-medium text-[11px] leading-relaxed">
+                      <p className="text-[#2B2118] font-medium text-xs leading-relaxed">
                         {dealInfo.deal_items}
                       </p>
                     </div>
@@ -651,9 +370,9 @@ export default function MenuItemManager({
                   {hasVariants && (
                     <div className="mb-2 space-y-1">
                       {variantsList.map((vg) => (
-                        <div key={vg.id} className="text-[11px] text-slate-600 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 flex items-center justify-between">
-                          <span className="font-medium text-slate-700">{vg.name}</span>
-                          <span className="text-[10px] text-slate-400">
+                        <div key={vg.id} className="text-[11px] text-[#7A6A5C] bg-[#FFF9F2] px-2.5 py-1 rounded-lg border border-[#F0E4D7] flex items-center justify-between">
+                          <span className="font-bold text-[#2B2118]">{vg.name}</span>
+                          <span className="text-[10px] text-[#9E8E81]">
                             {vg.options?.length || 0} choices
                           </span>
                         </div>
@@ -663,15 +382,15 @@ export default function MenuItemManager({
                 </div>
 
                 {/* Card Actions */}
-                <div className="flex items-center justify-end pt-2 border-t border-slate-100 text-xs mt-1">
-
-                  <div className="flex items-center gap-1">
+                <div className="flex items-center justify-end pt-2.5 border-t border-[#F0E4D7] text-xs mt-1">
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => handleOpenEditModal(item)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
+                      onClick={() => handleOpenEdit(item)}
+                      className="px-2.5 py-1.5 rounded-lg text-[#F26B1D] hover:bg-[#FFF1E6] transition cursor-pointer flex items-center gap-1 font-bold text-xs"
                       title="Edit dish"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
                     </button>
 
                     <button
@@ -680,7 +399,7 @@ export default function MenuItemManager({
                           onDeleteMenuItem(item.id);
                         }
                       }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                      className="p-1.5 rounded-lg text-[#9E8E81] hover:text-[#D92D20] hover:bg-[#FEE4E2] transition cursor-pointer"
                       title="Delete dish"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -693,582 +412,25 @@ export default function MenuItemManager({
         </div>
       )}
 
-      {/* Add / Edit Dish Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 rounded-t-3xl">
-              <div>
-                <h3 className="font-heading font-extrabold text-slate-900 text-base">
-                  {editingItemId ? 'Edit Menu Item' : isDealMode ? 'Create New Deal / Bundle' : 'Add New Dish'}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Fill in dish details, photo, and customization add-ons.
-                </p>
-              </div>
+      {/* 3-Step Deal Flow Modal */}
+      <DealFlowModal
+        isOpen={isDealModalOpen}
+        onClose={() => setIsDealModalOpen(false)}
+        categories={categories}
+        menuItems={menuItems}
+        dealCategory={dealCategory}
+        itemToEdit={itemToEdit}
+        onSaveDeal={handleSaveDeal}
+      />
 
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
-              {error && (
-                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              {/* Mode Switcher: Single Item vs Deal */}
-              <div className="bg-slate-100 p-0.5 rounded-xl flex items-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDealMode(false);
-                    if (dealCategory && categoryId === dealCategory.id) {
-                      setCategoryId(dishCategories[0]?.id || categories[0]?.id || '');
-                    }
-                  }}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition cursor-pointer ${
-                    !isDealMode
-                      ? 'bg-white text-slate-900 font-bold shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Single Dish
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDealMode(true);
-                    if (!dealBadge) setDealBadge('Hot Deal');
-                    if (dealCategory) setCategoryId(dealCategory.id);
-                  }}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition cursor-pointer ${
-                    isDealMode
-                      ? 'bg-white text-slate-900 font-bold shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Deal / Combo Bundle
-                </button>
-              </div>
-
-              {/* Category & Name */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Category {isDealMode ? '' : <span className="text-rose-500">*</span>}
-                  </label>
-                  {isDealMode ? (
-                    <div className="w-full px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-medium flex items-center justify-between">
-                      <span className="font-semibold text-slate-800 truncate">
-                        {dealCategory ? capitalizeWord(dealCategory.name) : 'Deals & Combos'}
-                      </span>
-                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-200/80 px-1.5 py-0.5 rounded">
-                        Default
-                      </span>
-                    </div>
-                  ) : (
-                    <select
-                      value={categoryId}
-                      onChange={(e) => setCategoryId(e.target.value)}
-                      required
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:outline-none focus:border-slate-400 focus:bg-white cursor-pointer"
-                    >
-                      {dishCategories.length === 0 ? (
-                        <option value="" disabled>
-                          No categories found
-                        </option>
-                      ) : (
-                        dishCategories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {capitalizeWord(c.name)}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  )}
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {isDealMode ? 'Deal Name' : 'Dish Name'} <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={
-                      isDealMode
-                        ? 'e.g. Duo Feast (2 Burgers + Fries + 2 Drinks)'
-                        : 'e.g. Truffle Double Smash'
-                    }
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white"
-                  />
-                </div>
-
-                {/* Inline Category Mismatch Warning */}
-                {categoryMismatch && (
-                  <div className="sm:col-span-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 animate-fadeIn">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="leading-relaxed">
-                      <span className="font-bold">Category Mismatch Warning: </span>
-                      <span>
-                        "{title}" contains <strong>"{categoryMismatch.keyword}"</strong>, but is being categorized under <strong>"{capitalizeWord(categoryMismatch.currentCategory)}"</strong>. Did you mean to place it under <strong>{categoryMismatch.suggestedCategory}</strong>?
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Description & Real Image Upload */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Dish Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="e.g. Double Angus beef patties, Swiss truffle cheese, garlic aioli..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white resize-none"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                      <Camera className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Dish Photo</span>
-                    </label>
-                    <span className="text-[10px] text-slate-400">Auto-compressed &lt; 300 KB</span>
-                  </div>
-
-                  {/* Hidden File Input for Camera / Gallery */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handleImageFileChange}
-                    className="hidden"
-                  />
-
-                  {imageUrl ? (
-                    <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-2xl border border-slate-200">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 flex items-center justify-center">
-                        <img
-                          src={imageUrl}
-                          alt="Dish Preview"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-bold text-slate-800 block truncate">Photo Selected</span>
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer block mt-0.5"
-                        >
-                          Change Photo
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setImageUrl('')}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                        title="Remove photo"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={compressingImage}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full h-[88px] flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/80 hover:bg-emerald-50/30 text-slate-700 transition cursor-pointer p-3"
-                    >
-                      {compressingImage ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-                          <span className="text-[11px] font-medium text-slate-500">Compressing photo...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 text-emerald-600" />
-                          <span className="text-xs font-bold text-slate-800">
-                            Upload Photo (Camera or Gallery)
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            JPG, PNG, WebP supported
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Pricing Section */}
-              {isDealMode ? (
-                <div className="space-y-3 pt-1">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold text-slate-700">
-                          Deal Price (Rs.) <span className="text-rose-500">*</span>
-                        </label>
-                        {modalSavings > 0 && (
-                          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
-                            Save Rs. {modalSavings} ({modalSavingsPercent}% off)
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        type="number"
-                        step="1"
-                        min="0"
-                        required
-                        placeholder="e.g. 1850"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white font-mono font-semibold"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Original Value (Rs.)
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        min="0"
-                        placeholder="e.g. 2400 (for strikethrough)"
-                        value={originalPrice}
-                        onChange={(e) => setOriginalPrice(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Promotional Badge */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Promotional Tag
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {['Hot Deal', 'Bestseller', 'Family Combo', 'Limited Time', 'Duo Special'].map(
-                        (badge) => (
-                          <button
-                            key={badge}
-                            type="button"
-                            onClick={() => setDealBadge(badge)}
-                            className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer ${
-                              dealBadge === badge
-                                ? 'bg-slate-900 text-white border-slate-900 font-semibold'
-                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
-                            }`}
-                          >
-                            {badge}
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Included Items */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-slate-700">
-                        Items Included in Bundle
-                      </label>
-                      {dealItems && (
-                        <button
-                          type="button"
-                          onClick={() => setDealItems('')}
-                          className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                    <textarea
-                      rows="2"
-                      value={dealItems}
-                      onChange={(e) => setDealItems(e.target.value)}
-                      placeholder="e.g. 2x Truffle Double Smash, 1x Cajun Loaded Fries"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white resize-y"
-                    />
-
-                    {/* Category Filter & Search Bar for picking bundle dishes */}
-                    <div className="mt-2.5 space-y-2 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80">
-                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
-                        <div className="sm:w-44 shrink-0">
-                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                            Category
-                          </label>
-                          <select
-                            value={bundleCategoryFilter}
-                            onChange={(e) => setBundleCategoryFilter(e.target.value)}
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs font-medium focus:outline-none focus:border-slate-400 cursor-pointer"
-                          >
-                            <option value="ALL">All Categories</option>
-                            {dishCategories.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="flex-1">
-                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                            Search Items
-                          </label>
-                          <div className="relative">
-                            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                              type="text"
-                              value={bundleSearchQuery}
-                              onChange={(e) => setBundleSearchQuery(e.target.value)}
-                              placeholder="Search..."
-                              className="w-full pl-7 pr-6 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-800 text-xs focus:outline-none focus:border-slate-400"
-                            />
-                            {bundleSearchQuery && (
-                              <button
-                                type="button"
-                                onClick={() => setBundleSearchQuery('')}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="pt-1">
-                        {availableBundleDishes.length === 0 ? (
-                          <p className="text-xs text-slate-400 py-3 text-center bg-white rounded-lg border border-dashed border-slate-200">
-                            No dishes found.
-                          </p>
-                        ) : (
-                          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
-                            {availableBundleDishes.map((m) => {
-                              const qty = getDealItemQuantity(dealItems, m.title);
-                              if (qty === 0) {
-                                return (
-                                  <button
-                                    key={m.id}
-                                    type="button"
-                                    onClick={() => setDealItems((prev) => incrementDealItem(prev, m.title))}
-                                    className="text-xs px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 font-medium border border-slate-200 hover:border-slate-300 transition cursor-pointer flex items-center gap-1 shadow-2xs"
-                                  >
-                                    <Plus className="w-3 h-3 text-slate-400" />
-                                    <span>{m.title}</span>
-                                  </button>
-                                );
-                              }
-
-                              return (
-                                <div
-                                  key={m.id}
-                                  className="text-xs inline-flex items-center rounded-lg bg-slate-900 text-white font-medium border border-slate-900 shadow-2xs overflow-hidden"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => setDealItems((prev) => decrementDealItem(prev, m.title))}
-                                    className="px-2 py-1 text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer font-bold"
-                                    title="Decrease count"
-                                  >
-                                    −
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDealItems((prev) => incrementDealItem(prev, m.title))}
-                                    className="px-1.5 py-1 text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1 font-semibold"
-                                    title="Click to add another (+1)"
-                                  >
-                                    <span>{qty}x</span>
-                                    <span>{m.title}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDealItems((prev) => incrementDealItem(prev, m.title))}
-                                    className="px-2 py-1 text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer font-bold"
-                                    title="Increase count"
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Price (Rs.) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    required
-                    placeholder="850"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white font-mono font-semibold"
-                  />
-                </div>
-              )}
-
-              {/* Customer Options / Customizations */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700">
-                    Custom Options (Sizes, Add-ons)
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => addOptionGroup('single')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Single Choice (Size)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addOptionGroup('multi')}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Multiple Choice (Add-on)</span>
-                    </button>
-                  </div>
-                </div>
-
-                {optionsGroups.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic py-2 text-center bg-slate-50 rounded-xl">
-                    No custom choices added. Click buttons above to add Size options or Add-ons.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {optionsGroups.map((grp, gIdx) => (
-                      <div
-                        key={grp.id || gIdx}
-                        className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5"
-                      >
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={grp.name}
-                            onChange={(e) => updateGroupName(gIdx, e.target.value)}
-                            placeholder="Option Group Name (e.g. Size)"
-                            className="flex-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:border-slate-400"
-                          />
-                          <select
-                            value={grp.type}
-                            onChange={(e) => updateGroupType(gIdx, e.target.value)}
-                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium cursor-pointer"
-                          >
-                            <option value="single">Single (Radio)</option>
-                            <option value="multi">Multiple (Checkbox)</option>
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => removeGroup(gIdx)}
-                            className="p-1 text-slate-400 hover:text-rose-500 transition cursor-pointer"
-                            title="Remove group"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        {/* Options Choices list */}
-                        <div className="space-y-1.5 pl-2">
-                          {grp.options.map((opt, oIdx) => (
-                            <div key={opt.id || oIdx} className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={opt.name}
-                                onChange={(e) => updateChoice(gIdx, oIdx, 'name', e.target.value)}
-                                placeholder="Choice name (e.g. Extra Cheese)"
-                                className="flex-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-slate-400"
-                              />
-                              <div className="flex items-center gap-1 w-28">
-                                <span className="text-[10px] text-slate-400">+Rs.</span>
-                                <input
-                                  type="number"
-                                  step="1"
-                                  value={opt.price_delta}
-                                  onChange={(e) => updateChoice(gIdx, oIdx, 'price_delta', e.target.value)}
-                                  placeholder="0"
-                                  className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-slate-400"
-                                />
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeChoice(gIdx, oIdx)}
-                                className="p-1 text-slate-300 hover:text-rose-500 transition cursor-pointer"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => addChoiceToGroup(gIdx)}
-                            className="text-[11px] font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1 pt-0.5 cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Add choice</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Submit */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{isSubmitting ? 'Saving...' : editingItemId ? 'Update Dish' : 'Save Dish'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Streamlined Single Dish Modal */}
+      <DishFormModal
+        isOpen={isDishModalOpen}
+        onClose={() => setIsDishModalOpen(false)}
+        categories={categories}
+        itemToEdit={itemToEdit}
+        onSaveDish={handleSaveDish}
+      />
     </div>
   );
 }

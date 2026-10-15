@@ -10,7 +10,9 @@ import OrdersFeed from '../components/OrdersFeed';
 import { restaurantService } from '../services/restaurantService';
 import { orderService, playKitchenChime } from '../services/orderService';
 import { useAuth } from '../context/AuthContext';
-import { Store, Layers, Utensils, QrCode, Bell, Printer } from 'lucide-react';
+import { Store, Layers, Utensils, Bell, Printer } from 'lucide-react';
+import PrinterSetupWizard from '../components/Printer/PrinterSetupWizard';
+import { printerService } from '../services/printer/printerService';
 
 export default function OwnerDashboardPage() {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ export default function OwnerDashboardPage() {
   const [orderStats, setOrderStats] = useState(null);
   const [isLive, setIsLive] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('dinehq_sound_enabled') !== 'false';
   });
@@ -109,6 +112,28 @@ export default function OwnerDashboardPage() {
         if (order) {
           setNewOrderAlert(`🔔 New direct order #${order.id} received from ${order.customer_name}!`);
           setTimeout(() => setNewOrderAlert(null), 6000);
+
+          // Auto-print tickets to printers configured with autoPrint: true
+          try {
+            const allPrinters = printerService.getPrinters();
+            const autoPrinters = allPrinters.filter((p) => p.autoPrint);
+            if (autoPrinters.length > 0) {
+              for (const p of autoPrinters) {
+                printerService
+                  .print(
+                    {
+                      order,
+                      restaurant,
+                      reorderQrUrl: `${window.location.origin}/${restaurant?.slug || 'burgersmoke'}`,
+                    },
+                    { printerId: p.id }
+                  )
+                  .catch((pErr) => console.warn(`Auto-print warning on ${p.name}:`, pErr));
+              }
+            }
+          } catch (pErr) {
+            console.warn('Auto-print error:', pErr);
+          }
         }
       }
     };
@@ -246,7 +271,7 @@ export default function OwnerDashboardPage() {
   const activeOrdersCount = orders.filter((o) => o.status === 'new' || o.status === 'preparing' || o.status === 'out_for_delivery').length;
 
   return (
-    <div className="min-h-screen bg-slate-50/70 text-slate-900 flex flex-col font-sans selection:bg-emerald-600 selection:text-white">
+    <div className="min-h-screen bg-[#FFF9F2] text-[#2B2118] flex flex-col font-sans selection:bg-[#F26B1D] selection:text-white">
       {/* Top Navbar */}
       <div className="no-print">
         <Navbar
@@ -258,6 +283,7 @@ export default function OwnerDashboardPage() {
           onToggleKitchenOpen={handleToggleKitchenOpen}
           onOpenQR={() => setActiveTab('qr')}
           onOpenPreview={handleOpenLiveCustomerMenu}
+          onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
         />
       </div>
 
@@ -269,19 +295,19 @@ export default function OwnerDashboardPage() {
         </section>
 
         {/* Tab Navigation */}
-        <div className="no-print flex items-center gap-1.5 border-b border-slate-200 pb-3 overflow-x-auto scrollbar-none">
+        <div className="no-print flex items-center gap-1.5 border-b border-[#F0E4D7] pb-3 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
               activeTab === 'orders'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80 hover:bg-slate-50'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
             }`}
           >
-            <Bell className="w-3.5 h-3.5 text-amber-400" />
+            <Bell className="w-4 h-4 text-amber-300" />
             <span>Orders</span>
             {activeOrdersCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold font-mono animate-pulse">
+              <span className="px-2 py-0.5 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse">
                 {activeOrdersCount}
               </span>
             )}
@@ -289,49 +315,49 @@ export default function OwnerDashboardPage() {
 
           <button
             onClick={() => setActiveTab('items')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
               activeTab === 'items'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80 hover:bg-slate-50'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
             }`}
           >
-            <Utensils className="w-3.5 h-3.5" />
+            <Utensils className="w-4 h-4" />
             <span>Menu Items ({menuItems.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('categories')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
               activeTab === 'categories'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80 hover:bg-slate-50'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-4 h-4" />
             <span>Categories ({categories.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('qr')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
               activeTab === 'qr'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80 hover:bg-slate-50'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
             }`}
           >
-            <Printer className="w-3.5 h-3.5 text-emerald-400" />
+            <Printer className="w-4 h-4" />
             <span>Print QR</span>
           </button>
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
               activeTab === 'settings'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/80 hover:bg-slate-50'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
             }`}
           >
-            <Store className="w-3.5 h-3.5" />
+            <Store className="w-4 h-4" />
             <span>Settings</span>
           </button>
         </div>
@@ -346,6 +372,7 @@ export default function OwnerDashboardPage() {
               soundEnabled={soundEnabled}
               onToggleSound={toggleSound}
               newOrderAlert={newOrderAlert}
+              onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
             />
           )}
 
@@ -379,11 +406,20 @@ export default function OwnerDashboardPage() {
           {activeTab === 'settings' && (
             <StoreSettings
               restaurant={restaurant}
+              categories={categories}
               onUpdate={handleUpdateRestaurant}
+              onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
             />
           )}
         </div>
       </main>
+
+      {/* Printer Setup Wizard Modal */}
+      <PrinterSetupWizard
+        isOpen={isPrinterModalOpen}
+        onClose={() => setIsPrinterModalOpen(false)}
+        categories={categories}
+      />
 
       {/* Footer */}
       <footer className="no-print mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-400 bg-white">

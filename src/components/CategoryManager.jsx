@@ -65,23 +65,23 @@ export default function CategoryManager({
   };
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+    <div className="bg-white border border-[#F0E4D7] rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#F0E4D7]">
         <div>
-          <h2 className="text-lg font-heading font-bold text-slate-900 tracking-tight">
+          <h2 className="text-lg font-heading font-bold text-[#2B2118] tracking-tight">
             Menu Categories
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-[#7A6A5C] mt-0.5">
             Organize dishes into sections on your customer menu.
           </p>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 w-fit">
+        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FFF1E6] text-[#F26B1D] w-fit">
           {categories.length} {categories.length === 1 ? 'Category' : 'Categories'}
         </span>
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+        <div className="p-3 rounded-xl bg-[#FDECEC] border border-[#E5484D]/30 text-[#D92D20] text-xs">
           {error}
         </div>
       )}
@@ -96,12 +96,12 @@ export default function CategoryManager({
             setError('');
           }}
           placeholder="New category name (e.g. Smash Burgers, Drinks)..."
-          className="flex-1 px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-slate-400 focus:bg-white transition"
+          className="flex-1 px-3.5 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
         />
         <button
           type="submit"
           disabled={isSubmitting || !newCategoryName.trim()}
-          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+          className="px-4 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white font-bold text-xs shadow-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Add Category</span>
@@ -110,10 +110,10 @@ export default function CategoryManager({
 
       {/* Categories Cards */}
       {categories.length === 0 ? (
-        <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-          <FolderPlus className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-          <p className="text-sm font-bold text-slate-800">No categories added yet</p>
-          <p className="text-xs text-slate-500 mt-1">Type a name above (e.g. "Burgers") to create your first category.</p>
+        <div className="text-center py-12 border border-dashed border-[#F0E4D7] rounded-2xl bg-[#FFF9F2]/50">
+          <FolderPlus className="w-10 h-10 text-[#9E8E81] mx-auto mb-2" />
+          <p className="text-sm font-bold text-[#2B2118]">No categories added yet</p>
+          <p className="text-xs text-[#7A6A5C] mt-1">Type a name above (e.g. "Burgers") to create your first category.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -124,7 +124,7 @@ export default function CategoryManager({
             return (
               <div
                 key={cat.id}
-                className="group flex items-center justify-between p-4 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-slate-300 hover:bg-white transition shadow-2xs"
+                className="group flex items-center justify-between p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] hover:border-[#F26B1D]/40 hover:bg-white transition shadow-sm"
               >
                 {isEditing ? (
                   <div className="flex items-center gap-2 w-full">
@@ -136,13 +136,13 @@ export default function CategoryManager({
                         if (e.key === 'Enter') handleSaveEdit(cat.id);
                         if (e.key === 'Escape') cancelEditing();
                       }}
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-emerald-500 text-slate-900 text-xs font-bold focus:outline-none"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-[#F26B1D] text-[#2B2118] text-xs font-bold focus:outline-none"
                       autoFocus
                     />
                     <button
                       type="button"
                       onClick={() => handleSaveEdit(cat.id)}
-                      className="p-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 cursor-pointer"
+                      className="p-1.5 rounded-lg bg-[#1F9D55] text-white hover:bg-[#188045] cursor-pointer"
                       title="Save name"
                     >
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -150,7 +150,7 @@ export default function CategoryManager({
                     <button
                       type="button"
                       onClick={cancelEditing}
-                      className="p-1.5 rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300 cursor-pointer"
+                      className="p-1.5 rounded-lg bg-[#F0E4D7] text-[#7A6A5C] hover:bg-[#E5D7C7] cursor-pointer"
                       title="Cancel"
                     >
                       <X className="w-3.5 h-3.5 stroke-[3]" />
@@ -159,12 +159,12 @@ export default function CategoryManager({
                 ) : (
                   <>
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                      <div className="w-8 h-8 rounded-xl bg-[#FFF1E6] border border-[#FCD8BF] flex items-center justify-center text-[#F26B1D] shrink-0">
                         <Tag className="w-4 h-4" />
                       </div>
                       <div className="truncate">
-                        <p className="text-sm font-bold text-slate-900 truncate">{cat.name}</p>
-                        <p className="text-[11px] text-slate-500 font-medium">
+                        <p className="text-sm font-bold text-[#2B2118] truncate">{cat.name}</p>
+                        <p className="text-[11px] text-[#7A6A5C] font-medium">
                           {count} {count === 1 ? 'dish' : 'dishes'} listed
                         </p>
                       </div>
@@ -174,7 +174,7 @@ export default function CategoryManager({
                       <button
                         onClick={() => startEditing(cat)}
                         title="Rename category"
-                        className="opacity-60 group-hover:opacity-100 p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                        className="opacity-70 group-hover:opacity-100 p-2 rounded-lg hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] transition cursor-pointer"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -185,7 +185,7 @@ export default function CategoryManager({
                           }
                         }}
                         title="Delete category"
-                        className="opacity-60 group-hover:opacity-100 p-2 rounded-lg hover:bg-rose-50 hover:text-rose-600 text-slate-400 transition cursor-pointer"
+                        className="opacity-70 group-hover:opacity-100 p-2 rounded-lg hover:bg-[#FEE4E2] hover:text-[#D92D20] text-[#9E8E81] transition cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

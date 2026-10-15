@@ -486,20 +486,20 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
       </div>
 
       {/* Tab Header (Hidden on Print) */}
-      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#F0E4D7]">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="p-2 rounded-xl bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF]">
               <Printer className="w-5 h-5" />
             </span>
             <div>
-              <h2 className="text-xl font-heading font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight flex items-center gap-2">
                 Print QR
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF]">
                   15 Formats
                 </span>
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-[#7A6A5C] mt-0.5">
                 Print-ready QR materials for tables, packaging, and signage.
               </p>
             </div>
@@ -509,34 +509,34 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleCopyLink}
-            className="px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition flex items-center gap-1.5 cursor-pointer"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-[#1F9D55]" /> : <Copy className="w-3.5 h-3.5 text-[#9E8E81]" />}
             <span>{copied ? 'Copied' : 'Copy Menu URL'}</span>
           </button>
 
           <button
             onClick={handleDownloadSVG}
-            className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition flex items-center gap-1.5 cursor-pointer"
             title="Download Vector SVG of QR alone"
           >
-            <FileCode className="w-3.5 h-3.5 text-slate-500" />
+            <FileCode className="w-3.5 h-3.5 text-[#9E8E81]" />
             <span>QR SVG</span>
           </button>
 
           <button
             onClick={handleDownloadPNG}
             disabled={isExportingPNG}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl bg-white border border-[#F26B1D] text-[#F26B1D] hover:bg-[#FFF1E6] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
           >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <Download className="w-3.5 h-3.5 text-[#F26B1D]" />
             <span>{isExportingPNG ? 'Rendering...' : 'Download PNG'}</span>
           </button>
 
           <button
             onClick={handleDownloadPDF}
             disabled={isExportingPDF}
-            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl bg-[#2F6FED] hover:bg-[#1E5AD6] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
             title="Export 300 DPI PDF ready for professional print shops"
           >
             <FileText className="w-3.5 h-3.5" />
@@ -545,7 +545,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
 
           <button
             onClick={handlePrint}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs sm:text-sm font-bold shadow-md shadow-[#F26B1D]/20 transition flex items-center gap-1.5 cursor-pointer"
           >
             <Printer className="w-4 h-4 stroke-[2.5]" />
             <span>Print Now</span>
@@ -581,8 +581,8 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
       {/* Visual Format Selector (Grid of 15 Cards) */}
       <div className="no-print space-y-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-            <Layers className="w-4 h-4 text-emerald-600" />
+          <span className="text-xs font-bold uppercase tracking-wider text-[#7A6A5C] flex items-center gap-1.5">
+            <Layers className="w-4 h-4 text-[#F26B1D]" />
             Pick Print Format:
           </span>
 
@@ -594,8 +594,8 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3 py-1 rounded-full text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                   selectedCategory === cat.id
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? 'bg-[#F26B1D] text-white shadow-xs'
+                    : 'bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118]'
                 }`}
               >
                 {cat.label}
@@ -615,23 +615,23 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                 onClick={() => setSelectedFormatId(format.id)}
                 className={`p-3 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between cursor-pointer relative overflow-hidden group ${
                   isSelected
-                    ? 'bg-emerald-50/60 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm'
-                    : 'bg-white border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/80 shadow-2xs'
+                    ? 'bg-[#FFF1E6] border-[#F26B1D] ring-2 ring-[#F26B1D]/20 shadow-sm'
+                    : 'bg-white border-[#F0E4D7] hover:border-[#F26B1D]/40 hover:bg-[#FFF9F2] shadow-xs'
                 }`}
               >
                 {/* Active checkmark */}
                 {isSelected && (
-                  <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                  <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#F26B1D] text-white flex items-center justify-center">
                     <Check className="w-2.5 h-2.5 stroke-[3]" />
                   </div>
                 )}
 
                 <div>
                   {/* Miniature Ratio Mockup Box */}
-                  <div className="w-full h-16 rounded-xl bg-slate-100/90 border border-slate-200 flex items-center justify-center mb-2.5 relative overflow-hidden group-hover:scale-[1.02] transition-transform">
+                  <div className="w-full h-16 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-center mb-2.5 relative overflow-hidden group-hover:scale-[1.02] transition-transform">
                     <div
-                      className={`rounded shadow-2xs flex flex-col items-center justify-center transition-all ${
-                        isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-white'
+                      className={`rounded shadow-xs flex flex-col items-center justify-center transition-all ${
+                        isSelected ? 'bg-[#F26B1D] text-white' : 'bg-[#7A6A5C] text-white'
                       }`}
                       style={{
                         width:

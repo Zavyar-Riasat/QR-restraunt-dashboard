@@ -22,11 +22,80 @@ import {
   Image as ImageIcon,
   X,
   Lock,
+  Palette,
+  Printer,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { printerService } from '../services/printer/printerService';
+import { DRIVER_IDS, PAPER_SIZE_SPECS } from '../services/printer/printerTypes';
+import PrintersSection from './Printer/PrintersSection';
+import PrintTemplatesSection from './Printer/PrintTemplatesSection';
 
-export default function StoreSettings({ restaurant, onUpdate }) {
+const BRAND_PRESET_COLORS = [
+  { name: 'Warm Orange (Default)', value: '#F26B1D' },
+  { name: 'Chili Crimson', value: '#E53935' },
+  { name: 'Golden Amber', value: '#F5A623' },
+  { name: 'Fresh Herb Green', value: '#1F9D55' },
+  { name: 'Royal Plum', value: '#7C3AED' },
+  { name: 'Espresso Brown', value: '#8B4513' },
+];
+
+export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSettings, categories = [] }) {
   const { user, getRegisteredUsers, updateUserCredentials } = useAuth();
+  const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
+  const [isTestingPrint, setIsTestingPrint] = useState(false);
+  const [printTestStatus, setPrintTestStatus] = useState(null);
+
+  useEffect(() => {
+    return printerService.subscribe((cfg) => setPrinterConfig(cfg));
+  }, []);
+
+  const handleTestPrint = async () => {
+    try {
+      setIsTestingPrint(true);
+      setPrintTestStatus(null);
+      const res = await printerService.printTestPage();
+      if (res.usedFallback) {
+        setPrintTestStatus({
+          type: 'warning',
+          text: `Test ticket opened via Browser Print (${res.message}).`,
+        });
+      } else {
+        setPrintTestStatus({
+          type: 'success',
+          text: 'Test ticket printed successfully!',
+        });
+      }
+      setTimeout(() => setPrintTestStatus(null), 5000);
+    } catch (err) {
+      setPrintTestStatus({
+        type: 'error',
+        text: `Print test failed: ${err.message}`,
+      });
+      setTimeout(() => setPrintTestStatus(null), 6000);
+    } finally {
+      setIsTestingPrint(false);
+    }
+  };
+
+  const getPrinterDriverLabel = () => {
+    switch (printerConfig.driver) {
+      case DRIVER_IDS.USB:
+        return printerConfig.usbDeviceName ? `USB (${printerConfig.usbDeviceName})` : 'USB Thermal Printer';
+      case DRIVER_IDS.BLUETOOTH:
+        return printerConfig.bluetoothDeviceName ? `Bluetooth (${printerConfig.bluetoothDeviceName})` : 'Bluetooth Thermal';
+      case DRIVER_IDS.RAWBT:
+        return 'Android RawBT App';
+      case DRIVER_IDS.NETWORK:
+        return printerConfig.network?.ip ? `Network Printer (${printerConfig.network.ip})` : 'WiFi / Network Printer';
+      case DRIVER_IDS.CLOUD:
+        return 'Cloud Print (PrintNode)';
+      case DRIVER_IDS.BROWSER:
+      default:
+        return 'Standard Printer (Browser Print)';
+    }
+  };
 
   // Store & Delivery settings state
   const [formData, setFormData] = useState({
@@ -34,6 +103,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
     slug: '',
     whatsapp_number: '',
     logo_url: '',
+    primary_color: '#F26B1D',
     is_open: true,
     delivery_mode: 'paid', // 'paid' | 'free' | 'none'
     delivery_fee: 150,
@@ -68,6 +138,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
         slug: restaurant.slug || '',
         whatsapp_number: restaurant.whatsapp_number || '',
         logo_url: restaurant.logo_url || '',
+        primary_color: restaurant.primary_color || '#F26B1D',
         is_open: restaurant.is_open !== false,
         delivery_mode: restaurant.delivery_mode || (restaurant.delivery_fee === 0 ? 'free' : 'paid'),
         delivery_fee: restaurant.delivery_fee ?? 150,
@@ -267,21 +338,49 @@ export default function StoreSettings({ restaurant, onUpdate }) {
 
   return (
     <div className="space-y-8">
+      {/* Quick Section Anchor Pills */}
+      <div className="flex flex-wrap items-center gap-2 p-2 bg-white border border-[#F0E4D7] rounded-2xl shadow-2xs">
+        <a
+          href="#store-profile"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
+        >
+          Store Identity
+        </a>
+        <a
+          href="#printers-section"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
+        >
+          Printers & Hardware
+        </a>
+        <a
+          href="#templates-section"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#F26B1D] bg-[#FFF1E6] transition"
+        >
+          Print Templates & Live Preview
+        </a>
+        <a
+          href="#manager-profile"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
+        >
+          Manager Password
+        </a>
+      </div>
+
       {/* 1. Store Identity & Delivery Options */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-200">
+      <div id="store-profile" className="bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-[#F0E4D7]">
           <div>
-            <h2 className="text-xl font-heading font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              <Store className="w-5 h-5 text-emerald-600" />
+            <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight flex items-center gap-2">
+              <Store className="w-5 h-5 text-[#F26B1D]" />
               Kitchen & Delivery Settings
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            <p className="text-xs sm:text-sm text-[#7A6A5C] mt-0.5">
               Configure store identity, delivery fee options, minimum order, and prep time display.
             </p>
           </div>
 
           {saved && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold animate-fadeIn">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E7F6EC] text-[#1F9D55] border border-[#C0E9CE] text-xs font-bold animate-fadeIn">
               <Check className="w-3.5 h-3.5 stroke-[3]" />
               <span>Settings Saved!</span>
             </span>
@@ -298,8 +397,8 @@ export default function StoreSettings({ restaurant, onUpdate }) {
         <form onSubmit={handleStoreSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Restaurant Display Name */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
+              <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
                 Store Display Name
               </label>
               <input
@@ -309,25 +408,25 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                 onChange={handleChange}
                 placeholder="e.g. Burger & Smoke Co."
                 required
-                className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 transition shadow-2xs"
+                className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
               />
-              <p className="text-[11px] text-slate-500">Displayed at the top of your web menu and flyers.</p>
+              <p className="text-[11px] text-[#7A6A5C]">Displayed at the top of your web menu and receipts.</p>
             </div>
 
             {/* Kitchen Status Toggle */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Power className="w-3.5 h-3.5 text-emerald-600" />
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
+              <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
+                <Power className="w-3.5 h-3.5 text-[#F26B1D]" />
                 Kitchen Operational Status
               </label>
-              <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200">
+              <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#F0E4D7]">
                 <div className="flex items-center gap-2">
                   <span
                     className={`w-2.5 h-2.5 rounded-full ${
-                      formData.is_open ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                      formData.is_open ? 'bg-[#1F9D55] animate-pulse' : 'bg-[#D92D20]'
                     }`}
                   ></span>
-                  <span className="text-xs font-bold text-slate-800">
+                  <span className="text-xs font-bold text-[#2B2118]">
                     {formData.is_open ? 'Kitchen is Open (Accepting Orders)' : 'Kitchen is Paused (Orders Blocked)'}
                   </span>
                 </div>
@@ -336,33 +435,33 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   onClick={() => setFormData((prev) => ({ ...prev, is_open: !prev.is_open }))}
                   className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                     formData.is_open
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                      ? 'bg-[#FDECEC] text-[#D92D20] border border-[#F9C3C5] hover:bg-[#F9C3C5]'
+                      : 'bg-[#E7F6EC] text-[#1F9D55] border border-[#C0E9CE] hover:bg-[#C0E9CE]'
                   }`}
                 >
                   {formData.is_open ? 'Pause Kitchen' : 'Open Kitchen'}
                 </button>
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[#7A6A5C]">
                 When paused, customers browsing your menu are informed that ordering is temporarily paused.
               </p>
             </div>
 
             {/* Restaurant Brand Logo */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3 md:col-span-2">
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-3 md:col-span-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-[#F26B1D]" />
                   Store Brand Logo & Receipt Header
                 </label>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-[#7A6A5C]">
                   Displayed on your customer web menu, storefront banner, and printed on order receipts.
                 </span>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-200/80">
+              <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-xl border border-[#F0E4D7]">
                 {/* Logo Preview */}
-                <div className="w-20 h-20 rounded-xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+                <div className="w-20 h-20 rounded-xl bg-[#FFF9F2] border-2 border-dashed border-[#F0E4D7] flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
                   {formData.logo_url ? (
                     <img
                       src={formData.logo_url}
@@ -371,15 +470,15 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                     />
                   ) : (
                     <div className="text-center p-1">
-                      <Store className="w-6 h-6 text-slate-300 mx-auto" />
-                      <span className="text-[9px] text-slate-400 font-bold block mt-0.5">No Logo</span>
+                      <Store className="w-6 h-6 text-[#9E8E81] mx-auto" />
+                      <span className="text-[9px] text-[#9E8E81] font-bold block mt-0.5">No Logo</span>
                     </div>
                   )}
                 </div>
 
                 <div className="flex-1 space-y-2.5 w-full">
                   <div className="flex flex-wrap items-center gap-2">
-                    <label className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 cursor-pointer transition flex items-center gap-1.5">
+                    <label className="px-3.5 py-1.5 rounded-xl bg-[#FFF1E6] hover:bg-[#FCD8BF] text-[#F26B1D] text-xs font-bold border border-[#FCD8BF] cursor-pointer transition flex items-center gap-1.5">
                       <Upload className="w-3.5 h-3.5" />
                       <span>Upload Logo File</span>
                       <input
@@ -394,7 +493,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                       <button
                         type="button"
                         onClick={() => setFormData((prev) => ({ ...prev, logo_url: '' }))}
-                        className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition cursor-pointer flex items-center gap-1"
+                        className="px-3 py-1.5 rounded-xl bg-[#FDECEC] hover:bg-[#F9C3C5] text-[#D92D20] text-xs font-bold border border-[#F9C3C5] transition cursor-pointer flex items-center gap-1"
                       >
                         <X className="w-3.5 h-3.5" />
                         <span>Remove Logo</span>
@@ -403,7 +502,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-[11px] font-bold text-slate-600">
+                    <label className="block text-[11px] font-bold text-[#7A6A5C]">
                       Or Paste Image URL:
                     </label>
                     <input
@@ -412,8 +511,86 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                       value={formData.logo_url}
                       onChange={handleChange}
                       placeholder="https://example.com/logo.png"
-                      className="w-full px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-emerald-500 transition"
+                      className="w-full px-3 py-1.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] transition"
                     />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Store Brand Primary Color (Web Menu Theme) */}
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-3 md:col-span-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-[#F26B1D]" />
+                  Brand Primary Color (Customer Menu Theme)
+                </label>
+                <span className="text-[11px] text-[#7A6A5C]">
+                  Choose your brand's primary color for buttons, badges, and active tabs on the public menu.
+                </span>
+              </div>
+
+              {/* Color Swatches Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                {BRAND_PRESET_COLORS.map((preset) => {
+                  const isSelected = (formData.primary_color || '#F26B1D').toLowerCase() === preset.value.toLowerCase();
+                  return (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, primary_color: preset.value }))}
+                      className={`p-2.5 rounded-xl border flex flex-col items-center text-center gap-1.5 transition cursor-pointer ${
+                        isSelected
+                          ? 'border-[#F26B1D] bg-[#FFF1E6] ring-2 ring-[#F26B1D]'
+                          : 'border-[#F0E4D7] bg-white hover:border-[#FCD8BF]'
+                      }`}
+                    >
+                      <span
+                        className="w-6 h-6 rounded-full shadow-2xs flex items-center justify-center text-white"
+                        style={{ backgroundColor: preset.value }}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </span>
+                      <span className="text-[10px] font-bold text-[#2B2118] leading-tight">
+                        {preset.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Hex Color Picker & Live Button Preview */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-[#F0E4D7]">
+                <div className="flex items-center gap-2.5">
+                  <label className="text-xs font-bold text-[#7A6A5C]">Custom Color:</label>
+                  <div className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-xl border border-[#F0E4D7]">
+                    <input
+                      type="color"
+                      name="primary_color"
+                      value={formData.primary_color || '#F26B1D'}
+                      onChange={handleChange}
+                      className="w-7 h-7 rounded-lg cursor-pointer border-0 bg-transparent p-0"
+                      title="Choose custom color"
+                    />
+                    <input
+                      type="text"
+                      name="primary_color"
+                      value={formData.primary_color || '#F26B1D'}
+                      onChange={handleChange}
+                      placeholder="#F26B1D"
+                      maxLength={7}
+                      className="w-20 font-mono text-xs font-bold text-[#2B2118] focus:outline-none uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-[#7A6A5C]">Menu Button Preview:</span>
+                  <div
+                    className="px-3.5 py-1.5 rounded-xl text-white text-xs font-bold shadow-xs flex items-center gap-1.5"
+                    style={{ backgroundColor: formData.primary_color || '#F26B1D' }}
+                  >
+                    <span>+ Add to Order</span>
                   </div>
                 </div>
               </div>
@@ -438,15 +615,15 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   onClick={() => setFormData((prev) => ({ ...prev, delivery_mode: 'paid' }))}
                   className={`p-3.5 rounded-xl border text-left transition cursor-pointer ${
                     formData.delivery_mode === 'paid'
-                      ? 'bg-emerald-50 border-emerald-500 shadow-xs ring-1 ring-emerald-500'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-[#FFF1E6] border-[#F26B1D] shadow-xs ring-1 ring-[#F26B1D]'
+                      : 'bg-white border-[#F0E4D7] hover:border-[#FCD8BF]'
                   }`}
                 >
-                  <p className="text-xs font-bold text-slate-900 flex items-center justify-between">
+                  <p className="text-xs font-bold text-[#2B2118] flex items-center justify-between">
                     <span>Flat Delivery Fee</span>
-                    <span className="text-emerald-700 font-mono font-bold">Rs. {formData.delivery_fee}</span>
+                    <span className="text-[#F26B1D] font-mono font-bold">Rs. {formData.delivery_fee}</span>
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[11px] text-[#7A6A5C] mt-1">
                     Adds fixed delivery fee to order total and displays on header pill.
                   </p>
                 </button>
@@ -456,17 +633,17 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   onClick={() => setFormData((prev) => ({ ...prev, delivery_mode: 'free' }))}
                   className={`p-3.5 rounded-xl border text-left transition cursor-pointer ${
                     formData.delivery_mode === 'free'
-                      ? 'bg-emerald-50 border-emerald-500 shadow-xs ring-1 ring-emerald-500'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-[#FFF1E6] border-[#F26B1D] shadow-xs ring-1 ring-[#F26B1D]'
+                      : 'bg-white border-[#F0E4D7] hover:border-[#FCD8BF]'
                   }`}
                 >
-                  <p className="text-xs font-bold text-slate-900 flex items-center justify-between">
+                  <p className="text-xs font-bold text-[#2B2118] flex items-center justify-between">
                     <span>Free Delivery</span>
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                    <span className="px-1.5 py-0.5 rounded bg-[#E7F6EC] text-[#1F9D55] text-[10px] font-bold">
                       FREE
                     </span>
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[11px] text-[#7A6A5C] mt-1">
                     Shows "Delivery: Free" on menu header; customers are charged Rs. 0.
                   </p>
                 </button>
@@ -476,17 +653,17 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   onClick={() => setFormData((prev) => ({ ...prev, delivery_mode: 'none' }))}
                   className={`p-3.5 rounded-xl border text-left transition cursor-pointer ${
                     formData.delivery_mode === 'none'
-                      ? 'bg-emerald-50 border-emerald-500 shadow-xs ring-1 ring-emerald-500'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-[#FFF1E6] border-[#F26B1D] shadow-xs ring-1 ring-[#F26B1D]'
+                      : 'bg-white border-[#F0E4D7] hover:border-[#FCD8BF]'
                   }`}
                 >
-                  <p className="text-xs font-bold text-slate-900 flex items-center justify-between">
+                  <p className="text-xs font-bold text-[#2B2118] flex items-center justify-between">
                     <span>Don't Mention Delivery</span>
-                    <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold">
+                    <span className="px-1.5 py-0.5 rounded bg-[#FFF9F2] text-[#7A6A5C] text-[10px] font-bold border border-[#F0E4D7]">
                       HIDDEN
                     </span>
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[11px] text-[#7A6A5C] mt-1">
                     Removes delivery mention completely from the storefront header.
                   </p>
                 </button>
@@ -494,11 +671,11 @@ export default function StoreSettings({ restaurant, onUpdate }) {
 
               {formData.delivery_mode === 'paid' && (
                 <div className="pt-2 max-w-xs">
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  <label className="block text-[11px] font-bold text-[#7A6A5C] mb-1">
                     Flat Delivery Fee Amount (PKR)
                   </label>
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs font-mono font-bold">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-[#9E8E81] text-xs font-mono font-bold">
                       Rs.
                     </span>
                     <input
@@ -509,7 +686,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                       value={formData.delivery_fee}
                       onChange={handleChange}
                       placeholder="150"
-                      className="w-full pl-12 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-emerald-500 transition"
+                      className="w-full pl-12 pr-4 py-2 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm font-mono focus:outline-none focus:border-[#F26B1D] transition"
                     />
                   </div>
                 </div>
@@ -517,10 +694,10 @@ export default function StoreSettings({ restaurant, onUpdate }) {
             </div>
 
             {/* Minimum Order Amount Setting */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3">
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-3">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5 text-[#F26B1D]" />
                   Minimum Order Requirement
                 </label>
                 <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -528,9 +705,9 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                     type="checkbox"
                     checked={formData.show_min_order}
                     onChange={(e) => setFormData((prev) => ({ ...prev, show_min_order: e.target.checked }))}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    className="w-4 h-4 rounded text-[#F26B1D] focus:ring-[#F26B1D] cursor-pointer"
                   />
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-[#2B2118]">
                     {formData.show_min_order ? 'Enabled' : 'Disabled'}
                   </span>
                 </label>
@@ -539,7 +716,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
               {formData.show_min_order ? (
                 <div>
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs font-mono font-bold">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-[#9E8E81] text-xs font-mono font-bold">
                       Rs.
                     </span>
                     <input
@@ -550,25 +727,25 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                       value={formData.min_order_amount}
                       onChange={handleChange}
                       placeholder="500"
-                      className="w-full pl-12 pr-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-emerald-500 transition shadow-2xs"
+                      className="w-full pl-12 pr-4 py-2 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm font-mono focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1.5">
+                  <p className="text-[11px] text-[#7A6A5C] mt-1.5">
                     Orders below this subtotal will prompt customers to add more items.
                   </p>
                 </div>
               ) : (
-                <div className="p-2.5 rounded-xl bg-slate-100/70 text-slate-600 text-[11px]">
+                <div className="p-2.5 rounded-xl bg-[#FFF1E6] text-[#7A6A5C] text-[11px] border border-[#F0E4D7]">
                   ✓ Minimum order is disabled. It won't be mentioned on your menu, and customers can order any amount.
                 </div>
               )}
             </div>
 
             {/* Estimated Prep Time Setting */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3">
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-3">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#F26B1D]" />
                   Estimated Prep Time Display
                 </label>
                 <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -576,9 +753,9 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                     type="checkbox"
                     checked={formData.show_prep_time}
                     onChange={(e) => setFormData((prev) => ({ ...prev, show_prep_time: e.target.checked }))}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    className="w-4 h-4 rounded text-[#F26B1D] focus:ring-[#F26B1D] cursor-pointer"
                   />
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-[#2B2118]">
                     {formData.show_prep_time ? 'Enabled' : 'Disabled'}
                   </span>
                 </label>
@@ -592,30 +769,30 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                     value={formData.prep_time}
                     onChange={handleChange}
                     placeholder="e.g. 20–30 mins"
-                    className="w-full px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 transition shadow-2xs"
+                    className="w-full px-4 py-2 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1.5">
+                  <p className="text-[11px] text-[#7A6A5C] mt-1.5">
                     Displayed with a clock icon on the storefront banner to set diner expectations.
                   </p>
                 </div>
               ) : (
-                <div className="p-2.5 rounded-xl bg-slate-100/70 text-slate-600 text-[11px]">
+                <div className="p-2.5 rounded-xl bg-[#FFF1E6] text-[#7A6A5C] text-[11px] border border-[#F0E4D7]">
                   ✓ Prep time is hidden. It will not be shown on your customer menu banner.
                 </div>
               )}
             </div>
 
             {/* WhatsApp Routing */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-2">
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-[#F26B1D]" />
                   WhatsApp Kitchen Phone
                 </label>
                 <button
                   type="button"
                   onClick={handleTestWhatsApp}
-                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition cursor-pointer"
+                  className="text-[11px] font-bold text-[#F26B1D] hover:text-[#D95A12] flex items-center gap-1 transition cursor-pointer"
                   title="Send a sample WhatsApp message to verify this number"
                 >
                   <Send className="w-3 h-3" />
@@ -629,26 +806,26 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                 onChange={handleChange}
                 placeholder="e.g. 923001234567"
                 required
-                className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-emerald-500 transition shadow-2xs"
+                className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm font-mono focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
               />
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[#7A6A5C]">
                 Include country code. Customer orders arrive directly here in formatted WhatsApp text.
               </p>
             </div>
 
             {/* Custom Slug with Copy & Preview */}
-            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-2">
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Link2 className="w-3.5 h-3.5 text-emerald-600" />
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5 text-[#F26B1D]" />
                   Custom Menu URL Slug
                 </label>
                 <button
                   type="button"
                   onClick={handleCopyMenuLink}
-                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition cursor-pointer"
+                  className="text-[11px] font-bold text-[#7A6A5C] hover:text-[#2B2118] flex items-center gap-1 transition cursor-pointer"
                 >
-                  {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                  {copied ? <Check className="w-3 h-3 text-[#1F9D55]" /> : <Copy className="w-3 h-3" />}
                   <span>{copied ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
@@ -659,10 +836,10 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                 onChange={handleChange}
                 placeholder="e.g. burgersmoke"
                 required
-                className="w-full px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-emerald-500 transition shadow-2xs"
+                className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm font-mono focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
               />
-              <p className="text-[11px] text-slate-500 truncate">
-                Public link: <span className="text-emerald-700 font-mono font-bold">{previewMenuUrl}</span>
+              <p className="text-[11px] text-[#7A6A5C] truncate">
+                Public link: <span className="text-[#F26B1D] font-mono font-bold">{previewMenuUrl}</span>
               </p>
             </div>
           </div>
@@ -672,7 +849,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              className="px-6 py-2.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white font-bold text-xs sm:text-sm shadow-md shadow-orange-500/20 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
             >
               <Check className="w-4 h-4 stroke-[3]" />
               <span>{isSubmitting ? 'Saving Kitchen Settings...' : 'Save Kitchen Settings'}</span>
@@ -681,29 +858,37 @@ export default function StoreSettings({ restaurant, onUpdate }) {
         </form>
       </div>
 
-      {/* 2. Manager Login Profile & Change Password */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
-        <div className="pb-5 border-b border-slate-200">
-          <h2 className="text-xl font-heading font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <Shield className="w-5 h-5 text-indigo-600" />
+      {/* 2. Printers Management Section */}
+      <PrintersSection categories={categories} />
+
+      {/* 3. Print Templates & Live Preview Customization */}
+      <div id="templates-section">
+        <PrintTemplatesSection restaurant={restaurant} />
+      </div>
+
+      {/* 4. Manager Login Profile & Change Password */}
+      <div id="manager-profile" className="bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+        <div className="pb-5 border-b border-[#F0E4D7]">
+          <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight flex items-center gap-2">
+            <Shield className="w-5 h-5 text-[#F26B1D]" />
             Manager Profile & Password
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-[#7A6A5C] mt-0.5">
             Update your manager account profile or securely change your manager login password.
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Form: Profile Details */}
-          <form onSubmit={handleSaveProfile} className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4 flex flex-col justify-between">
+          <form onSubmit={handleSaveProfile} className="p-5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-4 flex flex-col justify-between">
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <User className="w-4 h-4 text-indigo-600" />
+              <div className="flex items-center justify-between pb-2 border-b border-[#F0E4D7]">
+                <h3 className="text-sm font-bold text-[#2B2118] flex items-center gap-2">
+                  <User className="w-4 h-4 text-[#F26B1D]" />
                   Manager Profile
                 </h3>
                 {credSaved && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1F9D55] bg-[#E7F6EC] px-2 py-0.5 rounded-full border border-[#C0E9CE]">
                     <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
                     Profile Updated
                   </span>
@@ -711,14 +896,14 @@ export default function StoreSettings({ restaurant, onUpdate }) {
               </div>
 
               {credError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <div className="p-3 rounded-xl bg-[#FDECEC] border border-[#F9C3C5] text-[#D92D20] text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-[#D92D20] shrink-0" />
                   <span>{credError}</span>
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
                   Manager Full Name
                 </label>
                 <input
@@ -727,13 +912,13 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   onChange={(e) => setManagerName(e.target.value)}
                   placeholder="e.g. Burger & Smoke Manager"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-indigo-500 transition shadow-2xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
                 />
-                <p className="text-[11px] text-slate-500">Your profile display name in the dashboard.</p>
+                <p className="text-[11px] text-[#7A6A5C]">Your profile display name in the dashboard.</p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
                   Manager Login Email
                 </label>
                 <input
@@ -742,9 +927,9 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   onChange={(e) => setManagerEmail(e.target.value)}
                   placeholder="manager@yourstore.com"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-indigo-500 transition shadow-2xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm font-mono focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
                 />
-                <p className="text-[11px] text-slate-500">Used to sign in to your restaurant management portal.</p>
+                <p className="text-[11px] text-[#7A6A5C]">Used to sign in to your restaurant management portal.</p>
               </div>
             </div>
 
@@ -752,7 +937,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
               <button
                 type="submit"
                 disabled={credSubmitting}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white font-bold text-xs shadow-md shadow-orange-500/20 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>{credSubmitting ? 'Saving Profile...' : 'Save Profile'}</span>
@@ -760,16 +945,16 @@ export default function StoreSettings({ restaurant, onUpdate }) {
             </div>
           </form>
 
-          {/* Right Form: Change Password (No View Password toggle) */}
-          <form onSubmit={handleChangePassword} className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4 flex flex-col justify-between">
+          {/* Right Form: Change Password */}
+          <form onSubmit={handleChangePassword} className="p-5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-4 flex flex-col justify-between">
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-indigo-600" />
+              <div className="flex items-center justify-between pb-2 border-b border-[#F0E4D7]">
+                <h3 className="text-sm font-bold text-[#2B2118] flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-[#F26B1D]" />
                   Change Password
                 </h3>
                 {pwdSaved && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1F9D55] bg-[#E7F6EC] px-2 py-0.5 rounded-full border border-[#C0E9CE]">
                     <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
                     Password Changed!
                   </span>
@@ -777,14 +962,14 @@ export default function StoreSettings({ restaurant, onUpdate }) {
               </div>
 
               {pwdError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <div className="p-3 rounded-xl bg-[#FDECEC] border border-[#F9C3C5] text-[#D92D20] text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-[#D92D20] shrink-0" />
                   <span>{pwdError}</span>
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
                   Current Password
                 </label>
                 <input
@@ -793,13 +978,13 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-indigo-500 transition shadow-2xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm font-mono focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
                 />
-                <p className="text-[11px] text-slate-500">Provide your existing manager login password.</p>
+                <p className="text-[11px] text-[#7A6A5C]">Provide your existing manager login password.</p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
                   New Password
                 </label>
                 <input
@@ -808,9 +993,9 @@ export default function StoreSettings({ restaurant, onUpdate }) {
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password (min. 4 characters)"
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 text-sm font-mono focus:outline-none focus:border-indigo-500 transition shadow-2xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm font-mono focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
                 />
-                <p className="text-[11px] text-slate-500">Set a secure new password for your account.</p>
+                <p className="text-[11px] text-[#7A6A5C]">Set a secure new password for your account.</p>
               </div>
             </div>
 
@@ -818,7 +1003,7 @@ export default function StoreSettings({ restaurant, onUpdate }) {
               <button
                 type="submit"
                 disabled={pwdSubmitting}
-                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md shadow-slate-900/10 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white font-bold text-xs shadow-md shadow-orange-500/20 transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>{pwdSubmitting ? 'Updating...' : 'Change Password'}</span>

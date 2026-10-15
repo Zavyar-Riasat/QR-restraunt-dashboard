@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Store,
 } from 'lucide-react';
+import PrinterStatusBadge from './Printer/PrinterStatusBadge';
 
 export default function Navbar({
   restaurant,
@@ -24,6 +25,7 @@ export default function Navbar({
   onToggleKitchenOpen,
   onOpenQR,
   onOpenPreview,
+  onOpenPrinterSettings,
 }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -44,16 +46,16 @@ export default function Navbar({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/90 shadow-xs">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-[#F0E4D7] shadow-2xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
         {/* Brand & Store Name / Switcher */}
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-md shadow-emerald-600/20">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] flex items-center justify-center shadow-md shadow-orange-500/20">
             <UtensilsCrossed className="w-5 h-5 text-white font-black" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-heading font-extrabold text-slate-900 text-lg tracking-tight">DineHQ</span>
+              <span className="font-heading font-extrabold text-[#2B2118] text-lg tracking-tight">DineHQ</span>
             </div>
 
             <div className="flex items-center gap-2 mt-0.5">
@@ -63,7 +65,7 @@ export default function Navbar({
                   <select
                     value={restaurant?.id || ''}
                     onChange={(e) => onSelectRestaurant && onSelectRestaurant(e.target.value)}
-                    className="text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-0.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer pr-6 appearance-none"
+                    className="text-xs font-bold text-[#2B2118] bg-[#FFF9F2] hover:bg-[#FFF1E6] px-2.5 py-0.5 rounded-lg border border-[#F0E4D7] focus:outline-none focus:ring-1 focus:ring-[#F26B1D] cursor-pointer pr-6 appearance-none"
                     title="Switch active restaurant"
                   >
                     {allRestaurants.map((r) => (
@@ -72,15 +74,15 @@ export default function Navbar({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-3 h-3 text-slate-500 absolute right-1.5 pointer-events-none" />
+                  <ChevronDown className="w-3 h-3 text-[#7A6A5C] absolute right-1.5 pointer-events-none" />
                 </div>
               ) : (
-                <span className="text-xs font-bold text-slate-700">
+                <span className="text-xs font-bold text-[#7A6A5C]">
                   {restaurant?.name || 'My Restaurant'}
                 </span>
               )}
 
-              <span className="text-slate-300 hidden sm:inline">•</span>
+              <span className="text-[#F0E4D7] hidden sm:inline">•</span>
 
               {/* Persistent Kitchen Status Switch */}
               <button
@@ -88,12 +90,12 @@ export default function Navbar({
                 onClick={onToggleKitchenOpen}
                 className={`hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full border transition cursor-pointer ${
                   kitchenOpen
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                    : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                    ? 'bg-[#E7F6EC] text-[#1F9D55] border-[#C0E9CE] hover:bg-[#D5EFE0]'
+                    : 'bg-[#FDECEC] text-[#E5484D] border-[#F9C3C5] hover:bg-[#FCD9DA]'
                 }`}
                 title={kitchenOpen ? 'Click to Pause Kitchen Orders' : 'Click to Reopen Kitchen'}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${kitchenOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+                <span className={`w-1.5 h-1.5 rounded-full ${kitchenOpen ? 'bg-[#1F9D55] animate-pulse' : 'bg-[#E5484D]'}`}></span>
                 <span>{kitchenOpen ? 'Kitchen Open' : 'Kitchen Paused'}</span>
               </button>
             </div>
@@ -106,7 +108,7 @@ export default function Navbar({
           {user?.role === 'admin' && (
             <Link
               to="/admin"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EAF1FF] hover:bg-[#D8E6FF] text-[#2F6FED] text-xs font-bold border border-[#BCD4FD] transition"
               title="Open Admin User Provisioning Panel"
             >
               <Shield className="w-3.5 h-3.5" />
@@ -114,20 +116,27 @@ export default function Navbar({
             </Link>
           )}
 
+          {/* Receipt Printer Status & Setup Shortcut */}
+          {onOpenPrinterSettings && (
+            <div className="hidden sm:block">
+              <PrinterStatusBadge onOpenSettings={onOpenPrinterSettings} />
+            </div>
+          )}
+
           {/* Quick Copy Menu Link */}
           <button
             onClick={handleCopyLink}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-bold border border-slate-200 transition cursor-pointer"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer"
             title="Copy customer menu URL to share on WhatsApp"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-[#1F9D55]" /> : <Copy className="w-3.5 h-3.5 text-[#7A6A5C]" />}
             <span>{copied ? 'Copied!' : 'Copy Menu URL'}</span>
           </button>
 
           {/* Live Customer Menu Button */}
           <button
             onClick={onOpenPreview}
-            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold shadow-sm shadow-orange-500/20 transition cursor-pointer"
             title="Preview Customer Menu"
           >
             <span className="hidden sm:inline">View Menu</span>
@@ -136,18 +145,18 @@ export default function Navbar({
           </button>
 
           {/* User Profile & Sign Out */}
-          <div className="flex items-center pl-1 sm:pl-2 border-l border-slate-200 gap-1.5">
+          <div className="flex items-center pl-1 sm:pl-2 border-l border-[#F0E4D7] gap-1.5">
             <div
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-medium"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#FFF9F2] text-[#7A6A5C] text-xs font-medium border border-[#F0E4D7]"
               title={user?.email}
             >
-              <User className="w-3 h-3 text-slate-400" />
+              <User className="w-3 h-3 text-[#9E8E81]" />
               <span className="max-w-[120px] truncate">{user?.email || 'Manager'}</span>
             </div>
 
             <button
               onClick={handleSignOut}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-xs font-bold transition cursor-pointer border border-transparent hover:border-rose-200 flex items-center gap-1"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-white hover:bg-[#FEE4E2] text-[#7A6A5C] hover:text-[#D92D20] text-xs font-bold transition cursor-pointer border border-[#F0E4D7] hover:border-[#FECDCA] flex items-center gap-1"
               title="Logout"
             >
               <LogOut className="w-3.5 h-3.5" />

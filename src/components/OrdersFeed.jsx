@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bell,
   Clock,
@@ -20,10 +20,17 @@ import {
   X,
   XCircle,
   MoreVertical,
+  RefreshCw,
+  Sparkles,
+  FileText,
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
 import { playKitchenChime } from '../services/orderService';
 import { QRCodeSVG } from 'qrcode.react';
+import { printerService } from '../services/printer/printerService';
+import { DRIVER_IDS, PAPER_SIZE_SPECS, TEMPLATE_TYPES } from '../services/printer/printerTypes';
+import PrinterStatusBadge from './Printer/PrinterStatusBadge';
+import PrintTemplateRenderer from './Printer/PrintTemplateRenderer';
 
 export default function OrdersFeed({
   orders = [],
@@ -32,14 +39,95 @@ export default function OrdersFeed({
   soundEnabled = true,
   onToggleSound,
   newOrderAlert,
+  onOpenPrinterSettings,
 }) {
   const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
   const [search, setSearch] = useState('');
   const [printingOrder, setPrintingOrder] = useState(null);
   const [openMenuOrderId, setOpenMenuOrderId] = useState(null);
+  const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
+  const [directPrintingId, setDirectPrintingId] = useState(null);
+  const [printSuccessToast, setPrintSuccessToast] = useState(null);
+  const [fallbackAlert, setFallbackAlert] = useState(null);
+  const [isModalPrinting, setIsModalPrinting] = useState(false);
+  const [modalTemplateType, setModalTemplateType] = useState(TEMPLATE_TYPES.KOT);
+  const [modalPaperSize, setModalPaperSize] = useState(() => printerService.getConfig().paperSize || '80mm');
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const reorderUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}`;
+
+  useEffect(() => {
+    return printerService.subscribe((cfg) => setPrinterConfig(cfg));
+  }, []);
+
+  useEffect(() => {
+    const handleFallbackEvent = (e) => {
+      const { originalDriver, errorMessage } = e.detail || {};
+      setFallbackAlert({
+        message: `${originalDriver || 'Thermal printer'} was unavailable (${errorMessage || 'Connection failed'}). We automatically opened standard browser print instead.`,
+      });
+      setTimeout(() => setFallbackAlert(null), 12000);
+    };
+
+    window.addEventListener('dinehq:printer-fallback', handleFallbackEvent);
+    return () => window.removeEventListener('dinehq:printer-fallback', handleFallbackEvent);
+  }, []);
+
+  const handleDirectPrint = async (order, printType = null) => {
+    try {
+      setDirectPrintingId(order.id);
+      const res = await printerService.print(
+        {
+          order,
+          restaurant,
+          reorderUrl,
+        },
+        printType ? { printType } : {}
+      );
+
+      if (res.usedFallback) {
+        setFallbackAlert({
+          message: `${res.printerName || res.originalDriver || 'Thermal printer'} was unavailable. Switched to standard browser print.`,
+        });
+      } else {
+        setPrintSuccessToast(`Order #${order.id} printed to ${res.printerName || res.driver || 'printer'}!`);
+        setTimeout(() => setPrintSuccessToast(null), 3000);
+      }
+    } catch (err) {
+      setFallbackAlert({
+        message: `Print error: ${err.message}`,
+      });
+    } finally {
+      setDirectPrintingId(null);
+    }
+  };
+
+  const handleModalPrint = async () => {
+    if (!printingOrder) return;
+    try {
+      setIsModalPrinting(true);
+      const res = await printerService.print({
+        order: printingOrder,
+        restaurant,
+        reorderUrl,
+        templateType: modalTemplateType,
+        paperSize: modalPaperSize,
+      });
+
+      if (res.usedFallback) {
+        setFallbackAlert({
+          message: `${res.printerName || res.originalDriver || 'Thermal printer'} was unavailable. Switched to standard browser print.`,
+        });
+      } else {
+        setPrintSuccessToast(`Order #${printingOrder.id} printed successfully!`);
+        setTimeout(() => setPrintSuccessToast(null), 3000);
+      }
+    } catch (err) {
+      alert(`Print error: ${err.message}`);
+    } finally {
+      setIsModalPrinting(false);
+    }
+  };
 
   const filteredOrders = orders.filter((order) => {
     const matchesFilter =
@@ -63,36 +151,36 @@ export default function OrdersFeed({
     switch (status) {
       case 'new':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold animate-pulse">
-            <Bell className="w-3.5 h-3.5 text-amber-600" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDECEC] border border-[#F9C3C5] text-[#E5484D] text-xs font-bold animate-pulse">
+            <Bell className="w-3.5 h-3.5 text-[#E5484D]" />
             <span>New Order</span>
           </span>
         );
       case 'preparing':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-bold">
-            <ChefHat className="w-3.5 h-3.5 text-indigo-600" />
-            <span>In Kitchen</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF3D9] border border-[#FCE1A8] text-[#F5A623] text-xs font-bold">
+            <ChefHat className="w-3.5 h-3.5 text-[#F5A623]" />
+            <span>Preparing</span>
           </span>
         );
       case 'out_for_delivery':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-800 text-xs font-bold">
-            <Truck className="w-3.5 h-3.5 text-sky-600" />
-            <span>Out for Delivery</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-xs font-bold">
+            <Truck className="w-3.5 h-3.5 text-[#1F9D55]" />
+            <span>Ready / Out</span>
           </span>
         );
       case 'completed':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F0E4D7] border border-[#E5D7C7] text-[#7A6A5C] text-xs font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#7A6A5C]" />
             <span>Completed</span>
           </span>
         );
       case 'cancelled':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold">
-            <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEE4E2] border border-[#FECDCA] text-[#D92D20] text-xs font-bold">
+            <AlertCircle className="w-3.5 h-3.5 text-[#D92D20]" />
             <span>Cancelled</span>
           </span>
         );
@@ -115,7 +203,7 @@ export default function OrdersFeed({
   };
 
   return (
-    <div className={`bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6 ${printingOrder ? 'print:p-0 print:border-none print:shadow-none print:bg-transparent print:space-y-0' : ''}`}>
+    <div className={`bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6 ${printingOrder ? 'print:p-0 print:border-none print:shadow-none print:bg-transparent print:space-y-0' : ''}`}>
       {/* Background Feed Content (Hidden when printing KOT modal) */}
       <div className={`space-y-6 ${printingOrder ? 'no-print' : ''}`}>
         {/* Live Order Incoming Alert Banner */}
@@ -129,26 +217,58 @@ export default function OrdersFeed({
         </div>
       )}
 
+      {/* Printer Fallback Warning Banner */}
+      {fallbackAlert && (
+        <div className="p-3.5 rounded-2xl bg-[#FEF3D9] border border-[#FCE1A8] text-[#2B2118] text-xs font-semibold flex items-center justify-between gap-3 shadow-xs animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-[#F5A623] shrink-0" />
+            <span>{fallbackAlert.message}</span>
+          </div>
+          {onOpenPrinterSettings && (
+            <button
+              type="button"
+              onClick={onOpenPrinterSettings}
+              className="px-2.5 py-1 rounded-xl bg-white border border-[#F26B1D] text-[#F26B1D] hover:bg-[#FFF1E6] text-xs font-bold transition cursor-pointer shrink-0"
+            >
+              Printer Settings
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Quick Print Success Toast */}
+      {printSuccessToast && (
+        <div className="p-3 rounded-2xl bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-xs font-bold flex items-center gap-2 shadow-xs animate-fadeIn">
+          <CheckCircle2 className="w-4 h-4 text-[#1F9D55] shrink-0" />
+          <span>{printSuccessToast}</span>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#F0E4D7]">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center font-bold">
               <Bell className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-heading font-extrabold text-slate-900 tracking-tight">
+              <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight">
                 Orders
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#7A6A5C]">
                 Incoming orders, tickets, and status.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Audio Controls, Search & Tabs */}
+        {/* Audio Controls, Printer Badge & Search */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Printer Status Badge */}
+          {onOpenPrinterSettings && (
+            <PrinterStatusBadge onOpenSettings={onOpenPrinterSettings} />
+          )}
+
           {/* Audio Chime Controls */}
           <div className="flex items-center gap-1.5">
             <button
@@ -187,27 +307,27 @@ export default function OrdersFeed({
             />
           </div>
 
-          <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+          <div className="flex rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
             <button
               onClick={() => setFilter('all')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                filter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                filter === 'all' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
               }`}
             >
               All ({orders.length})
             </button>
             <button
               onClick={() => setFilter('active')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                filter === 'active' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                filter === 'active' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
               }`}
             >
               Active ({orders.filter((o) => o.status === 'new' || o.status === 'preparing' || o.status === 'out_for_delivery').length})
             </button>
             <button
               onClick={() => setFilter('completed')}
-              className={`px-3 py-1 rounded-lg transition cursor-pointer ${
-                filter === 'completed' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                filter === 'completed' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
               }`}
             >
               Completed ({orders.filter((o) => o.status === 'completed').length})
@@ -218,10 +338,10 @@ export default function OrdersFeed({
 
       {/* Orders Grid / Cards */}
       {filteredOrders.length === 0 ? (
-        <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
-          <Package className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-800">No orders match this filter</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+        <div className="text-center py-16 border-2 border-dashed border-[#F0E4D7] rounded-3xl bg-[#FFF9F2]/50">
+          <Package className="w-12 h-12 text-[#9E8E81] mx-auto mb-3" />
+          <h3 className="text-base font-bold text-[#2B2118]">No orders match this filter</h3>
+          <p className="text-xs text-[#7A6A5C] mt-1 max-w-sm mx-auto">
             When customers place direct orders from your menu, they will appear here in real time.
           </p>
         </div>
@@ -232,27 +352,29 @@ export default function OrdersFeed({
               key={order.id}
               className={`p-5 rounded-2xl border transition shadow-xs flex flex-col justify-between ${
                 order.status === 'new'
-                  ? 'bg-amber-50/40 border-amber-300'
+                  ? 'bg-[#FDECEC]/30 border-[#F9C3C5]'
                   : order.status === 'preparing'
-                  ? 'bg-indigo-50/30 border-indigo-200'
-                  : 'bg-white border-slate-200/90'
+                  ? 'bg-[#FEF3D9]/30 border-[#FCE1A8]'
+                  : order.status === 'out_for_delivery'
+                  ? 'bg-[#E7F6EC]/30 border-[#C0E9CE]'
+                  : 'bg-white border-[#F0E4D7]'
               }`}
             >
               {/* Order Header */}
               <div>
-                <div className="flex items-start justify-between pb-3 border-b border-slate-200/70 gap-2">
+                <div className="flex items-start justify-between pb-3 border-b border-[#F0E4D7] gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-extrabold text-slate-900 text-sm">
+                      <span className="font-mono font-extrabold text-[#2B2118] text-sm">
                         #{order.id}
                       </span>
-                      <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
+                      <span className="text-[11px] text-[#7A6A5C] flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-[#9E8E81]" />
                         <span>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </span>
                     </div>
-                    <div className="text-base sm:text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
-                      <User className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="text-base sm:text-lg font-black text-[#2B2118] mt-1 flex items-center gap-2">
+                      <User className="w-4 h-4 text-[#F26B1D] shrink-0" />
                       <span>{order.customer_name || 'Walk-in / Direct Customer'}</span>
                     </div>
                   </div>
@@ -261,22 +383,22 @@ export default function OrdersFeed({
                 </div>
 
                 {/* Delivery Info */}
-                <div className="py-2.5 space-y-1 text-xs text-slate-600 border-b border-slate-100">
+                <div className="py-2.5 space-y-1 text-xs text-[#7A6A5C] border-b border-[#F0E4D7]/70">
                   {order.customer_phone && (
                     <div className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-slate-400" />
+                      <Phone className="w-3.5 h-3.5 text-[#9E8E81]" />
                       <span className="font-mono">+{order.customer_phone}</span>
                     </div>
                   )}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-1.5 flex-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                      <MapPin className="w-3.5 h-3.5 text-[#9E8E81] shrink-0 mt-0.5" />
                       <span className="leading-snug">{order.customer_address}</span>
                     </div>
                   </div>
                   {order.customer_notes && (
-                    <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-medium mt-1">
-                      <span className="font-bold">Note: </span>
+                    <div className="p-2 rounded-lg bg-[#FEF3D9] border border-[#FCE1A8] text-[#2B2118] text-[11px] font-medium mt-1">
+                      <span className="font-bold text-[#F5A623]">Note: </span>
                       <span>{order.customer_notes}</span>
                     </div>
                   )}
@@ -284,27 +406,27 @@ export default function OrdersFeed({
 
                 {/* Ordered Items */}
                 <div className="py-3 space-y-2">
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <p className="text-[11px] font-bold text-[#7A6A5C] uppercase tracking-wider">
                     Ordered Dishes ({order.items?.length || 0})
                   </p>
                   <div className="space-y-1.5">
                     {order.items?.map((item, idx) => (
-                      <div key={idx} className="text-xs bg-slate-50 p-2 rounded-xl border border-slate-200/70">
-                        <div className="flex justify-between font-bold text-slate-800">
+                      <div key={idx} className="text-xs bg-[#FFF9F2] p-2 rounded-xl border border-[#F0E4D7]">
+                        <div className="flex justify-between font-bold text-[#2B2118]">
                           <span>
                             {item.quantity}x {item.title}
                           </span>
                           <span className="font-mono">{formatPKR(item.unitPrice * item.quantity)}</span>
                         </div>
                         {item.dealItems && (
-                          <div className="text-[11px] text-amber-700 font-medium mt-0.5">
+                          <div className="text-[11px] text-[#D95A12] font-semibold mt-0.5">
                             📦 Bundle: {item.dealItems}
                           </div>
                         )}
                         {item.choices && item.choices.length > 0 && (
-                          <div className="text-[10px] text-slate-500 mt-0.5 space-y-0.5">
+                          <div className="text-[10px] text-[#7A6A5C] mt-0.5 space-y-0.5">
                             {item.choices.map((c, cIdx) => (
-                              <div key={cIdx} className="pl-2 border-l border-slate-300">
+                              <div key={cIdx} className="pl-2 border-l border-[#F0E4D7]">
                                 ↳ {c}
                               </div>
                             ))}
@@ -317,17 +439,17 @@ export default function OrdersFeed({
               </div>
 
               {/* Order Footer & Actions */}
-              <div className="pt-3 border-t border-slate-200/80 space-y-3">
+              <div className="pt-3 border-t border-[#F0E4D7] space-y-3">
                 <div className="flex items-center justify-between text-xs">
-                  <div className="space-y-0.5 text-slate-500">
-                    <div>Subtotal: <span className="font-mono text-slate-700">{formatPKR(order.subtotal)}</span></div>
+                  <div className="space-y-0.5 text-[#7A6A5C]">
+                    <div>Subtotal: <span className="font-mono text-[#2B2118] font-bold">{formatPKR(order.subtotal)}</span></div>
                     {order.delivery_fee > 0 && (
-                      <div>Delivery Fee: <span className="font-mono text-slate-700">{formatPKR(order.delivery_fee)}</span></div>
+                      <div>Delivery Fee: <span className="font-mono text-[#2B2118] font-bold">{formatPKR(order.delivery_fee)}</span></div>
                     )}
                   </div>
                   <div className="text-right">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Payable</span>
-                    <span className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
+                    <span className="text-[11px] font-bold text-[#9E8E81] uppercase tracking-wider block">Total Payable</span>
+                    <span className="text-xl sm:text-2xl font-black text-[#2B2118] font-mono">
                       {formatPKR(order.total_payable)}
                     </span>
                   </div>
@@ -338,9 +460,9 @@ export default function OrdersFeed({
                   {order.status === 'new' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'preparing')}
-                      className="flex-1 py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-slate-900/10"
+                      className="flex-1 py-3 px-4 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-orange-500/20"
                     >
-                      <ChefHat className="w-4 h-4 text-amber-400" />
+                      <ChefHat className="w-4 h-4 text-white" />
                       <span>Accept & Prepare</span>
                     </button>
                   )}
@@ -348,7 +470,7 @@ export default function OrdersFeed({
                   {order.status === 'preparing' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'out_for_delivery')}
-                      className="flex-1 py-3 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-sky-600/20"
+                      className="flex-1 py-3 px-4 rounded-xl bg-[#F5A623] hover:bg-[#D98E16] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-amber-500/20"
                     >
                       <Truck className="w-4 h-4 text-white" />
                       <span>Dispatch for Delivery</span>
@@ -358,7 +480,7 @@ export default function OrdersFeed({
                   {order.status === 'out_for_delivery' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'completed')}
-                      className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-600/20"
+                      className="flex-1 py-3 px-4 rounded-xl bg-[#1F9D55] hover:bg-[#188044] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-green-500/20"
                     >
                       <CheckCircle2 className="w-4 h-4 text-white" />
                       <span>Mark Delivered</span>
@@ -366,18 +488,33 @@ export default function OrdersFeed({
                   )}
 
                   {order.status === 'completed' && (
-                    <div className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold text-center flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <div className="flex-1 py-2.5 px-3 rounded-xl bg-[#F0E4D7] border border-[#E5D7C7] text-[#7A6A5C] text-xs font-bold text-center flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-[#7A6A5C]" />
                       <span>Order Fulfilled</span>
                     </div>
                   )}
 
                   {order.status === 'cancelled' && (
-                    <div className="flex-1 py-2.5 px-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold text-center flex items-center justify-center gap-1.5">
-                      <AlertCircle className="w-4 h-4 text-rose-600" />
+                    <div className="flex-1 py-2.5 px-3 rounded-xl bg-[#FEE4E2] border border-[#FECDCA] text-[#D92D20] text-xs font-bold text-center flex items-center justify-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-[#D92D20]" />
                       <span>Order Cancelled</span>
                     </div>
                   )}
+
+                  {/* Quick 1-Click Print Ticket Button */}
+                  <button
+                    type="button"
+                    disabled={directPrintingId === order.id}
+                    onClick={() => handleDirectPrint(order)}
+                    className="p-3 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#F26B1D] transition cursor-pointer border border-[#F26B1D] hover:border-[#D95A12] flex items-center justify-center shadow-2xs shrink-0"
+                    title="1-Click Print KOT Receipt"
+                  >
+                    {directPrintingId === order.id ? (
+                      <RefreshCw className="w-4 h-4 animate-spin text-[#F26B1D]" />
+                    ) : (
+                      <Printer className="w-4 h-4" />
+                    )}
+                  </button>
 
                   {/* "..." Dropdown Menu */}
                   <div className="relative">
@@ -399,13 +536,24 @@ export default function OrdersFeed({
                         <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
                           <button
                             onClick={() => {
-                              setPrintingOrder(order);
+                              handleDirectPrint(order, 'kot');
                               setOpenMenuOrderId(null);
                             }}
                             className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
                           >
-                            <Printer className="w-4 h-4 text-slate-500" />
+                            <Printer className="w-4 h-4 text-amber-500" />
                             <span>Print KOT Ticket</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              handleDirectPrint(order, 'bill');
+                              setOpenMenuOrderId(null);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
+                          >
+                            <FileText className="w-4 h-4 text-blue-500" />
+                            <span>Print Customer Bill</span>
                           </button>
 
                           {order.customer_address && (
@@ -469,9 +617,9 @@ export default function OrdersFeed({
             {/* Modal Header (Hidden on Print) */}
             <div className="no-print p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <Printer className="w-4 h-4 text-emerald-600" />
+                <Printer className="w-4 h-4 text-[#F26B1D]" />
                 <h3 className="font-heading font-extrabold text-slate-900 text-sm">
-                  Kitchen Order Ticket (KOT)
+                  Print Order #{printingOrder.id}
                 </h3>
               </div>
               <button
@@ -482,124 +630,116 @@ export default function OrdersFeed({
               </button>
             </div>
 
-            {/* Thermal Docket Receipt Preview */}
-            <div
-              id="kot-thermal-receipt"
-              className="p-5 overflow-y-auto max-h-[70vh] bg-amber-50/20 font-mono text-xs text-slate-900 space-y-3 print:max-h-none print:overflow-visible print:bg-white print:p-3 print:text-black print:space-y-2.5"
-            >
-              <div className="text-center pb-2 border-b border-dashed border-slate-300">
-                {restaurant?.logo_url && (
-                  <div className="mb-2 flex justify-center">
-                    <img
-                      src={restaurant.logo_url}
-                      alt={restaurant.name}
-                      className="max-h-12 max-w-[130px] object-contain mx-auto"
-                    />
-                  </div>
-                )}
-                <h4 className="font-bold text-sm uppercase">{restaurant?.name || 'Kitchen'}</h4>
-                <p className="text-[10px] text-slate-500">KITCHEN ORDER TICKET (KOT)</p>
-                <p className="text-xs font-bold mt-1">ORDER #{printingOrder.id}</p>
-                <p className="text-[10px] text-slate-500">
-                  {new Date(printingOrder.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                </p>
+            {/* Template & Paper Size Selectors Bar */}
+            <div className="no-print p-3 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setModalTemplateType(TEMPLATE_TYPES.KOT)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    modalTemplateType === TEMPLATE_TYPES.KOT
+                      ? 'bg-white text-[#F26B1D] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  KOT Ticket
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTemplateType(TEMPLATE_TYPES.BILL)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    modalTemplateType === TEMPLATE_TYPES.BILL
+                      ? 'bg-white text-[#F26B1D] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Customer Bill
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTemplateType(TEMPLATE_TYPES.DELIVERY)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    modalTemplateType === TEMPLATE_TYPES.DELIVERY
+                      ? 'bg-white text-[#F26B1D] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Delivery Slip
+                </button>
               </div>
 
-              {/* Customer Info */}
-              <div className="space-y-0.5 text-[11px] pb-2 border-b border-dashed border-slate-300">
-                <p><strong>Customer:</strong> {printingOrder.customer_name}</p>
-                {printingOrder.customer_phone && <p><strong>Phone:</strong> +{printingOrder.customer_phone}</p>}
-                <p><strong>Address:</strong> {printingOrder.customer_address}</p>
-                {printingOrder.customer_notes && (
-                  <p className="text-amber-800 font-bold bg-amber-100/60 p-1 rounded mt-1">
-                    NOTE: {printingOrder.customer_notes}
-                  </p>
-                )}
-              </div>
-
-              {/* Itemized List */}
-              <div className="space-y-1.5 py-1">
-                <div className="flex justify-between font-bold text-[11px] border-b border-slate-200 pb-1">
-                  <span>ITEM</span>
-                  <span>TOTAL</span>
-                </div>
-                {printingOrder.items?.map((item, i) => (
-                  <div key={i} className="space-y-0.5">
-                    <div className="flex justify-between font-bold">
-                      <span>{item.quantity}x {item.title}</span>
-                      <span>{formatPKR(item.unitPrice * item.quantity)}</span>
-                    </div>
-                    {item.dealItems && (
-                      <p className="text-[10px] text-slate-600 pl-2">📦 {item.dealItems}</p>
-                    )}
-                    {item.choices?.map((c, cIdx) => (
-                      <p key={cIdx} className="text-[10px] text-slate-500 pl-2">↳ {c}</p>
-                    ))}
-                  </div>
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                {['58mm', '80mm', 'a4'].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setModalPaperSize(size)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase transition cursor-pointer ${
+                      modalPaperSize === size
+                        ? 'bg-white text-[#2B2118] shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {size}
+                  </button>
                 ))}
-              </div>
-
-              {/* Summary */}
-              <div className="pt-2 border-t border-dashed border-slate-300 space-y-1 text-[11px]">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>{formatPKR(printingOrder.subtotal)}</span>
-                </div>
-                {printingOrder.delivery_fee > 0 && (
-                  <div className="flex justify-between">
-                    <span>Delivery Fee:</span>
-                    <span>{formatPKR(printingOrder.delivery_fee)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-300">
-                  <span>TOTAL DUE:</span>
-                  <span>{formatPKR(printingOrder.total_payable)}</span>
-                </div>
-              </div>
-
-              {/* Customer Direct Reorder QR Section */}
-              <div className="text-center pt-2.5 border-t border-dashed border-slate-300 space-y-1.5 print:pt-2">
-                <div className="flex flex-col items-center justify-center">
-                  <div className="p-1.5 bg-white rounded-lg border border-slate-200 inline-block shadow-2xs">
-                    <QRCodeSVG
-                      value={reorderUrl}
-                      size={96}
-                      level="M"
-                      includeMargin={false}
-                    />
-                  </div>
-                  <p className="text-[10px] font-bold text-slate-900 mt-1 uppercase tracking-wide">
-                    Scan to Reorder Directly
-                  </p>
-                  <p className="text-[9px] text-slate-500 font-mono break-all max-w-[240px]">
-                    {reorderUrl}
-                  </p>
-                </div>
-
-                <div className="text-[9px] text-slate-500 pt-0.5">
-                  <p className="font-semibold text-slate-700">Thank you for ordering with {restaurant?.name || 'us'}!</p>
-                  <p className="text-[8px] text-slate-400">Direct WhatsApp Kitchen Order</p>
-                </div>
               </div>
             </div>
 
+            {/* Template Render Preview */}
+            <div
+              id="kot-thermal-receipt"
+              className="p-4 overflow-y-auto max-h-[62vh] bg-slate-100 flex justify-center print:max-h-none print:overflow-visible print:bg-white print:p-0"
+            >
+              <PrintTemplateRenderer
+                templateType={modalTemplateType}
+                paperSize={modalPaperSize}
+                order={printingOrder}
+                restaurant={restaurant}
+                settings={printerService.getTemplateSettings()}
+                isLivePrint={false}
+              />
+            </div>
+
             {/* Actions (Hidden on Print) */}
-            <div className="no-print p-4 border-t border-slate-100 flex items-center gap-2 bg-slate-50">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print Ticket</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrintingOrder(null)}
-                className="py-2.5 px-4 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-100 transition cursor-pointer"
-              >
-                Close
-              </button>
+            <div className="no-print p-4 sm:p-5 border-t border-[#F0E4D7] bg-[#FFF9F2] space-y-2.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isModalPrinting}
+                  onClick={handleModalPrint}
+                  className="flex-1 py-3 px-4 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-md shadow-orange-500/20 disabled:opacity-50"
+                >
+                  {isModalPrinting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                  <span>{isModalPrinting ? 'Printing Ticket...' : 'Print Ticket'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintingOrder(null)}
+                  className="py-3 px-4 rounded-xl bg-white border border-[#F0E4D7] text-[#7A6A5C] font-bold text-xs hover:bg-[#FFF1E6] transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* Connected Printer Routing Footer */}
+              <div className="flex items-center justify-between text-[11px] text-[#7A6A5C] px-1">
+                <span>
+                  Printer: <strong className="text-[#2B2118]">{printerConfig.driver === 'browser' ? 'Browser Print' : printerConfig.driver.toUpperCase()}</strong> ({printerConfig.paperSize})
+                </span>
+                {onOpenPrinterSettings && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrintingOrder(null);
+                      onOpenPrinterSettings();
+                    }}
+                    className="text-[#F26B1D] hover:underline font-bold cursor-pointer"
+                  >
+                    Change Printer
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

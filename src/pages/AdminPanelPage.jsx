@@ -273,38 +273,38 @@ export default function AdminPanelPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-emerald-600 selection:text-white">
+    <div className="min-h-screen bg-[#FFF9F2] text-[#2B2118] flex flex-col font-sans selection:bg-[#F26B1D] selection:text-white">
       {/* Top Admin Navbar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/90 shadow-xs">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-[#F0E4D7] shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-md shadow-indigo-600/20 text-white font-bold">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] flex items-center justify-center shadow-md shadow-[#F26B1D]/20 text-white font-bold">
               <Shield className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-heading font-extrabold text-slate-900 text-lg tracking-tight">
+                <span className="font-heading font-extrabold text-[#2B2118] text-lg tracking-tight">
                   DineHQ Admin
                 </span>
-                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF]">
                   Master Console
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#7A6A5C]">
                 User Provisioning & Tenant Management
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#FFF1E6] text-[#7A6A5C] text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-[#1F9D55]"></span>
               <span>{user?.email}</span>
             </div>
 
             <Link
               to="/"
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-[#F26B1D] text-[#F26B1D] hover:bg-[#FFF1E6] text-xs font-bold transition"
             >
               <UtensilsCrossed className="w-3.5 h-3.5" />
               <span>Kitchen Dashboard</span>
@@ -312,7 +312,7 @@ export default function AdminPanelPage() {
 
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#FEE4E2] hover:bg-[#FDECEC] text-[#D92D20] text-xs font-bold border border-[#D92D20]/20 transition cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Sign Out</span>
@@ -325,25 +325,25 @@ export default function AdminPanelPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
         {/* Metric Cards */}
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+          <div className="p-5 rounded-2xl bg-white border border-[#F0E4D7] shadow-xs flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center shrink-0">
               <Store className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Registered Restaurants</p>
-              <h3 className="text-2xl font-heading font-extrabold text-slate-900 mt-0.5">
+              <p className="text-xs font-bold text-[#7A6A5C] uppercase tracking-wider">Registered Restaurants</p>
+              <h3 className="text-2xl font-heading font-extrabold text-[#2B2118] mt-0.5">
                 {usersList.length}
               </h3>
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+          <div className="p-5 rounded-2xl bg-white border border-[#F0E4D7] shadow-xs flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center shrink-0">
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Managers</p>
-              <h3 className="text-2xl font-heading font-extrabold text-slate-900 mt-0.5">
+              <p className="text-xs font-bold text-[#7A6A5C] uppercase tracking-wider">Active Managers</p>
+              <h3 className="text-2xl font-heading font-extrabold text-[#2B2118] mt-0.5">
                 {usersList.filter((u) => u.role === 'owner').length}
               </h3>
             </div>
@@ -351,8 +351,8 @@ export default function AdminPanelPage() {
         </section>
 
         {/* Section: Register New User & Restaurant Form */}
-        <section className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-100 gap-2">
+        <section className="bg-white rounded-3xl border border-[#F0E4D7] shadow-sm p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-[#F0E4D7] gap-2">
             <div>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -504,7 +504,7 @@ export default function AdminPanelPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold shadow-md shadow-slate-900/10 transition cursor-pointer disabled:opacity-60"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-sm font-bold shadow-md shadow-[#F26B1D]/20 transition cursor-pointer disabled:opacity-60"
               >
                 {submitting ? (
                   <>
@@ -598,14 +598,14 @@ export default function AdminPanelPage() {
         )}
 
         {/* Section: Directory Table */}
-        <section className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <section className="bg-white rounded-3xl border border-[#F0E4D7] shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-[#F0E4D7] flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-heading font-extrabold text-slate-900 flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-lg font-heading font-extrabold text-[#2B2118] flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#F26B1D]" />
                 <span>Registered Users & Tenants Directory</span>
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-[#7A6A5C] mt-0.5">
                 All provisioned restaurant owners and administrative accounts.
               </p>
             </div>
@@ -613,20 +613,20 @@ export default function AdminPanelPage() {
             {/* Filter & Search Bar */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[#9E8E81] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search user, store, or slug..."
-                  className="pl-9 pr-3.5 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="pl-9 pr-3.5 py-1.5 rounded-xl border border-[#F0E4D7] text-xs bg-[#FFF9F2] text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D] focus:border-[#F26B1D]"
                 />
               </div>
 
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50/70 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] text-xs bg-[#FFF9F2] text-[#2B2118] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] cursor-pointer"
               >
                 <option value="all">All Roles</option>
                 <option value="owner">Owners</option>
@@ -638,7 +638,7 @@ export default function AdminPanelPage() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-200/80">
+              <thead className="bg-[#FFF9F2] text-[#7A6A5C] uppercase tracking-wider font-bold border-b border-[#F0E4D7]">
                 <tr>
                   <th className="px-6 py-3.5">Restaurant / Tenant</th>
                   <th className="px-6 py-3.5">Manager Account</th>
@@ -648,7 +648,7 @@ export default function AdminPanelPage() {
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <tbody className="divide-y divide-[#F0E4D7] font-medium">
                 {filteredUsers.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
@@ -731,7 +731,7 @@ export default function AdminPanelPage() {
                             <button
                               type="button"
                               onClick={() => handleOpenResetPassword(account)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition border border-indigo-200 cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FFF1E6] hover:bg-[#FCD8BF] text-[#F26B1D] text-xs font-bold transition border border-[#FCD8BF] cursor-pointer"
                               title={`Reset password for ${account.email}`}
                             >
                               <Key className="w-3 h-3" />
@@ -741,7 +741,7 @@ export default function AdminPanelPage() {
                             {/* Edit Store Details */}
                             <button
                               onClick={() => handleStartEdit(account)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+                              className="p-1.5 rounded-lg text-[#9E8E81] hover:text-[#F26B1D] hover:bg-[#FFF1E6] transition cursor-pointer"
                               title="Edit Store Details"
                             >
                               <Pencil className="w-4 h-4" />
@@ -749,11 +749,11 @@ export default function AdminPanelPage() {
 
                             <button
                               onClick={() => copyToClipboard(menuLink, `copy-${account.id}`)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                              className="p-1.5 rounded-lg text-[#9E8E81] hover:text-[#2B2118] hover:bg-[#FFF1E6] transition cursor-pointer"
                               title="Copy Customer Menu Link"
                             >
                               {copiedKey === `copy-${account.id}` ? (
-                                <Check className="w-4 h-4 text-emerald-600" />
+                                <Check className="w-4 h-4 text-[#1F9D55]" />
                               ) : (
                                 <Copy className="w-4 h-4" />
                               )}
@@ -763,7 +763,7 @@ export default function AdminPanelPage() {
                               href={`/${slug}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                              className="p-1.5 rounded-lg text-[#9E8E81] hover:text-[#2B2118] hover:bg-[#FFF1E6] transition"
                               title="Open Customer Menu"
                             >
                               <ExternalLink className="w-4 h-4" />
@@ -772,7 +772,7 @@ export default function AdminPanelPage() {
                             {!isProtectedMaster && (
                               <button
                                 onClick={() => handleDeleteUser(account.id, account.email)}
-                                className="p-1.5 rounded-lg text-rose-400 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer"
+                                className="p-1.5 rounded-lg text-[#D92D20] hover:text-[#D92D20] hover:bg-[#FEE4E2] transition cursor-pointer"
                                 title="Delete User Account"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -933,7 +933,7 @@ export default function AdminPanelPage() {
                   <button
                     type="submit"
                     disabled={editSubmitting}
-                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold shadow-md shadow-[#F26B1D]/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {editSubmitting ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1028,7 +1028,7 @@ export default function AdminPanelPage() {
                   <button
                     type="submit"
                     disabled={resetSubmitting}
-                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold shadow-md shadow-[#F26B1D]/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {resetSubmitting ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />

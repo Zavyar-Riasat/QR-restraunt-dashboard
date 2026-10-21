@@ -13,6 +13,7 @@ import {
   User,
   ChevronDown,
   Store,
+  Plus,
 } from 'lucide-react';
 import PrinterStatusBadge from './Printer/PrinterStatusBadge';
 
@@ -26,6 +27,7 @@ export default function Navbar({
   onOpenQR,
   onOpenPreview,
   onOpenPrinterSettings,
+  onOpenNewOrder,
 }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -127,20 +129,33 @@ export default function Navbar({
           <button
             onClick={handleCopyLink}
             className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer"
-            title="Copy customer menu URL to share on WhatsApp"
+            title="Copy customer menu URL to share with customers"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-[#1F9D55]" /> : <Copy className="w-3.5 h-3.5 text-[#7A6A5C]" />}
             <span>{copied ? 'Copied!' : 'Copy Menu URL'}</span>
           </button>
 
+          {/* Big "+ New Order" Button */}
+          {onOpenNewOrder && (
+            <button
+              id="new-order-navbar-btn"
+              type="button"
+              onClick={onOpenNewOrder}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#F5A623] hover:from-[#E05A0C] hover:to-[#E59512] active:scale-95 text-white text-xs sm:text-sm font-black shadow-md shadow-orange-500/25 transition cursor-pointer border border-amber-300/30 shrink-0"
+              title="Open In-Store POS to place a new Dine-in, Takeaway, or Delivery order"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>New Order</span>
+            </button>
+          )}
+
           {/* Live Customer Menu Button */}
           <button
             onClick={onOpenPreview}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold shadow-sm shadow-orange-500/20 transition cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] shadow-2xs transition cursor-pointer shrink-0"
             title="Preview Customer Menu"
           >
-            <span className="hidden sm:inline">View Menu</span>
-            <span className="sm:hidden">Menu</span>
+            <span>View Menu</span>
             <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
           </button>
 

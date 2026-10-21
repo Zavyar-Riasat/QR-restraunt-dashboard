@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Plus, Minus, ShoppingBag, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
-import WhatsAppCheckout from './WhatsAppCheckout';
+import DirectOrderCheckout from './DirectOrderCheckout';
+import CustomerOrderTracker from './CustomerOrderTracker';
+import ErrorBoundary from './ErrorBoundary';
 import { formatPKR } from '../utils/currencyUtils';
 
 export default function CustomerCartDrawer({
@@ -10,11 +12,12 @@ export default function CustomerCartDrawer({
   onUpdateQty,
   onRemoveItem,
   restaurant,
+  onCartClear,
 }) {
-  if (!isOpen) return null;
+  const [step, setStep] = useState('cart'); // 'cart' | 'checkout' | 'tracker'
+  const [placedOrder, setPlacedOrder] = useState(null);
 
-  const [step, setStep] = useState('cart'); // 'cart' or 'checkout'
-  const [orderCompleted, setOrderCompleted] = useState(false);
+  if (!isOpen) return null;
 
   const primaryColor = restaurant?.primary_color || '#F26B1D';
   const isFreeDelivery = restaurant?.delivery_mode === 'free';
@@ -23,21 +26,25 @@ export default function CustomerCartDrawer({
   const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const finalTotal = subtotal + deliveryFee;
 
-  const handleOrderPlaced = () => {
-    setOrderCompleted(true);
+  const handleOrderPlaced = (newOrder) => {
+    setPlacedOrder(newOrder);
+    setStep('tracker');
+    if (onCartClear) {
+      onCartClear();
+    }
   };
 
   const handleCloseAll = () => {
-    setOrderCompleted(false);
+    setPlacedOrder(null);
     setStep('cart');
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-[#2B2118]/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white border-l border-[#F0E4D7] h-full flex flex-col shadow-2xl">
+      <div className="w-full max-w-md bg-white border-l border-[#F0E4D7] h-full flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-[#F0E4D7] flex items-center justify-between bg-[#FFF9F2]">
+        <div className="p-4 sm:p-5 border-b border-[#F0E4D7] flex items-center justify-between bg-[#FFF9F2] shrink-0">
           <div className="flex items-center gap-2.5">
             <div
               className="w-9 h-9 rounded-xl bg-[#FFF1E6] border border-[#FCD8BF] flex items-center justify-center text-[#F26B1D]"
@@ -47,10 +54,16 @@ export default function CustomerCartDrawer({
             </div>
             <div>
               <h3 className="font-heading font-extrabold text-[#2B2118] text-base">
-                {step === 'checkout' ? 'WhatsApp Checkout' : 'Your Order'}
+                {step === 'tracker'
+                  ? 'Live Order Tracker'
+                  : step === 'checkout'
+                  ? 'Direct Kitchen Checkout'
+                  : 'Your Order'}
               </h3>
               <p className="text-xs text-[#7A6A5C] font-medium">
-                {cart.reduce((sum, item) => sum + item.quantity, 0)} item(s) selected
+                {step === 'tracker'
+                  ? `Order #${placedOrder?.id}`
+                  : `${cart.reduce((sum, item) => sum + item.quantity, 0)} item(s) selected`}
               </p>
             </div>
           </div>
@@ -64,22 +77,25 @@ export default function CustomerCartDrawer({
         </div>
 
         {/* Content */}
-        {orderCompleted ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[#7A6A5C]">
-            <div className="w-16 h-16 rounded-full bg-[#E7F6EC] border border-[#C0E9CE] flex items-center justify-center text-[#1F9D55] mb-4 animate-bounce">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-heading font-extrabold text-[#2B2118]">Order Sent to WhatsApp!</h3>
-            <p className="text-xs text-[#7A6A5C] max-w-xs mt-2 leading-relaxed">
-              Your formatted order and delivery address were dispatched directly to <strong>{restaurant?.name}</strong>'s WhatsApp Business. The kitchen will confirm your preparation time!
-            </p>
-            <button
-              onClick={handleCloseAll}
-              style={{ backgroundColor: primaryColor }}
-              className="mt-6 px-6 py-2.5 rounded-xl text-white font-bold text-xs transition cursor-pointer shadow-md hover:brightness-95"
-            >
-              Back to Menu
-            </button>
+        {step === 'tracker' && placedOrder ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-slate-50">
+            <ErrorBoundary>
+              <CustomerOrderTracker
+                order={placedOrder}
+                restaurant={restaurant}
+                onClose={handleCloseAll}
+                onNewOrder={handleCloseAll}
+              />
+            </ErrorBoundary>
+          </div>
+        ) : step === 'checkout' ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            <DirectOrderCheckout
+              cart={cart}
+              restaurant={restaurant}
+              onBack={() => setStep('cart')}
+              onOrderPlaced={handleOrderPlaced}
+            />
           </div>
         ) : cart.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[#7A6A5C]">
@@ -88,7 +104,7 @@ export default function CustomerCartDrawer({
             </div>
             <p className="text-base font-bold text-[#2B2118]">Your cart is empty</p>
             <p className="text-xs text-[#7A6A5C] mt-1 max-w-xs">
-              Explore the delicious dishes on the menu and add items to place your direct order.
+              Explore the delicious dishes on the menu and add items to place your direct kitchen order.
             </p>
             <button
               onClick={onClose}
@@ -97,15 +113,6 @@ export default function CustomerCartDrawer({
             >
               Browse Menu
             </button>
-          </div>
-        ) : step === 'checkout' ? (
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-            <WhatsAppCheckout
-              cart={cart}
-              restaurant={restaurant}
-              onBack={() => setStep('cart')}
-              onOrderPlaced={handleOrderPlaced}
-            />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 flex flex-col justify-between">
@@ -195,7 +202,7 @@ export default function CustomerCartDrawer({
                 style={{ backgroundColor: primaryColor }}
                 className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-md flex items-center justify-between transition cursor-pointer hover:brightness-95 active:scale-[0.99]"
               >
-                <span>Proceed to WhatsApp Checkout</span>
+                <span>Proceed to Checkout</span>
                 <ArrowRight className="w-4 h-4 stroke-[3]" />
               </button>
             </div>

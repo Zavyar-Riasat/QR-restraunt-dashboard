@@ -93,7 +93,8 @@ export function AuthProvider({ children }) {
         role: updated.role,
         restaurant_name: updated.restaurant_name,
         restaurant_slug: updated.restaurant_slug,
-        whatsapp_number: updated.whatsapp_number,
+        phone: updated.phone || updated.whatsapp_number,
+        whatsapp_number: updated.phone || updated.whatsapp_number,
       });
       setSession(authService.getCurrentSession());
     }

@@ -31,18 +31,18 @@ export const PRINT_FORMATS = [
     headlines: {
       en: [
         'Scan To View Menu & Order From Your Table',
-        'Hungry? Order Direct On WhatsApp In 3 Steps',
+        'Hungry? Order Direct Online In 3 Easy Steps',
         'Craving Something Special? Browse Our Fresh Menu',
       ],
       ur: [
         'اپنی میز سے مینو دیکھنے اور آرڈر کے لیے اسکین کریں',
-        'بھوک لگی ہے؟ واٹس ایپ پر 3 آسان مراحل میں آرڈر کریں',
+        'بھوک لگی ہے؟ آن لائن 3 آسان مراحل میں آرڈر کریں',
         'ہمارا لائیو مینو دیکھیں اور تازہ کھانا منگوائیں',
       ],
     },
     ctaText: {
-      en: 'Scan to Order from Table',
-      ur: 'میز سے آرڈر کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -65,12 +65,12 @@ export const PRINT_FORMATS = [
       en: [
         'SCAN TO ORDER',
         'VIEW FULL DIGITAL MENU',
-        'ORDER DIRECT VIA WHATSAPP',
+        'ORDER DIRECT ONLINE',
       ],
       ur: [
         'آرڈر کے لیے اسکین کریں',
         'مکمل ڈیجیٹل مینو دیکھیں',
-        'براہ راست واٹس ایپ پر آرڈر کریں',
+        'براہ راست آن لائن آرڈر کریں',
       ],
     },
     ctaText: {
@@ -98,18 +98,18 @@ export const PRINT_FORMATS = [
     headlines: {
       en: [
         'FRESH FROM OUR KITCHEN — ORDER DIRECT & SAVE',
-        'SKIP THIRD-PARTY FEES • ORDER ON WHATSAPP',
+        'SKIP THIRD-PARTY FEES • ORDER DIRECT ONLINE',
         'TASTE THE DIFFERENCE — VIEW FULL LIVE MENU',
       ],
       ur: [
         'ہمارے کچن سے تازہ کھانا — براہ راست آرڈر کریں اور بچت پائیں',
-        'اضافی فیس سے بچیں • واٹس ایپ پر آرڈر کریں',
+        'اضافی فیس سے بچیں • براہ راست آن لائن آرڈر کریں',
         'ہمارا لائیو مینو دیکھیں اور تازہ ترین ڈیلز سے لطف اندوز ہوں',
       ],
     },
     ctaText: {
-      en: 'Scan QR with Phone Camera',
-      ur: 'فون کیمرے سے کیو آر اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -129,19 +129,19 @@ export const PRINT_FORMATS = [
     badge: '2×5 Feet',
     headlines: {
       en: [
-        'WELCOME! ORDER DIRECT FROM OUR WHATSAPP KITCHEN',
+        'WELCOME! ORDER DIRECT FROM OUR ONLINE KITCHEN',
         'FAST DELIVERY • FRESH KITCHEN PREPARATION',
-        'SCAN HERE FOR LIVE MENU & INSTANT WHATSAPP ORDER',
+        'SCAN HERE FOR LIVE MENU & INSTANT ONLINE ORDER',
       ],
       ur: [
-        'خوش آمدید! ہمارے کچن سے براہ راست واٹس ایپ پر آرڈر کریں',
+        'خوش آمدید! ہمارے کچن سے براہ راست آن لائن آرڈر کریں',
         'تیز ترین ترسیل • تازہ کچن کھانا',
         'لائیو مینو اور فوری آرڈر کے لیے یہاں اسکین کریں',
       ],
     },
     ctaText: {
-      en: 'Scan to View Full Live Menu',
-      ur: 'مکمل لائیو مینو کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -162,19 +162,19 @@ export const PRINT_FORMATS = [
     badge: 'A5 & A6',
     headlines: {
       en: [
-        'Direct Kitchen Ordering Now Available on WhatsApp!',
+        'Direct Kitchen Ordering Now Available Online!',
         'Craving Delicious Food? Order Direct in 30 Seconds',
         'Special Direct Ordering Perks & Fresh Kitchen Dispatch',
       ],
       ur: [
-        'اب واٹس ایپ پر کچن سے براہ راست آرڈر کی سہولت دستیاب ہے!',
+        'اب کچن سے براہ راست آن لائن آرڈر کی سہولت دستیاب ہے!',
         'لذیذ کھانے کی طلب ہے؟ صرف 30 سیکنڈ میں آرڈر کریں',
         'براہ راست آرڈر کریں اور خصوصی ڈیلز حاصل کریں',
       ],
     },
     ctaText: {
-      en: 'Scan to Order on WhatsApp',
-      ur: 'واٹس ایپ پر آرڈر کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -196,17 +196,17 @@ export const PRINT_FORMATS = [
       en: [
         'OUR FULL MENU & DIRECT KITCHEN ORDERING GUIDE',
         'ARTISAN FLAVORS • FRESH PREPARATION • FAST DELIVERY',
-        'EXPERIENCE OUR COMPLETE DIGITAL MENU ON WHATSAPP',
+        'EXPERIENCE OUR COMPLETE DIGITAL MENU & ONLINE ORDERING',
       ],
       ur: [
         'ہمارا مکمل مینو اور براہ راست کچن آرڈر گائیڈ',
         'اعلیٰ ذائقہ • تازہ تیاری • تیز ترین ڈیلیوری',
-        'واٹس ایپ پر ہمارا مکمل ڈیجیٹل مینو دریافت کریں',
+        'ہمارا مکمل ڈیجیٹل مینو اور آن لائن آرڈر دریافت کریں',
       ],
     },
     ctaText: {
-      en: 'Scan for Digital Menu & Pricing',
-      ur: 'ڈیجیٹل مینو اور قیمتوں کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -227,19 +227,19 @@ export const PRINT_FORMATS = [
     badge: 'A6 & 2" Round',
     headlines: {
       en: [
-        'Loved Your Meal? Order Direct On WhatsApp Next Time!',
+        'Loved Your Meal? Order Direct Online Next Time!',
         'Thank You For Ordering! Enjoy Direct Kitchen Perks Next Time',
         'Freshly Sealed & Delivered! Keep This For Your Next Order',
       ],
       ur: [
-        'کھانا پسند آیا؟ اگلی بار براہ راست واٹس ایپ پر آرڈر کریں!',
+        'کھانا پسند آیا؟ اگلی بار براہ راست آن لائن آرڈر کریں!',
         'آرڈر کرنے کا شکریہ! اگلی بار کچن سے براہ راست آرڈر کریں',
         'تازہ پیک اور ڈیلیور شدہ! اگلے آرڈر کے لیے یہ پاس رکھیں',
       ],
     },
     ctaText: {
-      en: 'Scan to Re-Order in Seconds',
-      ur: 'چند سیکنڈ میں دوبارہ آرڈر کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -270,8 +270,8 @@ export const PRINT_FORMATS = [
       ],
     },
     ctaText: {
-      en: 'Scan Back for Digital Menu',
-      ur: 'ڈیجیٹل مینو کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -292,18 +292,18 @@ export const PRINT_FORMATS = [
     headlines: {
       en: [
         'THANK YOU FOR DINING WITH US!',
-        'LOVED YOUR ORDER? RE-ORDER VIA WHATSAPP',
+        'LOVED YOUR ORDER? RE-ORDER DIRECT ONLINE',
         'KEEP THIS RECEIPT • SCAN TO RE-ORDER',
       ],
       ur: [
         'ہمارے ساتھ کھانے کا بہت شکریہ!',
-        'کھانا پسند آیا؟ واٹس ایپ پر دوبارہ آرڈر کریں',
+        'کھانا پسند آیا؟ آن لائن دوبارہ آرڈر کریں',
         'یہ رسید محفوظ رکھیں • دوبارہ آرڈر کے لیے اسکین کریں',
       ],
     },
     ctaText: {
-      en: 'Scan Receipt to Re-Order Anytime',
-      ur: 'کسی بھی وقت دوبارہ آرڈر کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -335,8 +335,8 @@ export const PRINT_FORMATS = [
       ],
     },
     ctaText: {
-      en: 'Scan for Contactless Menu',
-      ur: 'کانٹیکٹ لیس مینو کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -359,17 +359,17 @@ export const PRINT_FORMATS = [
       en: [
         'View Live Dish Photos, Customize Add-ons & Order from Table',
         'Want to See Photos of Every Dish? Scan Our Digital Menu',
-        'Explore Today’s Kitchen Specials & Order Directly on WhatsApp',
+        'Explore Today’s Kitchen Specials & Order Directly Online',
       ],
       ur: [
         'کھانوں کی تصاویر دیکھیں، اپنی مرضی کے لوازمات منتخب کریں اور آرڈر کریں',
         'ہر کھانے کی تصویر دیکھنا چاہتے ہیں؟ ڈیجیٹل مینو اسکین کریں',
-        'آج کی خصوصی ڈشز دیکھیں اور واٹس ایپ پر فوری آرڈر کریں',
+        'آج کی خصوصی ڈشز دیکھیں اور آن لائن فوری آرڈر کریں',
       ],
     },
     ctaText: {
-      en: 'Scan for Live Photo Menu',
-      ur: 'تصاویر والے مینو کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -389,19 +389,19 @@ export const PRINT_FORMATS = [
     badge: '4×6" Acrylic Stand',
     headlines: {
       en: [
-        'SKIP THE QUEUE! ORDER & PAY DIRECT ON WHATSAPP',
+        'SKIP THE QUEUE! ORDER & PAY DIRECT ONLINE',
         'TAKE A SEAT — SCAN HERE TO ORDER FROM YOUR PHONE',
         'FAST EXPRESS PICKUP • SCAN TO BROWSE & ORDER',
       ],
       ur: [
-        'لائن سے بچیں! واٹس ایپ پر فوری آرڈر کریں',
+        'لائن سے بچیں! آن لائن فوری آرڈر کریں',
         'آرام سے بیٹھیں — اپنے فون سے آرڈر کے لیے اسکین کریں',
         'فوری ایکسپریس پک اپ • مینو دیکھنے کے لیے اسکین کریں',
       ],
     },
     ctaText: {
-      en: 'Scan to Order from Phone',
-      ur: 'فون سے آرڈر کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -433,8 +433,8 @@ export const PRINT_FORMATS = [
       ],
     },
     ctaText: {
-      en: 'Scan for Secret Deals',
-      ur: 'خصوصی ڈیلز کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -443,7 +443,7 @@ export const PRINT_FORMATS = [
     id: 'social-media',
     name: 'Social Media Post & Story',
     category: 'digital',
-    tagline: 'HD graphics for Instagram, Facebook & WhatsApp Status',
+    tagline: 'HD graphics for Instagram, Facebook & Digital Stories',
     sizes: [
       { id: 'square-post', label: '1080×1080 Square Post (1:1)', widthMm: 1080, heightMm: 1080, isPixels: true, pdfFormat: [200, 200], orientation: 'portrait', pageSize: '200mm 200mm' },
       { id: 'story-9-16', label: '1080×1920 Story / Status (9:16)', widthMm: 1080, heightMm: 1920, isPixels: true, pdfFormat: [200, 355], orientation: 'portrait', pageSize: '200mm 355mm' },
@@ -455,19 +455,19 @@ export const PRINT_FORMATS = [
     badge: '1080p Post & Story',
     headlines: {
       en: [
-        'Order Direct on WhatsApp & Save Big on Every Meal!',
-        'Scan Our QR Code or Take a Screenshot to Order Direct',
+        'Order Direct Online & Save Big on Every Meal!',
+        'Scan Our QR Code to Browse & Order Direct',
         'Fresh Deliveries Straight From Kitchen to Your Doorstep',
       ],
       ur: [
-        'واٹس ایپ پر براہ راست آرڈر کریں اور ہر کھانے پر بچت کریں!',
-        'ہمارا کیو آر اسکین کریں یا اسکرین شاٹ لے کر محفوظ کریں',
+        'براہ راست آن لائن آرڈر کریں اور ہر کھانے پر بچت کریں!',
+        'براہ راست آرڈر کے لیے ہمارا کیو آر اسکین کریں',
         'تازہ ترین پکوان براہ راست آپ کی دہلیز تک',
       ],
     },
     ctaText: {
-      en: 'Screenshot or Scan with WhatsApp',
-      ur: 'اسکرین شاٹ لیں یا واٹس ایپ سے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -498,8 +498,8 @@ export const PRINT_FORMATS = [
       ],
     },
     ctaText: {
-      en: 'Scan to View Our Heritage Menu',
-      ur: 'ہمارا خصوصی مینو دیکھنے کے لیے اسکین کریں',
+      en: 'Scan to Order',
+      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 ];

@@ -6,8 +6,8 @@
  * Shows clear, friendly messages if the helper isn't running.
  */
 
-import { BaseDriver } from './BaseDriver';
-import { DRIVER_IDS } from '../printerTypes';
+import { BaseDriver } from './BaseDriver.js';
+import { DRIVER_IDS } from '../printerTypes.js';
 
 export class NetworkDriver extends BaseDriver {
   constructor() {
@@ -20,6 +20,88 @@ export class NetworkDriver extends BaseDriver {
 
   isConnected() {
     return true;
+  }
+
+  /**
+   * Ping local QZ Tray or DineHQ Print Helper on ws://localhost:8182
+   */
+  async pingHelper() {
+    return new Promise((resolve) => {
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      }, 1200);
+
+      try {
+        const ws = new WebSocket('ws://localhost:8182');
+        ws.onopen = () => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            try { ws.close(); } catch (_) {}
+            resolve(true);
+          }
+        };
+        ws.onerror = () => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            resolve(false);
+          }
+        };
+      } catch (_) {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          resolve(false);
+        }
+      }
+    });
+  }
+
+  /**
+   * Health Check: Test network printer configuration and Print Helper availability
+   */
+  async testConnection(config = {}) {
+    const start = performance.now();
+    const ip = config.ip || config.network?.ip || '192.168.1.100';
+    const port = config.port || config.network?.port || 9100;
+
+    // Validate IP format
+    const ipPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const isValidIp = ipPattern.test(String(ip).trim());
+
+    if (!isValidIp) {
+      return {
+        connected: false,
+        latencyMs: Math.max(1, Math.round(performance.now() - start)),
+        message: `Invalid IP address format: "${ip}".`,
+        fixTip: 'Enter a valid IPv4 address in Printer Settings (e.g. 192.168.1.150).',
+      };
+    }
+
+    // Test print helper (QZ Tray / DineHQ Print Helper)
+    const helperOnline = await this.pingHelper();
+
+    if (helperOnline) {
+      return {
+        connected: true,
+        latencyMs: Math.max(1, Math.round(performance.now() - start)),
+        message: `Print Helper active (ws://localhost:8182). Ready to stream ESC/POS to ${ip}:${port}.`,
+        details: 'Local raw TCP socket bridge operational.',
+      };
+    }
+
+    // Helper not detected
+    return {
+      connected: false,
+      latencyMs: Math.max(1, Math.round(performance.now() - start)),
+      message: `Print Helper daemon is not running on this computer for target ${ip}:${port}.`,
+      fixTip: 'Install or start QZ Tray / DineHQ Print Helper on this PC to bridge browser to raw port 9100, or switch to Browser Print fallback.',
+    };
   }
 
   /**

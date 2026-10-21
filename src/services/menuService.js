@@ -9,9 +9,10 @@ export const menuService = {
    */
   async getMenuBySlug(slug) {
     const isConfigured = Boolean(
-      import.meta.env.VITE_SUPABASE_URL &&
-      import.meta.env.VITE_SUPABASE_ANON_KEY &&
-      !import.meta.env.VITE_SUPABASE_URL.includes('your-project-ref')
+      typeof import.meta !== 'undefined' &&
+      import.meta.env?.VITE_SUPABASE_URL &&
+      import.meta.env?.VITE_SUPABASE_ANON_KEY &&
+      !import.meta.env?.VITE_SUPABASE_URL.includes('your-project-ref')
     );
 
     if (isConfigured) {
@@ -19,7 +20,7 @@ export const menuService = {
         // 1. Fetch restaurant by slug (Public RLS SELECT policy allows this)
         const { data: restaurantData, error: restError } = await supabase
           .from('restaurants')
-          .select('id, name, slug, whatsapp_number')
+          .select('*')
           .eq('slug', slug)
           .single();
 
@@ -81,6 +82,7 @@ export const menuService = {
         id: 'rest-101',
         name: 'Burger & Smoke Co.',
         slug: slug || 'burgersmoke',
+        phone: '923001234567',
         whatsapp_number: '923001234567',
         is_open: true,
         delivery_mode: 'paid',

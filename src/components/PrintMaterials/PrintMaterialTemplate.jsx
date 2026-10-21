@@ -133,13 +133,15 @@ function BrandedQRCode({
   showLogo = true,
   effectiveRatio = 0.19,
   className = '',
+  logoSrc = null,
 }) {
+  const effectiveLogo = (showLogo && (logoPlateDataUrl || logoSrc)) || null;
   const imageSettings =
-    showLogo && logoPlateDataUrl
+    effectiveLogo
       ? {
-          src: logoPlateDataUrl,
-          width: size * effectiveRatio,
-          height: size * effectiveRatio,
+          src: effectiveLogo,
+          width: size * (effectiveRatio || 0.19),
+          height: size * (effectiveRatio || 0.19),
           excavate: true,
         }
       : undefined;
@@ -218,8 +220,9 @@ export default function PrintMaterialTemplate({
 }) {
   const palette = getThemePalette(theme, customColor);
   const storeName = restaurant?.name || 'Burger & Smoke Co.';
-  const phone = restaurant?.whatsapp_number || '923001234567';
+  const phone = restaurant?.phone || restaurant?.whatsapp_number || '923001234567';
   const logoUrl = restaurant?.logo_url;
+  const finalLogoPlate = logoPlateDataUrl || logoUrl;
   const isDark = palette.isDark;
 
   const urduHeadline =
@@ -276,26 +279,27 @@ export default function PrintMaterialTemplate({
                   menuUrl={menuUrl}
                   size={110}
                   logoPlateDataUrl={logoPlateDataUrl}
+                  logoSrc={logoUrl}
                   showLogo={showLogo}
                   effectiveRatio={effectiveRatio}
                 />
                 <div className="text-left max-w-[150px] space-y-1">
                   <DualLangText
-                    englishText={headline || 'Scan To Order From Table'}
+                    englishText={headline || 'Scan to Order'}
                     urduText={urduHeadline}
                     language={language}
                     enClass="text-xs font-black text-slate-900 leading-tight block"
                     urClass="text-xs font-bold text-slate-800 leading-tight block"
                   />
                   <p className="text-[10px] text-slate-500 leading-tight">
-                    Direct kitchen WhatsApp ordering with instant receipt.
+                    Direct kitchen online ordering with instant confirmation.
                   </p>
                 </div>
               </div>
 
               <div className="text-[10px] font-bold text-slate-600 flex items-center gap-1.5">
                 <Phone className="w-3 h-3 text-emerald-600" />
-                <span>WhatsApp: +{phone}</span>
+                <span>Ph: +{phone}</span>
               </div>
             </div>
 
@@ -334,6 +338,7 @@ export default function PrintMaterialTemplate({
                   menuUrl={menuUrl}
                   size={110}
                   logoPlateDataUrl={logoPlateDataUrl}
+                  logoSrc={logoUrl}
                   showLogo={showLogo}
                   effectiveRatio={effectiveRatio}
                 />
@@ -366,6 +371,7 @@ export default function PrintMaterialTemplate({
                 menuUrl={menuUrl}
                 size={160}
                 logoPlateDataUrl={logoPlateDataUrl}
+                logoSrc={logoUrl}
                 showLogo={showLogo}
                 effectiveRatio={effectiveRatio}
                 className="p-1 border-none shadow-none"
@@ -416,7 +422,7 @@ export default function PrintMaterialTemplate({
                 <DualLangText
                   englishText={
                     headline ||
-                    'FRESH FROM OUR KITCHEN — ORDER DIRECT ON WHATSAPP'
+                    'FRESH FROM OUR KITCHEN — ORDER DIRECT & SAVE'
                   }
                   urduText={urduHeadline}
                   language={language}
@@ -436,6 +442,7 @@ export default function PrintMaterialTemplate({
                   menuUrl={menuUrl}
                   size={190}
                   logoPlateDataUrl={logoPlateDataUrl}
+                  logoSrc={logoUrl}
                   showLogo={showLogo}
                   effectiveRatio={effectiveRatio}
                   className="p-0 border-none shadow-none"
@@ -477,7 +484,7 @@ export default function PrintMaterialTemplate({
                   Step 3
                 </span>
                 <span className="text-[11px] font-bold text-slate-800">
-                  Send WhatsApp
+                  Place Order
                 </span>
               </div>
             </div>
@@ -523,7 +530,7 @@ export default function PrintMaterialTemplate({
             {/* Catchy Headline */}
             <div className="max-w-[240px]">
               <DualLangText
-                englishText={headline || 'WELCOME! SCAN TO ORDER ON WHATSAPP'}
+                englishText={headline || 'WELCOME! SCAN TO ORDER ONLINE'}
                 urduText={urduHeadline}
                 language={language}
                 enClass="text-sm font-heading font-black leading-snug tracking-tight block"
@@ -541,6 +548,7 @@ export default function PrintMaterialTemplate({
                   menuUrl={menuUrl}
                   size={175}
                   logoPlateDataUrl={logoPlateDataUrl}
+                  logoSrc={logoUrl}
                   showLogo={showLogo}
                   effectiveRatio={effectiveRatio}
                   className="p-0 border-none shadow-none"
@@ -573,7 +581,7 @@ export default function PrintMaterialTemplate({
               className="w-full py-2 px-3 rounded-xl text-white font-mono font-bold text-xs flex items-center justify-between"
               style={{ background: palette.darkBg }}
             >
-              <span>WhatsApp:</span>
+              <span>Call / Order:</span>
               <span className="text-amber-400 font-extrabold">+{phone}</span>
             </div>
           </div>
@@ -702,7 +710,7 @@ export default function PrintMaterialTemplate({
                 <ul className="mt-2 space-y-1 text-[10px] text-slate-600">
                   <li>• Authentic recipes & ingredients</li>
                   <li>• Fresh, priority cooking</li>
-                  <li>• Direct WhatsApp chat support</li>
+                  <li>• Dedicated customer service</li>
                 </ul>
               </div>
               <div className="text-[9px] text-slate-400 font-mono">
@@ -730,6 +738,7 @@ export default function PrintMaterialTemplate({
                   menuUrl={menuUrl}
                   size={95}
                   logoPlateDataUrl={logoPlateDataUrl}
+                  logoSrc={logoUrl}
                   showLogo={showLogo}
                   effectiveRatio={effectiveRatio}
                   className="p-1 border-none shadow-none"
@@ -814,8 +823,8 @@ export default function PrintMaterialTemplate({
                     style={{ color: palette.primary }}
                   >
                     <DualLangText
-                      englishText="Direct WhatsApp Kitchen"
-                      urduText="براہ راست واٹس ایپ کچن"
+                      englishText="Direct Kitchen Ordering"
+                      urduText="براہ راست کچن آرڈر"
                       language={language}
                     />
                   </div>
@@ -925,7 +934,7 @@ export default function PrintMaterialTemplate({
                 urClass="font-bold block"
               />
               <div className="text-[9px] text-slate-600">
-                WhatsApp: +{phone}
+                Ph: +{phone}
               </div>
               <div className="text-[10px] text-slate-400">
                 =================================
@@ -1068,8 +1077,7 @@ export default function PrintMaterialTemplate({
                 />
               </div>
               <p className="text-[10px] text-slate-500">
-                Take a seat anywhere. Send order to WhatsApp with your table
-                number.
+                Take a seat anywhere. Scan to order directly to your table.
               </p>
             </div>
           </div>
@@ -1129,7 +1137,7 @@ export default function PrintMaterialTemplate({
               </div>
               <DualLangText
                 englishText={
-                  headline || 'Order Direct on WhatsApp & Save Big on Every Meal!'
+                  headline || 'Order Direct Online & Save Big on Every Meal!'
                 }
                 urduText={urduHeadline}
                 language={language}
@@ -1153,7 +1161,7 @@ export default function PrintMaterialTemplate({
                 />
               </div>
               <p className="text-[10px] font-bold text-slate-500 mt-2">
-                📸 Screenshot & Scan in WhatsApp
+                📸 Screenshot & Scan with Phone Camera
               </p>
             </div>
 
@@ -1162,7 +1170,7 @@ export default function PrintMaterialTemplate({
               style={{ background: palette.primary }}
             >
               <Phone className="w-3.5 h-3.5" />
-              <span>Direct WhatsApp: +{phone}</span>
+              <span>Call / Order: +{phone}</span>
             </div>
           </div>
         )}

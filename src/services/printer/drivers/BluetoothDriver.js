@@ -4,9 +4,9 @@
  * remembers the paired device, and transfers ESC/POS binary data with MTU chunking.
  */
 
-import { BaseDriver } from './BaseDriver';
-import { DRIVER_IDS } from '../printerTypes';
-import { isWebBluetoothSupported } from '../capabilities';
+import { BaseDriver } from './BaseDriver.js';
+import { DRIVER_IDS } from '../printerTypes.js';
+import { isWebBluetoothSupported } from '../capabilities.js';
 
 // Widely used 16-bit and 128-bit Bluetooth Thermal Printer Service & Characteristic UUIDs
 const BLE_PRINTER_SERVICES = [
@@ -30,6 +30,66 @@ export class BluetoothDriver extends BaseDriver {
 
   isConnected() {
     return Boolean(this.bleDevice?.gatt?.connected && this.characteristic);
+  }
+
+  /**
+   * Health Check: Test Bluetooth readiness on Android / Chrome
+   */
+  async testConnection(config = {}) {
+    const start = performance.now();
+
+    if (!this.isSupported()) {
+      return {
+        connected: false,
+        latencyMs: 0,
+        message: 'Web Bluetooth is not supported in this browser.',
+        fixTip: 'Use Google Chrome on Android or desktop with Bluetooth enabled, or use Browser Print.',
+      };
+    }
+
+    try {
+      // 1. Device already connected in active memory
+      if (this.bleDevice?.gatt?.connected && this.characteristic) {
+        return {
+          connected: true,
+          latencyMs: Math.max(1, Math.round(performance.now() - start)),
+          message: `Active Bluetooth connection to "${this.bleDevice.name || 'Receipt Printer'}".`,
+          device: this.bleDevice.name || 'Bluetooth Printer',
+        };
+      }
+
+      // 2. Query previously granted Bluetooth devices if API available (Chrome 85+)
+      if (navigator.bluetooth?.getDevices) {
+        const paired = await navigator.bluetooth.getDevices();
+        if (paired && paired.length > 0) {
+          const target = config.deviceId
+            ? paired.find((d) => d.id === config.deviceId) || paired[0]
+            : paired[0];
+
+          return {
+            connected: true,
+            latencyMs: Math.max(1, Math.round(performance.now() - start)),
+            message: `Paired Bluetooth printer recognized: "${target.name || 'BLE Printer'}".`,
+            device: target.name || 'Bluetooth Receipt Printer',
+          };
+        }
+      }
+
+      // 3. Supported on device, but not yet paired
+      return {
+        connected: false,
+        latencyMs: Math.max(1, Math.round(performance.now() - start)),
+        message: 'Web Bluetooth is ready on this Android / Chrome device, but no printer is currently paired.',
+        fixTip: 'Turn on your Bluetooth printer, verify Bluetooth is ON in Android settings, and click "Scan Bluetooth" in Printer Settings.',
+      };
+    } catch (err) {
+      return {
+        connected: false,
+        latencyMs: Math.max(1, Math.round(performance.now() - start)),
+        message: `Bluetooth check notice: ${err.message}`,
+        fixTip: 'Ensure Bluetooth is turned ON and location permission is granted for Chrome.',
+      };
+    }
   }
 
   /**

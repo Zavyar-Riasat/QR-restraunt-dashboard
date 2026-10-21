@@ -159,13 +159,18 @@ export const TEMPLATE_TYPES = {
   KOT: 'kot',
   BILL: 'bill',
   DELIVERY: 'delivery',
+  SALES_SUMMARY: 'sales_summary',
 };
 
 export const TEMPLATE_TYPE_LABELS = {
   [TEMPLATE_TYPES.KOT]: 'Kitchen Order Ticket (KOT)',
   [TEMPLATE_TYPES.BILL]: 'Customer Bill',
   [TEMPLATE_TYPES.DELIVERY]: 'Delivery Slip',
+  [TEMPLATE_TYPES.SALES_SUMMARY]: "Today's Sales Summary (80mm)",
 };
+
+export const STORAGE_PRINTED_ORDERS_KEY = 'dinehq_printed_orders';
+export const STORAGE_RETRY_QUEUE_KEY = 'dinehq_print_retry_queue';
 
 export const DEFAULT_TEMPLATE_SETTINGS = {
   showLogo: true,

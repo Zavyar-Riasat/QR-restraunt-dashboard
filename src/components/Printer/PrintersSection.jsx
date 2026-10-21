@@ -12,6 +12,7 @@ import {
   Bluetooth,
   Wifi,
   Smartphone,
+  Activity,
 } from 'lucide-react';
 import { printerService } from '../../services/printer/printerService';
 import {
@@ -20,6 +21,7 @@ import {
 } from '../../services/printer/printerTypes';
 import PrinterSetupWizard from './PrinterSetupWizard';
 import PrinterEditModal from './PrinterEditModal';
+import PrinterHealthCheckModal from './PrinterHealthCheckModal';
 
 export default function PrintersSection({ categories = [] }) {
   const [printers, setPrinters] = useState(() => printerService.getPrinters());
@@ -28,6 +30,8 @@ export default function PrintersSection({ categories = [] }) {
   const [testingId, setTestingId] = useState(null);
   const [testNotification, setTestNotification] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
+  const [healthCheckPrinterId, setHealthCheckPrinterId] = useState(null);
 
   useEffect(() => {
     return printerService.subscribe((data) => {
@@ -135,14 +139,30 @@ export default function PrintersSection({ categories = [] }) {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsWizardOpen(true)}
-          className="px-5 py-3 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>+ Add Printer</span>
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <button
+            id="printer-health-check-header-btn"
+            type="button"
+            onClick={() => {
+              setHealthCheckPrinterId(printers[0]?.id || null);
+              setIsHealthModalOpen(true);
+            }}
+            className="px-4 py-3 rounded-2xl bg-white hover:bg-emerald-50 active:scale-[0.98] border border-emerald-500 text-emerald-700 text-xs sm:text-sm font-extrabold shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+            title="Run 3-step diagnostic test: Connection, Paper Size, and Test Print"
+          >
+            <Activity className="w-4 h-4 text-emerald-600 animate-pulse" />
+            <span>Printer Health Check</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsWizardOpen(true)}
+            className="px-5 py-3 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>+ Add Printer</span>
+          </button>
+        </div>
       </div>
 
       {/* Global Notification Banner */}
@@ -298,9 +318,23 @@ export default function PrintersSection({ categories = [] }) {
                   )}
                 </div>
 
-                {/* Card Action Buttons: Test Print, Edit, Delete */}
-                <div className="pt-3 border-t border-[#F0E4D7] flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                {/* Card Action Buttons: Test Print, Edit, Delete, Health Check */}
+                <div className="pt-3 border-t border-[#F0E4D7] flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      id={`printer-health-btn-${printer.id}`}
+                      onClick={() => {
+                        setHealthCheckPrinterId(printer.id);
+                        setIsHealthModalOpen(true);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      title="Run 3-step health check diagnostic"
+                    >
+                      <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="hidden sm:inline">Health Check</span>
+                    </button>
+
                     <button
                       type="button"
                       disabled={testingId === printer.id}
@@ -392,6 +426,16 @@ export default function PrintersSection({ categories = [] }) {
         onPrinterUpdated={() => {
           setPrinters(printerService.getPrinters());
         }}
+      />
+
+      {/* Printer Health Check Modal */}
+      <PrinterHealthCheckModal
+        isOpen={isHealthModalOpen}
+        onClose={() => {
+          setIsHealthModalOpen(false);
+          setHealthCheckPrinterId(null);
+        }}
+        initialPrinterId={healthCheckPrinterId}
       />
     </div>
   );

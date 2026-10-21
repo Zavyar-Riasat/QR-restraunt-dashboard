@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "test": "node scripts/test_e2e_flow.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,11 +16,13 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "jsqr": "^1.4.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.53.0",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {

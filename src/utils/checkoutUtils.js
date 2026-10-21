@@ -1,112 +1,144 @@
-import { orderService } from '../services/orderService';
+import { orderService } from '../services/orderService.js';
 
 /**
- * Core utility function to calculate totals, format order string, log order, and trigger WhatsApp redirect
+ * Validates Pakistani mobile phone format:
+ * Accepts:
+ * - 03001234567, 0300-1234567, 0300 1234567
+ * - +923001234567, 923001234567
  */
-export const handleWhatsAppCheckout = ({
+export const validatePakistaniPhone = (phoneInput) => {
+  if (!phoneInput) {
+    return { isValid: false, normalized: '', error: 'Phone number is required.' };
+  }
+
+  const clean = String(phoneInput).trim().replace(/[\s\-\(\)]/g, '');
+
+  // 1. Format: +923XXXXXXXXX (13 chars) or 923XXXXXXXXX (12 chars)
+  if (/^(\+?92)3\d{9}$/.test(clean)) {
+    const raw10 = clean.replace(/^\+?92/, '');
+    return {
+      isValid: true,
+      normalized: `0${raw10}`,
+      display: `0${raw10.slice(0, 3)} ${raw10.slice(3)}`,
+    };
+  }
+
+  // 2. Format: 03XXXXXXXXX (11 chars)
+  if (/^03\d{9}$/.test(clean)) {
+    return {
+      isValid: true,
+      normalized: clean,
+      display: `${clean.slice(0, 4)} ${clean.slice(4)}`,
+    };
+  }
+
+  // 3. Format: 3XXXXXXXXX (10 chars, missing leading 0)
+  if (/^3\d{9}$/.test(clean)) {
+    return {
+      isValid: true,
+      normalized: `0${clean}`,
+      display: `0${clean.slice(0, 3)} ${clean.slice(3)}`,
+    };
+  }
+
+  return {
+    isValid: false,
+    normalized: clean,
+    error: 'Enter a valid Pakistani mobile number (e.g. 0300 1234567).',
+  };
+};
+
+/**
+ * Core utility function to calculate totals, validate input, and place order directly inside the app
+ * Direct in-app kitchen order.
+ */
+export const handleDirectOrderCheckout = async ({
   cart,
   restaurant,
   customerDetails,
 }) => {
   if (!cart || cart.length === 0) {
-    alert('Your cart is empty.');
-    return false;
+    throw new Error('Your cart is empty.');
   }
 
   // Check if kitchen is open
   if (restaurant?.is_open === false) {
-    alert('This kitchen is currently paused for direct orders. Please check back shortly!');
-    return false;
+    throw new Error('This kitchen is currently paused for orders. Please check back shortly!');
+  }
+
+  const orderType = customerDetails?.orderType || 'delivery';
+
+  // Validate Name (optional fallback for dine-in if not provided)
+  const customerName = (customerDetails?.name || '').trim();
+  if (!customerName && orderType !== 'dine_in') {
+    throw new Error('Please enter your full name.');
+  }
+
+  // Validate Phone (Required for delivery & takeaway, optional for dine-in)
+  let normalizedPhone = '';
+  const rawPhone = String(customerDetails?.phone || '').trim();
+  if (rawPhone) {
+    const phoneValidation = validatePakistaniPhone(rawPhone);
+    if (!phoneValidation.isValid && orderType !== 'dine_in') {
+      throw new Error(phoneValidation.error || 'Please enter a valid phone number.');
+    }
+    normalizedPhone = phoneValidation.isValid ? phoneValidation.normalized : rawPhone;
+  } else if (orderType !== 'dine_in') {
+    throw new Error('Please enter a valid phone number.');
+  }
+
+  // Validate Table if Dine-in
+  if (orderType === 'dine_in') {
+    if (!customerDetails?.tableNumber || !String(customerDetails.tableNumber).trim()) {
+      throw new Error('Please enter your dine-in table number.');
+    }
+  }
+
+  // Validate Delivery Address
+  if (orderType === 'delivery') {
+    if (!customerDetails?.address || !customerDetails.address.trim()) {
+      throw new Error('Please enter your complete delivery address (House / Street / Area).');
+    }
   }
 
   const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
-  // Check minimum order amount if enabled
-  const checkMinOrder = restaurant?.show_min_order !== false;
-  const minOrder = checkMinOrder ? (Number(restaurant?.min_order_amount) || 0) : 0;
-  if (minOrder > 0 && subtotal < minOrder) {
-    alert(`Minimum order amount for delivery is Rs. ${minOrder.toLocaleString('en-PK')}. Please add Rs. ${(minOrder - subtotal).toLocaleString('en-PK')} more.`);
-    return false;
-  }
-
-  // Delivery fee calculation based on manager's delivery_mode
+  // Delivery fee calculation based on manager's delivery_mode and orderType
   const isFreeDelivery = restaurant?.delivery_mode === 'free';
   const isHiddenDelivery = restaurant?.delivery_mode === 'none';
-  const deliveryFee = (isFreeDelivery || isHiddenDelivery) ? 0 : (Number(restaurant?.delivery_fee) || 0);
-  const finalTotal = subtotal + deliveryFee;
+  let deliveryFee = 0;
 
-  const cleanPhone = (restaurant?.whatsapp_number || '').replace(/\D/g, '');
-  if (!cleanPhone) {
-    alert('Restaurant WhatsApp number is not configured properly.');
-    return false;
+  if (orderType === 'delivery') {
+    deliveryFee = (isFreeDelivery || isHiddenDelivery) ? 0 : (Number(restaurant?.delivery_fee) || 0);
+
+    // Check minimum order amount if enabled (only applies to delivery)
+    const checkMinOrder = restaurant?.show_min_order !== false;
+    const minOrder = checkMinOrder ? (Number(restaurant?.min_order_amount) || 0) : 0;
+    if (minOrder > 0 && subtotal < minOrder) {
+      throw new Error(
+        `Minimum order amount for delivery is Rs. ${minOrder.toLocaleString('en-PK')}. Please add Rs. ${(minOrder - subtotal).toLocaleString('en-PK')} more.`
+      );
+    }
   }
 
-  const orderTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const finalTotal = subtotal + deliveryFee;
   const orderId = `DB-${Math.floor(1000 + Math.random() * 9000)}`;
 
-  let message = `*🔔 NEW DIRECT ORDER [${orderId}]*\n`;
-  message += `*Restaurant:* ${restaurant?.name || 'Kitchen'}\n`;
-  message += `*Time:* ${orderTime}\n`;
-  message += `------------------------------------\n`;
-  message += `👤 *CUSTOMER DETAILS:*\n`;
-  message += `• *Name:* ${customerDetails.name?.trim()}\n`;
-  if (customerDetails.phone && customerDetails.phone.trim()) {
-    message += `• *Phone:* ${customerDetails.phone.trim()}\n`;
-  }
-  message += `• *Address:* ${customerDetails.address?.trim()}\n`;
-  if (customerDetails.notes && customerDetails.notes.trim()) {
-    message += `• *Special Notes:* ${customerDetails.notes.trim()}\n`;
-  }
-  message += `------------------------------------\n`;
-  message += `📦 *ORDER ITEMS:*\n`;
-
-  cart.forEach((cartItem, index) => {
-    const itemTotal = Number(cartItem.unitPrice * cartItem.quantity).toLocaleString('en-PK');
-    const deal = cartItem.item?.variants?.is_deal ? cartItem.item.variants : null;
-    const dealBadge = deal?.badge || (deal ? '🔥 SPECIAL DEAL' : '');
-
-    message += `${index + 1}. *${cartItem.quantity}x ${cartItem.item.title}* ${dealBadge ? `[${dealBadge}] ` : ''}— Rs. ${itemTotal}\n`;
-
-    if (deal && deal.deal_items) {
-      message += `   📦 _Bundle: ${deal.deal_items}_\n`;
-    }
-
-    if (cartItem.choiceDetails && cartItem.choiceDetails.length > 0) {
-      cartItem.choiceDetails.forEach((choice) => {
-        message += `   ↳ _${choice}_\n`;
-      });
-    }
+  // Create order directly in the app
+  const newOrder = await orderService.createOrder({
+    restaurant,
+    customerDetails: {
+      ...customerDetails,
+      name: customerName || (orderType === 'dine_in' ? `Table ${customerDetails.tableNumber}` : 'Guest Customer'),
+      phone: normalizedPhone,
+      orderType,
+    },
+    cart,
+    subtotal,
+    deliveryFee,
+    finalTotal,
+    orderId,
   });
 
-  message += `------------------------------------\n`;
-  message += `💵 *PAYMENT SUMMARY:*\n`;
-  message += `• Subtotal: Rs. ${Number(subtotal).toLocaleString('en-PK')}\n`;
-  if (isFreeDelivery) {
-    message += `• Delivery: FREE\n`;
-  } else if (deliveryFee > 0) {
-    message += `• Delivery Fee: Rs. ${Number(deliveryFee).toLocaleString('en-PK')}\n`;
-  }
-  message += `• *TOTAL PAYABLE: Rs. ${Number(finalTotal).toLocaleString('en-PK')}*\n`;
-  message += `------------------------------------`;
-
-  // Log order to orderService
-  try {
-    orderService.createOrder({
-      restaurant,
-      customerDetails,
-      cart,
-      subtotal,
-      deliveryFee,
-      finalTotal,
-      orderId,
-    });
-  } catch (err) {
-    console.warn('Failed to log order to orderService:', err);
-  }
-
-  const encodedText = encodeURIComponent(message);
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
-
-  window.open(whatsappUrl, '_blank');
-  return true;
+  return { success: true, order: newOrder };
 };

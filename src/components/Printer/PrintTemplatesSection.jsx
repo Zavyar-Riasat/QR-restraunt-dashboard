@@ -30,7 +30,7 @@ const FOOTER_PRESETS = [
   'Thank you for ordering with us! Visit again soon.',
   'Freshly prepared with love. Rate us on Google!',
   'تشریف آوری کا بہت شکریہ! دوبارہ ضرور آئیے گا۔',
-  'For catering & party orders, message our WhatsApp.',
+  'For party orders & catering, call our restaurant phone.',
 ];
 
 export default function PrintTemplatesSection({ restaurant }) {
@@ -83,6 +83,7 @@ export default function PrintTemplatesSection({ restaurant }) {
         restaurant: restaurant || {
           name: 'DineHQ Kitchen & Grill',
           slug: 'burgersmoke',
+          phone: '923001234567',
           whatsapp_number: '923001234567',
         },
         paperSize,
@@ -437,6 +438,7 @@ export default function PrintTemplatesSection({ restaurant }) {
                   restaurant || {
                     name: 'DineHQ Kitchen & Grill',
                     slug: 'burgersmoke',
+                    phone: '923001234567',
                     whatsapp_number: '923001234567',
                     logo_url: restaurant?.logo_url || null,
                   }

@@ -49,6 +49,7 @@ export default function AdminPanelPage() {
     password: '',
     restaurant_name: '',
     slug: '',
+    phone: '',
     whatsapp_number: '',
     role: 'owner',
   });
@@ -63,6 +64,7 @@ export default function AdminPanelPage() {
     slug: '',
     email: '',
     password: '',
+    phone: '92300',
     whatsapp_number: '92300',
     role: 'owner',
   });
@@ -85,7 +87,8 @@ export default function AdminPanelPage() {
       password: account.password || '',
       restaurant_name: account.restaurant_name || '',
       slug: account.restaurant_slug || '',
-      whatsapp_number: account.whatsapp_number || '',
+      phone: account.phone || account.whatsapp_number || '',
+      whatsapp_number: account.phone || account.whatsapp_number || '',
       role: account.role || 'owner',
     });
     setShowEditPassword(false);
@@ -107,7 +110,8 @@ export default function AdminPanelPage() {
         password: editForm.password,
         restaurant_name: editForm.restaurant_name,
         restaurant_slug: editForm.slug,
-        whatsapp_number: editForm.whatsapp_number,
+        phone: editForm.phone || editForm.whatsapp_number,
+        whatsapp_number: editForm.phone || editForm.whatsapp_number,
         role: editForm.role,
         name: `${editForm.restaurant_name} Manager`,
       });
@@ -202,7 +206,7 @@ export default function AdminPanelPage() {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!form.restaurant_name || !form.slug || !form.email || !form.password || !form.whatsapp_number) {
+    if (!form.restaurant_name || !form.slug || !form.email || !form.password || !(form.phone || form.whatsapp_number)) {
       setErrorMsg('Please fill in all required fields.');
       return;
     }
@@ -221,7 +225,8 @@ export default function AdminPanelPage() {
         password: form.password,
         restaurant_name: form.restaurant_name,
         slug: form.slug,
-        whatsapp_number: form.whatsapp_number,
+        phone: form.phone || form.whatsapp_number,
+        whatsapp_number: form.phone || form.whatsapp_number,
         role: form.role,
         menuUrl: `${window.location.origin}/${form.slug}`,
         loginUrl: `${window.location.origin}/login`,
@@ -233,6 +238,7 @@ export default function AdminPanelPage() {
         slug: '',
         email: '',
         password: '',
+        phone: '92300',
         whatsapp_number: '92300',
         role: 'owner',
       });
@@ -363,7 +369,7 @@ export default function AdminPanelPage() {
                 </h2>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Register a new owner with their credentials, WhatsApp number, and menu slug.
+                Register a new owner with their credentials, restaurant phone, and menu slug.
               </p>
             </div>
           </div>
@@ -463,10 +469,10 @@ export default function AdminPanelPage() {
               </div>
             </div>
 
-            {/* WhatsApp Order Phone Number */}
+            {/* Restaurant Contact Phone */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                WhatsApp Orders Phone Number *
+                Restaurant Contact Phone *
               </label>
               <div className="relative rounded-xl shadow-xs">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -475,8 +481,14 @@ export default function AdminPanelPage() {
                 <input
                   type="text"
                   required
-                  value={form.whatsapp_number}
-                  onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
+                  value={form.phone || form.whatsapp_number}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      phone: e.target.value,
+                      whatsapp_number: e.target.value,
+                    })
+                  }
                   placeholder="923001234567"
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-sm font-mono text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                 />
@@ -565,8 +577,8 @@ export default function AdminPanelPage() {
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">WhatsApp Orders</p>
-                <p className="text-xs font-mono font-bold text-slate-800 mt-1 truncate">+{lastCreated.whatsapp_number}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Phone</p>
+                <p className="text-xs font-mono font-bold text-slate-800 mt-1 truncate">+{lastCreated.phone || lastCreated.whatsapp_number}</p>
               </div>
             </div>
 
@@ -642,7 +654,7 @@ export default function AdminPanelPage() {
                 <tr>
                   <th className="px-6 py-3.5">Restaurant / Tenant</th>
                   <th className="px-6 py-3.5">Manager Account</th>
-                  <th className="px-6 py-3.5">WhatsApp Orders</th>
+                  <th className="px-6 py-3.5">Contact Phone</th>
                   <th className="px-6 py-3.5">Role</th>
                   <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
@@ -698,9 +710,9 @@ export default function AdminPanelPage() {
                           </div>
                         </td>
 
-                        {/* WhatsApp Number */}
+                        {/* Contact Phone */}
                         <td className="px-6 py-4 font-mono text-slate-700">
-                          +{account.whatsapp_number || '923001234567'}
+                          +{account.phone || account.whatsapp_number || '923001234567'}
                         </td>
 
                         {/* Role */}
@@ -863,15 +875,16 @@ export default function AdminPanelPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      WhatsApp Phone
+                      Contact Phone
                     </label>
                     <input
                       type="text"
                       required
-                      value={editForm.whatsapp_number}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, whatsapp_number: e.target.value.replace(/\D/g, '') })
-                      }
+                      value={editForm.phone || editForm.whatsapp_number}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setEditForm({ ...editForm, phone: val, whatsapp_number: val });
+                      }}
                       className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>

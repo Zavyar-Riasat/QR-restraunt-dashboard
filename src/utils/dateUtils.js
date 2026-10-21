@@ -3,6 +3,11 @@
  * Formats dates in standard 12-hour format (e.g., 03:45 PM, 15 Oct 2026)
  */
 
+export function formatTimeString(dateInput) {
+  const parts = format12HourTime(dateInput);
+  return parts?.timeOnly || '';
+}
+
 export function format12HourTime(dateInput) {
   if (!dateInput) {
     const now = new Date();

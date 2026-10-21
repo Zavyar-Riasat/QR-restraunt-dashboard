@@ -27,10 +27,13 @@ import {
   Sparkles,
   Scissors,
   Image as ImageIcon,
+  Loader2,
 } from 'lucide-react';
 
 import { PRINT_FORMATS, FORMAT_CATEGORIES } from './formatDefinitions.js';
 import PrintMaterialTemplate, { getThemePalette } from './PrintMaterialTemplate.jsx';
+import { tableService } from '../../services/tableService';
+import { downloadAllTableQrsPdf } from '../../utils/tableQrPdfGenerator';
 
 /**
  * Creates high-resolution 512×512 composite logo badge:
@@ -158,8 +161,13 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
 
   const previewSurfaceRef = useRef(null);
 
+  const [selectedTableNumber, setSelectedTableNumber] = useState('');
+  const [isExportingAllTablePdf, setIsExportingAllTablePdf] = useState(false);
+  const availableTables = tableService.getTables(restaurant?.id || 'rest-101');
+
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
-  const menuUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}`;
+  const baseMenuUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}`;
+  const menuUrl = selectedTableNumber ? `${baseMenuUrl}?table=${selectedTableNumber}` : baseMenuUrl;
   const storeName = restaurant?.name || 'Burger & Smoke Co.';
   const logoUrl = restaurant?.logo_url;
 
@@ -398,6 +406,22 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
     URL.revokeObjectURL(url);
   };
 
+  // Export: Download All Table QRs as a single PDF
+  const handleExportAllTableQrs = async () => {
+    try {
+      setIsExportingAllTablePdf(true);
+      await downloadAllTableQrsPdf({
+        restaurant,
+        tables: availableTables,
+        origin,
+      });
+    } catch (err) {
+      console.error('Failed to export all table QRs:', err);
+    } finally {
+      setIsExportingAllTablePdf(false);
+    }
+  };
+
   // Export 4: 1-Click Print (Dynamic @page size, zero extra margins, no browser headers)
   const handlePrint = () => {
     const pageSizeRule = selectedSize.pageSize || 'A4 portrait';
@@ -541,6 +565,20 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           >
             <FileText className="w-3.5 h-3.5" />
             <span>{isExportingPDF ? 'Generating PDF...' : 'Download PDF (300 DPI)'}</span>
+          </button>
+
+          <button
+            onClick={handleExportAllTableQrs}
+            disabled={isExportingAllTablePdf || availableTables.length === 0}
+            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            title="Download all table QR standee cards as a single PDF"
+          >
+            {isExportingAllTablePdf ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+            )}
+            <span>{isExportingAllTablePdf ? 'Generating...' : 'All Table QRs (PDF)'}</span>
           </button>
 
           <button
@@ -713,6 +751,31 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* QR Target Destination (General vs Table Specific) */}
+            <div>
+              <span className="block text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <QrCode className="w-3.5 h-3.5 text-amber-600" />
+                QR Destination Target:
+              </span>
+              <select
+                value={selectedTableNumber}
+                onChange={(e) => setSelectedTableNumber(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 shadow-2xs"
+              >
+                <option value="">🌐 General QR (No Table) — Posters, Flyers, Bags & Social</option>
+                {availableTables.map((t) => (
+                  <option key={t.id} value={t.table_number}>
+                    🍽️ Table #{t.table_number} ({t.name} - {t.section})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-500 mt-1">
+                {selectedTableNumber
+                  ? `QR will link to ${menuUrl} (auto-selects Dine-in Table #${selectedTableNumber}).`
+                  : 'General storefront QR linking to main menu without table preselection.'}
+              </p>
             </div>
 
             {/* Language Selection: English / Urdu / Both */}

@@ -31,6 +31,7 @@ import { printerService } from '../services/printer/printerService';
 import { DRIVER_IDS, PAPER_SIZE_SPECS } from '../services/printer/printerTypes';
 import PrintersSection from './Printer/PrintersSection';
 import PrintTemplatesSection from './Printer/PrintTemplatesSection';
+import TableManager from './TableManagement/TableManager';
 
 const BRAND_PRESET_COLORS = [
   { name: 'Warm Orange (Default)', value: '#F26B1D' },
@@ -41,7 +42,14 @@ const BRAND_PRESET_COLORS = [
   { name: 'Espresso Brown', value: '#8B4513' },
 ];
 
-export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSettings, categories = [] }) {
+export default function StoreSettings({
+  restaurant,
+  onUpdate,
+  onOpenPrinterSettings,
+  categories = [],
+  orders = [],
+  onOpenPosForTable,
+}) {
   const { user, getRegisteredUsers, updateUserCredentials } = useAuth();
   const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
   const [isTestingPrint, setIsTestingPrint] = useState(false);
@@ -101,6 +109,7 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
+    phone: '',
     whatsapp_number: '',
     logo_url: '',
     primary_color: '#F26B1D',
@@ -133,10 +142,12 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
 
   useEffect(() => {
     if (restaurant) {
+      const activePhone = restaurant.phone || restaurant.whatsapp_number || '';
       setFormData({
         name: restaurant.name || '',
         slug: restaurant.slug || '',
-        whatsapp_number: restaurant.whatsapp_number || '',
+        phone: activePhone,
+        whatsapp_number: activePhone,
         logo_url: restaurant.logo_url || '',
         primary_color: restaurant.primary_color || '#F26B1D',
         is_open: restaurant.is_open !== false,
@@ -179,9 +190,9 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
     } else if (name === 'slug') {
       const cleanSlug = value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
       setFormData((prev) => ({ ...prev, [name]: cleanSlug }));
-    } else if (name === 'whatsapp_number') {
+    } else if (name === 'phone' || name === 'whatsapp_number') {
       const cleanNumber = value.replace(/\D/g, '');
-      setFormData((prev) => ({ ...prev, [name]: cleanNumber }));
+      setFormData((prev) => ({ ...prev, phone: cleanNumber, whatsapp_number: cleanNumber }));
     } else if (name === 'delivery_fee' || name === 'min_order_amount') {
       setFormData((prev) => ({ ...prev, [name]: Number(value) || 0 }));
     } else {
@@ -191,16 +202,13 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
     setError('');
   };
 
-  const handleTestWhatsApp = () => {
-    const cleanNumber = formData.whatsapp_number.replace(/\D/g, '');
+  const handleTestCall = () => {
+    const cleanNumber = (formData.phone || formData.whatsapp_number || '').replace(/\D/g, '');
     if (!cleanNumber || cleanNumber.length < 8) {
-      alert('Please enter a valid WhatsApp phone number with country code first.');
+      alert('Please enter a valid restaurant phone number first.');
       return;
     }
-    const testMsg = encodeURIComponent(
-      `👋 *Hello from DineHQ!*\nThis is a test message to confirm your kitchen's WhatsApp order routing is working 100%!`
-    );
-    window.open(`https://wa.me/${cleanNumber}?text=${testMsg}`, '_blank');
+    window.open(`tel:+${cleanNumber}`, '_self');
   };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
@@ -232,8 +240,9 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
       setError('Please provide a menu URL slug.');
       return;
     }
-    if (!formData.whatsapp_number || formData.whatsapp_number.length < 8) {
-      setError('Please enter a valid WhatsApp number with country code (e.g. 923001234567).');
+    const activePhone = (formData.phone || formData.whatsapp_number || '').trim();
+    if (!activePhone || activePhone.length < 8) {
+      setError('Please enter a valid restaurant contact phone number (e.g. 03001234567 or 923001234567).');
       return;
     }
 
@@ -241,6 +250,8 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
       setIsSubmitting(true);
       await onUpdate({
         ...formData,
+        phone: activePhone,
+        whatsapp_number: activePhone,
         logo_url: formData.logo_url?.trim() || null,
         delivery_mode: formData.delivery_mode,
         delivery_fee: formData.delivery_mode === 'paid' ? Number(formData.delivery_fee) || 0 : 0,
@@ -275,13 +286,15 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
         throw new Error('Unable to resolve active user account ID.');
       }
 
+      const activePhone = (formData.phone || formData.whatsapp_number || '').trim();
       await updateUserCredentials(targetUserId, {
         currentEmail: managerAccount?.email || user?.email,
         email: managerEmail.trim(),
         name: managerName.trim() || `${formData.name} Manager`,
         restaurant_name: formData.name,
         restaurant_slug: formData.slug,
-        whatsapp_number: formData.whatsapp_number,
+        phone: activePhone,
+        whatsapp_number: activePhone,
       });
 
       setCredSaved(true);
@@ -345,6 +358,12 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
           className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
         >
           Store Identity
+        </a>
+        <a
+          href="#tables-section"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
+        >
+          Tables & Seating
         </a>
         <a
           href="#printers-section"
@@ -782,34 +801,34 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
               )}
             </div>
 
-            {/* WhatsApp Routing */}
+            {/* Restaurant Contact Phone */}
             <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-[#F26B1D]" />
-                  WhatsApp Kitchen Phone
+                  Restaurant Contact Phone
                 </label>
                 <button
                   type="button"
-                  onClick={handleTestWhatsApp}
+                  onClick={handleTestCall}
                   className="text-[11px] font-bold text-[#F26B1D] hover:text-[#D95A12] flex items-center gap-1 transition cursor-pointer"
-                  title="Send a sample WhatsApp message to verify this number"
+                  title="Test calling this restaurant contact number"
                 >
-                  <Send className="w-3 h-3" />
-                  <span>Test Number</span>
+                  <Phone className="w-3 h-3" />
+                  <span>Test Call</span>
                 </button>
               </div>
               <input
                 type="text"
-                name="whatsapp_number"
-                value={formData.whatsapp_number}
+                name="phone"
+                value={formData.phone || formData.whatsapp_number || ''}
                 onChange={handleChange}
-                placeholder="e.g. 923001234567"
+                placeholder="e.g. 03001234567 or 923001234567"
                 required
                 className="w-full px-4 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm font-mono focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
               />
               <p className="text-[11px] text-[#7A6A5C]">
-                Include country code. Customer orders arrive directly here in formatted WhatsApp text.
+                Customer orders are placed directly inside the app. This contact phone is displayed on storefront headers, call buttons, and printed customer receipts.
               </p>
             </div>
 
@@ -858,7 +877,17 @@ export default function StoreSettings({ restaurant, onUpdate, onOpenPrinterSetti
         </form>
       </div>
 
-      {/* 2. Printers Management Section */}
+      {/* 2. Dining Tables & Seating Management Section */}
+      <div id="tables-section">
+        <TableManager
+          restaurant={restaurant}
+          orders={orders}
+          currentUser={user}
+          onOpenPosForTable={onOpenPosForTable}
+        />
+      </div>
+
+      {/* 3. Printers Management Section */}
       <PrintersSection categories={categories} />
 
       {/* 3. Print Templates & Live Preview Customization */}

@@ -58,6 +58,7 @@ const initialSeedData = {
     id: 'rest-101',
     name: 'Burger & Smoke Co.',
     slug: 'burgersmoke',
+    phone: '923001234567',
     whatsapp_number: '923001234567',
     logo_url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=200&h=200&q=80',
     is_open: true,
@@ -161,8 +162,9 @@ const initialSeedData = {
 
 const isSupabaseConfigured = () => {
   return Boolean(
-    import.meta.env.VITE_SUPABASE_URL && 
-    import.meta.env.VITE_SUPABASE_ANON_KEY &&
+    typeof import.meta !== 'undefined' &&
+    import.meta.env?.VITE_SUPABASE_URL && 
+    import.meta.env?.VITE_SUPABASE_ANON_KEY &&
     !import.meta.env.VITE_SUPABASE_URL.includes('your-project-ref')
   );
 };
@@ -198,7 +200,8 @@ export const restaurantService = {
             id: u.restaurant_id || `rest-${u.restaurant_slug}`,
             name: u.restaurant_name,
             slug: u.restaurant_slug,
-            whatsapp_number: u.whatsapp_number,
+            phone: u.phone || u.whatsapp_number || '923001234567',
+            whatsapp_number: u.phone || u.whatsapp_number || '923001234567',
             owner_id: u.id,
           }));
           return [initialSeedData.restaurant, ...list.filter((r) => r.slug !== 'burgersmoke')];
@@ -214,6 +217,7 @@ export const restaurantService = {
    */
   mergeExtendedSettings(restaurant) {
     if (!restaurant) return restaurant;
+    const phone = restaurant.phone || restaurant.whatsapp_number || '923001234567';
     const key = `${SETTINGS_PREFIX}${restaurant.id}`;
     let extended = {
       is_open: true,
@@ -231,7 +235,12 @@ export const restaurantService = {
         extended = { ...extended, ...JSON.parse(saved) };
       }
     } catch (e) {}
-    return { ...extended, ...restaurant };
+    return {
+      ...extended,
+      ...restaurant,
+      phone,
+      whatsapp_number: phone,
+    };
   },
 
   /**
@@ -316,14 +325,18 @@ export const restaurantService = {
   },
 
   /**
-   * 1. Update Restaurant Settings (WhatsApp number, slug, name, is_open, delivery_mode, delivery_fee, min_order_amount, prep_time)
+   * 1. Update Restaurant Settings (Phone number, slug, name, is_open, delivery_mode, delivery_fee, min_order_amount, prep_time)
    */
   async updateRestaurant(restaurantId, updates) {
     // 1. Separate base columns for Supabase
     const baseColumns = {};
     if (updates.name !== undefined) baseColumns.name = updates.name;
     if (updates.slug !== undefined) baseColumns.slug = updates.slug;
-    if (updates.whatsapp_number !== undefined) baseColumns.whatsapp_number = updates.whatsapp_number;
+    const phoneVal = updates.phone !== undefined ? updates.phone : updates.whatsapp_number;
+    if (phoneVal !== undefined) {
+      baseColumns.phone = phoneVal;
+      baseColumns.whatsapp_number = phoneVal; // backward compatibility write
+    }
     if (updates.logo_url !== undefined) baseColumns.logo_url = updates.logo_url;
 
     // 2. Persist extended settings to localStorage

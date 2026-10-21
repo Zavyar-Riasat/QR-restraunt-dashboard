@@ -4,17 +4,16 @@ import { formatPKR } from '../utils/currencyUtils';
 import { getItemDealInfo, getItemVariants } from '../utils/dealUtils';
 
 export default function VariantCustomizationModal({ item, isOpen, onClose, onAddToCart, restaurant }) {
-  if (!isOpen || !item) return null;
-
-  const primaryColor = restaurant?.primary_color || '#F26B1D';
   const [quantity, setQuantity] = useState(1);
   const [choices, setChoices] = useState({});
 
+  const primaryColor = restaurant?.primary_color || '#F26B1D';
   const dealInfo = getItemDealInfo(item);
   const itemIsDeal = Boolean(dealInfo);
   const variantsList = getItemVariants(item);
 
   useEffect(() => {
+    if (!item) return;
     const defaults = {};
     variantsList.forEach((vg) => {
       if (vg.type === 'single' && vg.options?.length > 0) {
@@ -26,6 +25,8 @@ export default function VariantCustomizationModal({ item, isOpen, onClose, onAdd
     setChoices(defaults);
     setQuantity(1);
   }, [item]);
+
+  if (!isOpen || !item) return null;
 
   const calculateUnitPrice = () => {
     let unit = Number(item.price);

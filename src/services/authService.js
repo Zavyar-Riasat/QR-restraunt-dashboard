@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient.js';
 
 const USERS_STORAGE_KEY = 'dinehq_registered_users';
 const CURRENT_SESSION_KEY = 'dinehq_current_session';
@@ -13,6 +13,7 @@ const DEFAULT_ACCOUNTS = [
     role: 'admin',
     restaurant_name: 'Burger & Smoke Co.',
     restaurant_slug: 'burgersmoke',
+    phone: '923001234567',
     whatsapp_number: '923001234567',
     created_at: new Date('2026-10-01T10:00:00Z').toISOString(),
   },
@@ -24,6 +25,7 @@ const DEFAULT_ACCOUNTS = [
     role: 'owner',
     restaurant_name: 'Burger & Smoke Co.',
     restaurant_slug: 'burgersmoke',
+    phone: '923001234567',
     whatsapp_number: '923001234567',
     created_at: new Date('2026-10-05T12:00:00Z').toISOString(),
   },
@@ -72,7 +74,8 @@ export const authService = {
       restaurant_id: userData.restaurant_id || null,
       restaurant_name: userData.restaurant_name,
       restaurant_slug: userData.restaurant_slug,
-      whatsapp_number: userData.whatsapp_number,
+      phone: userData.phone || userData.whatsapp_number || '923001234567',
+      whatsapp_number: userData.phone || userData.whatsapp_number || '923001234567',
       created_at: new Date().toISOString(),
     };
 
@@ -112,7 +115,7 @@ export const authService = {
     const newName = updates.name !== undefined ? updates.name.trim() : existingUser.name;
     const newRestaurantName = updates.restaurant_name !== undefined ? updates.restaurant_name : existingUser.restaurant_name;
     const newRestaurantSlug = updates.restaurant_slug !== undefined ? updates.restaurant_slug : existingUser.restaurant_slug;
-    const newWhatsapp = updates.whatsapp_number !== undefined ? updates.whatsapp_number : existingUser.whatsapp_number;
+    const newPhone = updates.phone !== undefined ? updates.phone : (updates.whatsapp_number !== undefined ? updates.whatsapp_number : (existingUser.phone || existingUser.whatsapp_number));
     const newRole = updates.role !== undefined ? updates.role : existingUser.role;
 
     // Check if new email conflicts with another user
@@ -132,7 +135,8 @@ export const authService = {
       name: newName,
       restaurant_name: newRestaurantName,
       restaurant_slug: newRestaurantSlug,
-      whatsapp_number: newWhatsapp,
+      phone: newPhone,
+      whatsapp_number: newPhone,
       role: newRole,
       updated_at: new Date().toISOString(),
     };
@@ -147,7 +151,8 @@ export const authService = {
       defaultAcc.name = newName;
       defaultAcc.restaurant_name = newRestaurantName;
       defaultAcc.restaurant_slug = newRestaurantSlug;
-      defaultAcc.whatsapp_number = newWhatsapp;
+      defaultAcc.phone = newPhone;
+      defaultAcc.whatsapp_number = newPhone;
       defaultAcc.role = newRole;
     }
 
@@ -275,12 +280,14 @@ export const authService = {
     password,
     restaurant_name,
     slug,
+    phone,
     whatsapp_number,
     role = 'owner',
   }) {
     const cleanEmail = email.trim().toLowerCase();
     const cleanSlug = slug.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
-    const cleanPhone = whatsapp_number.replace(/[^0-9]/g, '');
+    const rawPhone = phone || whatsapp_number || '923001234567';
+    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
 
     // 1. Check if email already registered in our registry
     const existing = this.getRegisteredUsers().find(
@@ -333,6 +340,7 @@ export const authService = {
               owner_id: supabaseUserId || null,
               name: restaurant_name,
               slug: cleanSlug,
+              phone: cleanPhone,
               whatsapp_number: cleanPhone,
             },
           ])
@@ -391,6 +399,7 @@ export const authService = {
       restaurant_id: provisionedRestId,
       restaurant_name,
       restaurant_slug: cleanSlug,
+      phone: cleanPhone,
       whatsapp_number: cleanPhone,
     });
 
@@ -400,6 +409,7 @@ export const authService = {
         id: provisionedRestId,
         name: restaurant_name,
         slug: cleanSlug,
+        phone: cleanPhone,
         whatsapp_number: cleanPhone,
       },
     };

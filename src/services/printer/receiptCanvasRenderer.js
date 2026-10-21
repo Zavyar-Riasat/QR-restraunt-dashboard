@@ -5,8 +5,9 @@
  */
 
 import QRCode from 'qrcode';
-import { PAPER_SIZES } from './printerTypes';
-import { formatPKR } from '../../utils/currencyUtils';
+import { PAPER_SIZES, TEMPLATE_TYPES } from './printerTypes.js';
+import { formatPKR } from '../../utils/currencyUtils.js';
+import { buildGoogleMapsNavUrl } from '../../config/mapConfig.js';
 
 /**
  * Check if text contains Arabic / Urdu Unicode script characters
@@ -96,7 +97,36 @@ export async function renderReceiptToCanvas(job) {
 
   let y = 14;
 
-  // 1. Restaurant Header
+  // 1. Restaurant Logo (at top of printout)
+  if (restaurant?.logo_url) {
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        logoImg.onload = resolve;
+        logoImg.onerror = reject;
+        logoImg.src = restaurant.logo_url;
+      });
+      const maxH = is58mm ? 36 : 48;
+      const maxW = is58mm ? 120 : 160;
+      let imgW = logoImg.width || maxW;
+      let imgH = logoImg.height || maxH;
+      if (imgH > maxH) {
+        imgW = (maxH / imgH) * imgW;
+        imgH = maxH;
+      }
+      if (imgW > maxW) {
+        imgH = (maxW / imgW) * imgH;
+        imgW = maxW;
+      }
+      ctx.drawImage(logoImg, (width - imgW) / 2, y, imgW, imgH);
+      y += imgH + 8;
+    } catch {
+      // Continue without logo if failed to load on canvas
+    }
+  }
+
+  // 2. Restaurant Header
   const restName = restaurant?.name || 'KITCHEN ORDER TICKET';
   ctx.font = is58mm
     ? 'bold 22px "Noto Nastaliq Urdu", "Poppins", Arial, sans-serif'
@@ -110,8 +140,9 @@ export async function renderReceiptToCanvas(job) {
   }
 
   // Subtitle
+  const isDelivery = job?.templateType === TEMPLATE_TYPES.DELIVERY;
   ctx.font = is58mm ? '12px "Poppins", monospace' : '14px "Poppins", monospace';
-  ctx.fillText('KITCHEN ORDER TICKET (KOT)', width / 2, y);
+  ctx.fillText(isDelivery ? 'DELIVERY DISPATCH SLIP' : 'KITCHEN ORDER TICKET (KOT)', width / 2, y);
   y += is58mm ? 18 : 22;
 
   // Order Number
@@ -169,6 +200,26 @@ export async function renderReceiptToCanvas(job) {
     y += is58mm ? 18 : 22;
   }
 
+  // House / Flat
+  if (order?.house_flat) {
+    ctx.font = labelFont;
+    ctx.fillText('House/Flat: ', padding, y);
+    const labelW = ctx.measureText('House/Flat: ').width;
+    ctx.font = valueFont;
+    ctx.fillText(order.house_flat, padding + labelW, y);
+    y += is58mm ? 18 : 22;
+  }
+
+  // Landmark
+  if (order?.area_landmark) {
+    ctx.font = labelFont;
+    ctx.fillText('Landmark: ', padding, y);
+    const labelW = ctx.measureText('Landmark: ').width;
+    ctx.font = valueFont;
+    ctx.fillText(order.area_landmark, padding + labelW, y);
+    y += is58mm ? 18 : 22;
+  }
+
   // Address
   if (order?.customer_address) {
     ctx.font = labelFont;
@@ -180,6 +231,17 @@ export async function renderReceiptToCanvas(job) {
       ctx.fillText(addrLines[i], i === 0 ? padding + labelW : padding, y);
       y += is58mm ? 18 : 22;
     }
+  }
+
+  // GPS Pin
+  if (order?.latitude && order?.longitude) {
+    ctx.font = labelFont;
+    ctx.fillText('GPS Pin: ', padding, y);
+    const labelW = ctx.measureText('GPS Pin: ').width;
+    ctx.font = is58mm ? '11px monospace' : '12px monospace';
+    const gpsText = `${Number(order.latitude).toFixed(6)}, ${Number(order.longitude).toFixed(6)}${order.accuracy ? ` (±${Math.round(order.accuracy)}m)` : ''}`;
+    ctx.fillText(gpsText, padding + labelW, y);
+    y += is58mm ? 18 : 22;
   }
 
   // Special Notes (highlighted)
@@ -240,7 +302,7 @@ export async function renderReceiptToCanvas(job) {
       // Deal items bundle description
       if (item.dealItems) {
         ctx.font = is58mm ? '11px "Poppins", sans-serif' : '13px "Poppins", sans-serif';
-        const dealLines = wrapText(ctx, `📦 ${item.dealItems}`, contentWidth - 16);
+        const dealLines = wrapText(ctx, `* ${item.dealItems}`, contentWidth - 16);
         for (const dl of dealLines) {
           ctx.fillText(dl, padding + 12, y);
           y += is58mm ? 15 : 18;
@@ -253,7 +315,7 @@ export async function renderReceiptToCanvas(job) {
           ? '11px "Noto Nastaliq Urdu", "Poppins", sans-serif'
           : '13px "Noto Nastaliq Urdu", "Poppins", sans-serif';
         for (const c of item.choices) {
-          ctx.fillText(`↳ ${c}`, padding + 12, y);
+          ctx.fillText(`• ${c}`, padding + 12, y);
           y += is58mm ? 15 : 18;
         }
       }
@@ -305,8 +367,22 @@ export async function renderReceiptToCanvas(job) {
   drawDashedRule(y);
   y += 12;
 
-  // 6. Direct Reorder QR Code
-  const qrUrl = reorderQrUrl || `${window?.location?.origin || ''}/${restaurant?.slug || ''}`;
+  // 6. Direct Reorder QR Code or Delivery Google Maps Navigation QR Code
+  let qrUrl = '';
+  if (isDelivery) {
+    qrUrl = buildGoogleMapsNavUrl(order);
+  } else if (reorderQrUrl) {
+    qrUrl = reorderQrUrl;
+  } else {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const table = order?.table || order?.tableNumber;
+    const params = new URLSearchParams();
+    if (table) params.set('table', table);
+    if (order?.id) params.set('order', order.id);
+    const qs = params.toString();
+    qrUrl = `${origin}/${restaurant?.slug || ''}${qs ? `?${qs}` : ''}`;
+  }
+  const qrLabel = isDelivery ? 'SCAN FOR GOOGLE MAPS NAVIGATION' : 'SCAN TO REORDER DIRECTLY';
   if (qrUrl) {
     try {
       const qrDataUrl = await QRCode.toDataURL(qrUrl, {
@@ -328,7 +404,7 @@ export async function renderReceiptToCanvas(job) {
 
       ctx.textAlign = 'center';
       ctx.font = is58mm ? 'bold 10px "Poppins", sans-serif' : 'bold 12px "Poppins", sans-serif';
-      ctx.fillText('SCAN TO REORDER DIRECTLY', width / 2, y);
+      ctx.fillText(qrLabel, width / 2, y);
       y += is58mm ? 14 : 18;
 
       ctx.font = is58mm ? '9px "Poppins", monospace' : '11px "Poppins", monospace';
@@ -346,7 +422,7 @@ export async function renderReceiptToCanvas(job) {
   y += is58mm ? 14 : 18;
 
   ctx.font = is58mm ? '9px "Poppins", sans-serif' : '11px "Poppins", sans-serif';
-  ctx.fillText('DineHQ Direct WhatsApp Ordering', width / 2, y);
+  ctx.fillText('DineHQ Direct Online Kitchen', width / 2, y);
   y += 24;
 
   // Crop final canvas to exact height used

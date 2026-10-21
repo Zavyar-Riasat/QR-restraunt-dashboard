@@ -4,9 +4,9 @@
  * using the rawbt: intent protocol and base64 ESC/POS payloads.
  */
 
-import { BaseDriver } from './BaseDriver';
-import { DRIVER_IDS } from '../printerTypes';
-import { isAndroid } from '../capabilities';
+import { BaseDriver } from './BaseDriver.js';
+import { DRIVER_IDS } from '../printerTypes.js';
+import { isAndroid } from '../capabilities.js';
 
 export class RawBtDriver extends BaseDriver {
   constructor() {
@@ -20,6 +20,41 @@ export class RawBtDriver extends BaseDriver {
 
   isConnected() {
     return true;
+  }
+
+  /**
+   * Health Check: Test Android RawBT bridge readiness
+   */
+  async testConnection(_config = {}) {
+    const start = performance.now();
+
+    if (!this.isSupported()) {
+      return {
+        connected: false,
+        latencyMs: 0,
+        message: 'RawBT is an Android-only print service.',
+        fixTip: 'RawBT requires an Android tablet or phone. On Windows, Mac, or iOS, select "Browser Print" or "USB Printer".',
+      };
+    }
+
+    // On Android: check if RawBT local service port 40213 is responding
+    let backgroundServiceActive = false;
+    try {
+      const res = await fetch('http://localhost:40213/health', {
+        method: 'GET',
+        signal: AbortSignal.timeout(600),
+      });
+      if (res.ok) backgroundServiceActive = true;
+    } catch (_) {}
+
+    return {
+      connected: true,
+      latencyMs: Math.max(1, Math.round(performance.now() - start)),
+      message: backgroundServiceActive
+        ? 'Android RawBT print service is running locally on port 40213.'
+        : 'Android device confirmed: RawBT intent scheme (rawbt:) is ready to dispatch print jobs.',
+      details: 'One-tap direct printing enabled for Android.',
+    };
   }
 
   /**

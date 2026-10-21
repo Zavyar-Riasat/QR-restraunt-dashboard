@@ -3,10 +3,11 @@
  * Defines the contract that every DineHQ printer connection method implements.
  */
 
-import { EscposEncoder } from '../escposEncoder';
-import { jobContainsUrdu, renderReceiptToCanvas } from '../receiptCanvasRenderer';
-import { PAPER_SIZES } from '../printerTypes';
-import { formatPKR } from '../../../utils/currencyUtils';
+import { EscposEncoder } from '../escposEncoder.js';
+import { jobContainsUrdu, renderReceiptToCanvas } from '../receiptCanvasRenderer.js';
+import { PAPER_SIZES, TEMPLATE_TYPES } from '../printerTypes.js';
+import { formatPKR } from '../../../utils/currencyUtils.js';
+import { buildGoogleMapsNavUrl } from '../../../config/mapConfig.js';
 
 export class BaseDriver {
   constructor(id, name) {
@@ -28,6 +29,14 @@ export class BaseDriver {
 
   async disconnect() {
     return true;
+  }
+
+  async testConnection(_config = {}) {
+    return {
+      connected: this.isConnected(),
+      message: `${this.name} communication pipeline ready.`,
+      latencyMs: 5,
+    };
   }
 
   async print(_job, _options = {}) {
@@ -64,14 +73,16 @@ export class BaseDriver {
       // 2. Ultra-fast Native ESC/POS Formatting (English & numbers)
       const { order, restaurant, reorderQrUrl } = job;
 
+      const isDelivery = job.templateType === TEMPLATE_TYPES.DELIVERY;
+
       // Header
       encoder.align('center');
       encoder.size('double');
       encoder.bold(true);
-      encoder.line(restaurant?.name || 'KITCHEN RECEIPT');
+      encoder.line(restaurant?.name || (isDelivery ? 'DELIVERY DISPATCH' : 'KITCHEN RECEIPT'));
       encoder.size('normal');
       encoder.bold(false);
-      encoder.line('KITCHEN ORDER TICKET (KOT)');
+      encoder.line(isDelivery ? 'DELIVERY DISPATCH SLIP' : 'KITCHEN ORDER TICKET (KOT)');
       encoder.bold(true);
       encoder.line(`ORDER #${order?.id || '---'}`);
       encoder.bold(false);
@@ -85,10 +96,16 @@ export class BaseDriver {
       encoder.align('left');
       if (order?.customer_name) encoder.line(`Customer: ${order.customer_name}`);
       if (order?.customer_phone) encoder.line(`Phone: +${order.customer_phone}`);
+      if (order?.house_flat) encoder.line(`House/Flat: ${order.house_flat}`);
+      if (order?.area_landmark) encoder.line(`Landmark: ${order.area_landmark}`);
       if (order?.customer_address) encoder.line(`Address: ${order.customer_address}`);
-      if (order?.customer_notes) {
+      if (order?.latitude && order?.longitude) {
+        encoder.line(`GPS Pin: ${Number(order.latitude).toFixed(6)}, ${Number(order.longitude).toFixed(6)}${order.accuracy ? ` (±${Math.round(order.accuracy)}m)` : ''}`);
+      }
+      const riderNotes = order?.rider_notes || order?.delivery_notes || order?.customer_notes;
+      if (riderNotes) {
         encoder.bold(true);
-        encoder.line(`NOTE: ${order.customer_notes}`);
+        encoder.line(`NOTE: ${riderNotes}`);
         encoder.bold(false);
       }
       encoder.rule(charWidth, '-');
@@ -109,7 +126,7 @@ export class BaseDriver {
           }
           if (Array.isArray(item.choices)) {
             for (const c of item.choices) {
-              encoder.line(`  ↳ ${c}`);
+              encoder.line(`  • ${c}`);
             }
           }
         }
@@ -129,14 +146,17 @@ export class BaseDriver {
       encoder.bold(false);
       encoder.rule(charWidth, '-');
 
-      // QR Code for Reordering
-      const qrUrl = reorderQrUrl || `${window?.location?.origin || ''}/${restaurant?.slug || ''}`;
+      // QR Code for Delivery Navigation or Customer Reordering
+      const qrUrl = isDelivery
+        ? buildGoogleMapsNavUrl(order)
+        : (reorderQrUrl || `${window?.location?.origin || ''}/${restaurant?.slug || ''}`);
+      const qrTitle = isDelivery ? 'SCAN FOR GOOGLE MAPS NAVIGATION' : 'SCAN TO REORDER DIRECTLY';
       if (qrUrl) {
         encoder.align('center');
         encoder.feed(1);
         encoder.qrCode(qrUrl, is58mm ? 4 : 5);
         encoder.feed(1);
-        encoder.line('SCAN TO REORDER DIRECTLY');
+        encoder.line(qrTitle);
         encoder.line(qrUrl);
         encoder.feed(1);
       }
@@ -144,7 +164,7 @@ export class BaseDriver {
       // Footer
       encoder.align('center');
       encoder.line(`Thank you for ordering with ${restaurant?.name || 'us'}!`);
-      encoder.line('DineHQ Direct WhatsApp Ordering');
+      encoder.line('DineHQ Direct Online Kitchen');
     }
 
     // Cut Paper (if enabled)

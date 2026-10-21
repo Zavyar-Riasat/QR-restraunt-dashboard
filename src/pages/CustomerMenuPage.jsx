@@ -3,7 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { menuService } from '../services/menuService';
 import VariantCustomizationModal from '../components/VariantCustomizationModal';
 import CustomerCartDrawer from '../components/CustomerCartDrawer';
-import { handleWhatsAppCheckout } from '../utils/checkoutUtils';
+import CustomerOrderTracker from '../components/CustomerOrderTracker';
+import DirectOrderCheckout from '../components/DirectOrderCheckout';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { handleDirectOrderCheckout } from '../utils/checkoutUtils';
 import { formatPKR } from '../utils/currencyUtils';
 import {
   UtensilsCrossed,
@@ -34,6 +37,7 @@ import {
   Power,
   Globe,
   ArrowRight,
+  X,
 } from 'lucide-react';
 import {
   isDeal,
@@ -69,17 +73,17 @@ const UI_TRANSLATIONS = {
     subtotal: 'Subtotal',
     delivery_fee: 'Delivery Fee',
     total_payable: 'Total Payable',
-    send_whatsapp: 'Send WhatsApp Order',
+    place_order: 'Place Order',
     customer_name: 'Your Name',
     customer_name_placeholder: 'e.g. Ali Khan',
-    customer_phone: 'WhatsApp Phone Number',
-    customer_phone_placeholder: '03001234567',
+    customer_phone: 'Phone Number',
+    customer_phone_placeholder: '0300 1234567',
     customer_address: 'Delivery Address',
     customer_address_placeholder: 'House / Apt #, Street, Area, City',
     special_notes: 'Cooking / Delivery Instructions',
     special_notes_placeholder: 'e.g. Less spicy, leave at door',
-    order_success: 'Order Submitted to Kitchen!',
-    order_success_sub: 'Your WhatsApp conversation has opened. Press Send in WhatsApp to confirm your order.',
+    order_success: 'Order Received by Kitchen!',
+    order_success_sub: 'Your order is confirmed and being freshly prepared.',
   },
   ur: {
     all_items: 'تمام ڈشز',
@@ -104,17 +108,17 @@ const UI_TRANSLATIONS = {
     subtotal: 'سب ٹوٹل',
     delivery_fee: 'ڈیلیوری فیس',
     total_payable: 'کل قابل ادائیگی رقم',
-    send_whatsapp: 'واٹس ایپ پر آرڈر بھیجیں',
+    place_order: 'آرڈر درج کریں',
     customer_name: 'آپ کا نام',
     customer_name_placeholder: 'مثال: علی خان',
-    customer_phone: 'واٹس ایپ موبائل نمبر',
-    customer_phone_placeholder: '03001234567',
+    customer_phone: 'موبائل نمبر',
+    customer_phone_placeholder: '0300 1234567',
     customer_address: 'ڈیلیوری کا پتہ',
     customer_address_placeholder: 'مکان نمبر، گلی، علاقہ، شہر',
     special_notes: 'خصوصی ہدایات',
     special_notes_placeholder: 'مثال: کم مرچ، دروازے پر دستک دیں',
     order_success: 'آرڈر کچن کو روانہ کر دیا گیا!',
-    order_success_sub: 'آپ کی واٹس ایپ چیٹ کھل چکی ہے۔ واٹس ایپ میں سینڈ کا بٹن دبائیں۔',
+    order_success_sub: 'آپ کا آرڈر موصول ہو چکا ہے اور کچن میں تیار کیا جا رہا ہے۔',
   },
 };
 
@@ -139,16 +143,43 @@ export default function CustomerMenuPage() {
   const [selectedItemForModal, setSelectedItemForModal] = useState(null);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
-  // Desktop Checkout Form Details
-  const [desktopCustomer, setDesktopCustomer] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    notes: '',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Desktop Checkout & Tracker States
+  const [isDesktopCheckout, setIsDesktopCheckout] = useState(false);
+  const [desktopOrder, setDesktopOrder] = useState(null);
+  const [activeTrackerModalOrder, setActiveTrackerModalOrder] = useState(null);
+  const [persistedActiveOrderId, setPersistedActiveOrderId] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [desktopOrderPlaced, setDesktopOrderPlaced] = useState(false);
+  const [scannedTable, setScannedTable] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('table') || urlParams.get('t') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  // Check for active order from URL query or local storage
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryOrderId = urlParams.get('order') || urlParams.get('orderId');
+
+      if (queryOrderId) {
+        setPersistedActiveOrderId(queryOrderId);
+        setActiveTrackerModalOrder({ id: queryOrderId });
+      } else {
+        const raw = localStorage.getItem('dinehq_active_order');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.id) {
+            setPersistedActiveOrderId(parsed.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error checking active order:', e);
+    }
+  }, []);
 
   // Load menu data
   useEffect(() => {
@@ -211,7 +242,7 @@ export default function CustomerMenuPage() {
   // Calculations
   const isFreeDelivery = restaurant?.delivery_mode === 'free';
   const isHiddenDelivery = restaurant?.delivery_mode === 'none';
-  const deliveryFee = (isFreeDelivery || isHiddenDelivery) ? 0 : (Number(restaurant?.delivery_fee) || 0);
+  const deliveryFee = (isFreeDelivery || isHiddenDelivery || scannedTable) ? 0 : (Number(restaurant?.delivery_fee) || 0);
 
   const checkMinOrder = restaurant?.show_min_order !== false;
   const minOrder = checkMinOrder ? (Number(restaurant?.min_order_amount) || 0) : 0;
@@ -221,37 +252,6 @@ export default function CustomerMenuPage() {
   const finalTotal = subtotal + deliveryFee;
   const totalItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const meetsMinOrder = !checkMinOrder || minOrder === 0 || subtotal >= minOrder;
-
-  // Desktop Checkout Submission
-  const handleDesktopCheckout = (e) => {
-    e.preventDefault();
-    if (!desktopCustomer.name.trim() || !desktopCustomer.address.trim()) {
-      alert('Please enter your name and full delivery address.');
-      return;
-    }
-    if (!isKitchenOpen) {
-      alert('Kitchen is currently paused for direct orders.');
-      return;
-    }
-    if (!meetsMinOrder) {
-      alert(`Minimum order amount is Rs. ${minOrder}. Please add Rs. ${minOrder - subtotal} more.`);
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      const success = handleWhatsAppCheckout({
-        cart,
-        restaurant,
-        customerDetails: desktopCustomer,
-      });
-      if (success) {
-        setDesktopOrderPlaced(true);
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -380,10 +380,14 @@ export default function CustomerMenuPage() {
                 <p className="text-[11px] text-[#7A6A5C] flex items-center gap-2">
                   <span className={`font-bold flex items-center gap-1 ${isKitchenOpen ? 'text-[#1F9D55]' : 'text-[#E5484D]'}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${isKitchenOpen ? 'bg-[#1F9D55]' : 'bg-[#E5484D]'}`}></span>
-                    {isKitchenOpen ? 'Direct Web Order' : 'Kitchen Paused'}
+                    {isKitchenOpen ? 'Direct In-App Ordering' : 'Kitchen Paused'}
                   </span>
-                  <span>•</span>
-                  <span>WhatsApp: +{restaurant.whatsapp_number}</span>
+                  {(restaurant?.phone || restaurant?.whatsapp_number) && (
+                    <>
+                      <span>•</span>
+                      <span>Ph: +{restaurant?.phone || restaurant?.whatsapp_number}</span>
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -429,6 +433,46 @@ export default function CustomerMenuPage() {
             </button>
           </div>
         </div>
+
+        {/* Active Order Live Tracker Notification Banner */}
+        {persistedActiveOrderId && (
+          <div className="bg-[#E7F6EC] border-t border-[#C0E9CE] py-2.5 px-4 sm:px-6">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 font-bold text-[#1F9D55]">
+                <span className="w-2 h-2 rounded-full bg-[#1F9D55] animate-ping" />
+                <span>Active Order #{persistedActiveOrderId} is being processed by the kitchen!</span>
+              </div>
+              <button
+                onClick={() => setActiveTrackerModalOrder({ id: persistedActiveOrderId })}
+                className="px-3.5 py-1.5 rounded-xl bg-[#1F9D55] text-white font-extrabold text-[11px] shadow-sm hover:brightness-95 transition cursor-pointer flex items-center gap-1.5 shrink-0"
+              >
+                <Clock className="w-3 h-3" />
+                <span>Track Live Status</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Table Auto-Detection Banner */}
+        {scannedTable && (
+          <div className="bg-amber-50 border-t border-amber-200 py-2.5 px-4 sm:px-6 animate-fadeIn">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 font-bold text-amber-900">
+                <span className="w-5 h-5 rounded-md bg-[#F26B1D] text-white flex items-center justify-center font-black text-[10px]">
+                  #{scannedTable}
+                </span>
+                <span>Dine-In • Table #{scannedTable} auto-selected for this order!</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScannedTable('')}
+                className="text-[11px] font-bold text-[#F26B1D] hover:underline cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Responsive Storefront Body */}
@@ -729,27 +773,38 @@ export default function CustomerMenuPage() {
                 )}
               </div>
 
-              {/* Cart Items List & Customer Form */}
-              {desktopOrderPlaced ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3">
-                  <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-2 animate-bounce">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-                  <h4 className="font-heading font-extrabold text-slate-900 text-lg">Order Sent to WhatsApp!</h4>
-                  <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
-                    Your formatted order was forwarded directly to <strong>{restaurant?.name}</strong>. Please check your WhatsApp window to finalize delivery details with the kitchen!
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDesktopOrderPlaced(false);
+              {/* Cart Items List, Direct Checkout, or Live Status Tracker */}
+              {desktopOrder ? (
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-slate-50">
+                  <ErrorBoundary>
+                    <CustomerOrderTracker
+                      order={desktopOrder}
+                      restaurant={restaurant}
+                      onClose={() => {
+                        setDesktopOrder(null);
+                        setIsDesktopCheckout(false);
+                        setCart([]);
+                      }}
+                      onNewOrder={() => {
+                        setDesktopOrder(null);
+                        setIsDesktopCheckout(false);
+                        setCart([]);
+                      }}
+                    />
+                  </ErrorBoundary>
+                </div>
+              ) : isDesktopCheckout ? (
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                  <DirectOrderCheckout
+                    cart={cart}
+                    restaurant={restaurant}
+                    onBack={() => setIsDesktopCheckout(false)}
+                    onOrderPlaced={(newOrder) => {
+                      setDesktopOrder(newOrder);
+                      setPersistedActiveOrderId(newOrder.id);
                       setCart([]);
-                      setDesktopCustomer({ name: '', phone: '', address: '', notes: '' });
                     }}
-                    className="mt-4 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer shadow-md shadow-emerald-600/20"
-                  >
-                    Place Another Order
-                  </button>
+                  />
                 </div>
               ) : cart.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
@@ -758,11 +813,11 @@ export default function CustomerMenuPage() {
                   </div>
                   <h4 className="font-heading font-bold text-[#2B2118] text-sm">Your cart is empty</h4>
                   <p className="text-xs text-[#7A6A5C] mt-1 max-w-[200px]">
-                    Select tasty dishes from the menu to place your direct WhatsApp order.
+                    Select tasty dishes from the menu to place your direct kitchen order.
                   </p>
                 </div>
               ) : (
-                <form onSubmit={handleDesktopCheckout} className="flex-1 flex flex-col justify-between overflow-hidden">
+                <div className="flex-1 flex flex-col justify-between overflow-hidden">
                   <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-4">
                     {/* Item List */}
                     <div className="space-y-2.5">
@@ -818,55 +873,6 @@ export default function CustomerMenuPage() {
                         </div>
                       ))}
                     </div>
-
-                    {/* Customer Details Form */}
-                    <div className="pt-2 border-t border-[#F0E4D7] space-y-2.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#7A6A5C]">
-                        Delivery Destination
-                      </span>
-
-                      <div>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Your Full Name *"
-                          value={desktopCustomer.name}
-                          onChange={(e) => setDesktopCustomer({ ...desktopCustomer, name: e.target.value })}
-                          className="w-full px-3.5 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
-                        />
-                      </div>
-
-                      <div>
-                        <input
-                          type="tel"
-                          placeholder="Phone Number (e.g. 03001234567)"
-                          value={desktopCustomer.phone}
-                          onChange={(e) => setDesktopCustomer({ ...desktopCustomer, phone: e.target.value })}
-                          className="w-full px-3.5 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs font-mono focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
-                        />
-                      </div>
-
-                      <div>
-                        <textarea
-                          rows="2"
-                          required
-                          placeholder="Full Delivery Address (Street, House/Apt #) *"
-                          value={desktopCustomer.address}
-                          onChange={(e) => setDesktopCustomer({ ...desktopCustomer, address: e.target.value })}
-                          className="w-full px-3.5 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] focus:bg-white resize-none transition"
-                        />
-                      </div>
-
-                      <div>
-                        <input
-                          type="text"
-                          placeholder="Special Instructions (e.g. extra spicy, call on arrival)"
-                          value={desktopCustomer.notes}
-                          onChange={(e) => setDesktopCustomer({ ...desktopCustomer, notes: e.target.value })}
-                          className="w-full px-3.5 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
-                        />
-                      </div>
-                    </div>
                   </div>
 
                   {/* Pinned Bottom Action & Pricing Bar */}
@@ -909,25 +915,21 @@ export default function CustomerMenuPage() {
                       </div>
                     </div>
 
-                    {/* Primary Colored Checkout Button */}
+                    {/* Primary Colored Proceed Button */}
                     <button
-                      type="submit"
-                      disabled={isSubmitting || !isKitchenOpen || !meetsMinOrder}
+                      type="button"
+                      onClick={() => setIsDesktopCheckout(true)}
+                      disabled={!isKitchenOpen}
                       style={{ backgroundColor: primaryColor }}
-                      className="w-full py-3 sm:py-3.5 px-4 rounded-xl text-white font-bold text-xs sm:text-sm shadow-md hover:brightness-95 active:scale-[0.99] flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-3 sm:py-3.5 px-4 rounded-xl text-white font-extrabold text-xs sm:text-sm shadow-md hover:brightness-95 active:scale-[0.99] flex items-center justify-between transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Send className="w-4 h-4" />
                       <span>
-                        {!isKitchenOpen
-                          ? 'Kitchen Paused'
-                          : !meetsMinOrder
-                          ? `Min Order: ${formatPKR(minOrder)}`
-                          : `Send Order via WhatsApp (${formatPKR(finalTotal)})`}
+                        {!isKitchenOpen ? 'Kitchen Paused' : 'Proceed to Checkout'}
                       </span>
+                      <ArrowRight className="w-4 h-4 stroke-[3]" />
                     </button>
-
                   </div>
-                </form>
+                </div>
               )}
             </div>
           </div>
@@ -978,7 +980,58 @@ export default function CustomerMenuPage() {
         onUpdateQty={handleUpdateQty}
         onRemoveItem={handleRemoveItem}
         restaurant={restaurant}
+        onCartClear={() => setCart([])}
       />
+
+      {/* Desktop Checkout Modal */}
+      {isDesktopCheckout && (
+        <div className="fixed inset-0 z-50 bg-[#2B2118]/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-[#F0E4D7] overflow-hidden p-6 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsDesktopCheckout(false)}
+              className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <DirectOrderCheckout
+              cart={cart}
+              restaurant={restaurant}
+              onBack={() => setIsDesktopCheckout(false)}
+              onOrderPlaced={(newOrder) => {
+                setIsDesktopCheckout(false);
+                setActiveTrackerModalOrder(newOrder);
+                setCart([]);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Active Order Live Tracker Modal */}
+      {activeTrackerModalOrder && (
+        <div className="fixed inset-0 z-50 bg-[#2B2118]/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl">
+            <button
+              onClick={() => setActiveTrackerModalOrder(null)}
+              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-white text-[#2B2118] shadow-lg border border-[#F0E4D7] flex items-center justify-center hover:bg-[#FFF1E6] transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <ErrorBoundary>
+              <CustomerOrderTracker
+                order={activeTrackerModalOrder.status ? activeTrackerModalOrder : null}
+                orderId={activeTrackerModalOrder.id}
+                restaurant={restaurant}
+                onClose={() => setActiveTrackerModalOrder(null)}
+                onNewOrder={() => {
+                  setActiveTrackerModalOrder(null);
+                  setCart([]);
+                }}
+              />
+            </ErrorBoundary>
+          </div>
+        </div>
+      )}
 
       {/* Web Footer */}
       <footer className="mt-auto py-8 border-t border-[#F0E4D7] text-center text-xs text-[#7A6A5C] bg-[#FFF9F2]">
@@ -1003,7 +1056,7 @@ export default function CustomerMenuPage() {
           </div>
 
           <div className="flex items-center gap-3 text-[#7A6A5C]">
-            <p>&copy; 2026 {restaurant.name}. Direct WhatsApp Ordering.</p>
+            <p>&copy; 2026 {restaurant.name}. Direct Online Ordering.</p>
             <span className="text-[#F0E4D7]">•</span>
             <Link
               to="/login"

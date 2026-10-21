@@ -28,6 +28,8 @@ import {
   isWebUSBSupported,
   isWebBluetoothSupported,
   isWebSerialSupported,
+  isPrinterTypeSupported,
+  isIOS,
 } from '../../services/printer/capabilities';
 
 const NAME_SUGGESTIONS = ['Kitchen', 'Counter', 'Bar', 'Cashier', 'Grill', 'Takeaway'];
@@ -295,10 +297,16 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                 <p className="text-xs text-[#7A6A5C] mt-0.5">
                   Select your receipt or ticket printer hardware connection method.
                 </p>
+                {isIOS() && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center gap-2">
+                    <span className="text-xs">📱</span>
+                    <span>Apple iOS Safari detected: Showing AirPrint, standard browser, and network printers (USB/Bluetooth direct hardware bridges are reserved for Chrome/Android).</span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {PRINTER_TYPE_OPTIONS.map((opt) => {
+                {PRINTER_TYPE_OPTIONS.filter((opt) => isPrinterTypeSupported(opt.id)).map((opt) => {
                   const isSelected = printerType === opt.id;
                   const renderIcon = () => {
                     switch (opt.icon) {

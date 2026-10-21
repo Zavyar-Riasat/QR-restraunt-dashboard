@@ -11,12 +11,16 @@ CREATE TABLE IF NOT EXISTS restaurants (
     owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
-    whatsapp_number VARCHAR(20) NOT NULL,
+    phone VARCHAR(20) DEFAULT '923001234567',
+    whatsapp_number VARCHAR(20),
     discount_percentage INT DEFAULT 10,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 ALTER TABLE restaurants ALTER COLUMN owner_id DROP NOT NULL;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
+UPDATE restaurants SET phone = whatsapp_number WHERE phone IS NULL AND whatsapp_number IS NOT NULL;
+ALTER TABLE restaurants ALTER COLUMN whatsapp_number DROP NOT NULL;
 
 -- 3. Menu Categories
 CREATE TABLE IF NOT EXISTS categories (
@@ -90,8 +94,8 @@ DECLARE
     cat_shakes UUID;
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM restaurants WHERE slug = 'burgersmoke') THEN
-        INSERT INTO restaurants (name, slug, whatsapp_number, discount_percentage)
-        VALUES ('Burger & Smoke Co.', 'burgersmoke', '923001234567', 15)
+        INSERT INTO restaurants (name, slug, phone, whatsapp_number, discount_percentage)
+        VALUES ('Burger & Smoke Co.', 'burgersmoke', '923001234567', '923001234567', 15)
         RETURNING id INTO rest_id;
 
         INSERT INTO categories (restaurant_id, name) VALUES (rest_id, 'Smash Burgers') RETURNING id INTO cat_burgers;

@@ -5,9 +5,10 @@
  * and text wrapping.
  */
 
-import { formatPKR } from '../../utils/currencyUtils';
-import { format12HourTime } from '../../utils/dateUtils';
-import { TEMPLATE_TYPES, PAPER_SIZES } from './printerTypes';
+import { formatPKR } from '../../utils/currencyUtils.js';
+import { format12HourTime } from '../../utils/dateUtils.js';
+import { TEMPLATE_TYPES, PAPER_SIZES } from './printerTypes.js';
+import { buildGoogleMapsNavUrl } from '../../config/mapConfig.js';
 
 export function generateReceiptHtml({
   templateType = TEMPLATE_TYPES.KOT,
@@ -16,6 +17,7 @@ export function generateReceiptHtml({
   restaurant,
   settings = {},
   qrDataUrl = '',
+  salesSummary = null,
 }) {
   const {
     showLogo = true,
@@ -32,9 +34,14 @@ export function generateReceiptHtml({
   const showEnglish = language === 'en' || language === 'both';
 
   const dateInfo = format12HourTime(order?.created_at);
-  const reorderUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/${
-    restaurant?.slug || 'burgersmoke'
-  }`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const table = order?.table || order?.tableNumber;
+  const params = new URLSearchParams();
+  if (table) params.set('table', table);
+  if (order?.id) params.set('order', order.id);
+  const qs = params.toString();
+  const reorderUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}${qs ? `?${qs}` : ''}`;
+  const mapsNavUrl = order ? buildGoogleMapsNavUrl(order) : '';
 
   // Font sizing styles
   const baseFontSize = is58mm ? (isLarge ? '12px' : '11px') : isA4 ? (isLarge ? '15px' : '13px') : isLarge ? '14px' : '12px';
@@ -45,6 +52,9 @@ export function generateReceiptHtml({
       <div style="font-size: ${baseFontSize}; line-height: 1.35; color: #000; font-family: monospace, -apple-system, sans-serif;">
         <!-- Header -->
         <div style="text-align: center; border-bottom: 2px dashed #000; padding-bottom: 6px; margin-bottom: 6px;">
+          ${showLogo && restaurant?.logo_url ? `
+            <img src="${restaurant.logo_url}" style="max-height: 48px; max-width: 140px; margin: 0 auto 6px auto; display: block; object-fit: contain;" />
+          ` : ''}
           <h2 style="font-size: ${is58mm ? '15px' : '18px'}; font-weight: 900; margin: 0; text-transform: uppercase;">
             ${restaurant?.name || 'KITCHEN TICKET'}
           </h2>
@@ -66,7 +76,7 @@ export function generateReceiptHtml({
             </span>
           </div>
           <div style="font-size: 11px; font-weight: bold; margin-top: 4px;">
-            🕒 ${dateInfo.timeOnly} &nbsp;•&nbsp; ${dateInfo.dateOnly}
+            ${dateInfo.timeOnly} &nbsp;•&nbsp; ${dateInfo.dateOnly}
           </div>
         </div>
 
@@ -74,7 +84,7 @@ export function generateReceiptHtml({
         ${order?.customer_notes ? `
           <div style="background: #f4f4f4; border: 2px solid #000; padding: 6px 8px; margin-bottom: 8px; font-weight: bold; font-size: 11px; border-radius: 3px; word-break: break-word;">
             <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; margin-bottom: 2px;">
-              ⚠️ KITCHEN NOTES ${showUrdu ? '<span style="font-family: sans-serif;">(خصوصی ہدایت)</span>' : ''}:
+              KITCHEN NOTES ${showUrdu ? '<span style="font-family: sans-serif;">(خصوصی ہدایت)</span>' : ''}:
             </div>
             <div>${order.customer_notes}</div>
           </div>
@@ -107,7 +117,7 @@ export function generateReceiptHtml({
 
               ${Array.isArray(item.choices) && item.choices.length > 0 ? `
                 <div style="padding-left: 20px; font-size: 11px; font-weight: bold; color: #333; margin-top: 2px;">
-                  ${item.choices.map((c) => `<div style="word-break: break-word;">↳ ${c}</div>`).join('')}
+                  ${item.choices.map((c) => `<div style="word-break: break-word;">• ${c}</div>`).join('')}
                 </div>
               ` : ''}
             </div>
@@ -135,8 +145,8 @@ export function generateReceiptHtml({
           <h1 style="font-size: ${is58mm ? '16px' : '20px'}; font-weight: 900; margin: 0; text-transform: uppercase;">
             ${restaurant?.name || 'Customer Bill'}
           </h1>
-          ${showPhone && restaurant?.whatsapp_number ? `
-            <div style="font-size: 11px; font-weight: bold; margin-top: 2px;">Ph: +${restaurant.whatsapp_number}</div>
+          ${showPhone && (restaurant?.phone || restaurant?.whatsapp_number) ? `
+            <div style="font-size: 11px; font-weight: bold; margin-top: 2px;">Ph: +${restaurant?.phone || restaurant?.whatsapp_number}</div>
           ` : ''}
           <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #444; margin-top: 2px;">
             ${showEnglish ? 'Tax Invoice / Receipt' : ''}
@@ -185,7 +195,7 @@ export function generateReceiptHtml({
                   <td style="padding: 3px 0; word-break: break-word;">
                     <div style="font-weight: bold;">${item.title}</div>
                     ${item.dealItems ? `<div style="font-size: 9px; color: #555; padding-left: 4px;">* ${item.dealItems}</div>` : ''}
-                    ${(item.choices || []).map((c) => `<div style="font-size: 9px; color: #555; padding-left: 4px;">↳ ${c}</div>`).join('')}
+                    ${(item.choices || []).map((c) => `<div style="font-size: 9px; color: #555; padding-left: 4px;">• ${c}</div>`).join('')}
                   </td>
                   <td style="padding: 3px 4px; text-align: center; font-weight: bold; font-family: monospace;">
                     ${item.quantity}
@@ -246,7 +256,7 @@ export function generateReceiptHtml({
         ${qrDataUrl ? `
           <div style="text-align: center; border-top: 1px dashed #ccc; padding-top: 6px; margin-top: 6px;">
             <img src="${qrDataUrl}" style="margin: 0 auto; display: block; max-width: ${is58mm ? '75px' : '90px'};" />
-            <div style="font-size: 9px; font-weight: bold; margin-top: 2px; text-transform: uppercase;">Scan to View Menu & Reorder</div>
+            <div style="font-size: 9px; font-weight: bold; margin-top: 2px; text-transform: uppercase;">Scan to Order • آرڈر کے لیے اسکین کریں</div>
             <div style="font-size: 8px; color: #666; font-family: monospace; word-break: break-all;">${reorderUrl}</div>
           </div>
         ` : ''}
@@ -260,6 +270,9 @@ export function generateReceiptHtml({
       <div style="font-size: ${baseFontSize}; line-height: 1.35; color: #000; font-family: monospace, -apple-system, sans-serif;">
         <!-- Header -->
         <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px;">
+          ${showLogo && restaurant?.logo_url ? `
+            <img src="${restaurant.logo_url}" style="max-height: 48px; max-width: 140px; margin: 0 auto 6px auto; display: block; object-fit: contain;" />
+          ` : ''}
           <h1 style="font-size: ${is58mm ? '15px' : '18px'}; font-weight: 900; margin: 0; text-transform: uppercase;">
             DELIVERY DISPATCH SLIP
           </h1>
@@ -273,17 +286,17 @@ export function generateReceiptHtml({
         <!-- Order & Time -->
         <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 6px;">
           <span>Order: <strong style="font-size: 14px; font-family: monospace;">#${order?.id || '---'}</strong></span>
-          <span>🕒 ${dateInfo.timeOnly}</span>
+          <span>${dateInfo.timeOnly}</span>
         </div>
 
         <!-- Customer Name & Phone -->
         <div style="background: #f7f7f7; border: 2px solid #000; padding: 6px 8px; margin-bottom: 6px; border-radius: 3px;">
           <div style="font-size: 13px; font-weight: 900; text-transform: uppercase;">
-            👤 ${order?.customer_name || 'Guest Customer'}
+            ${order?.customer_name || 'Guest Customer'}
           </div>
           ${order?.customer_phone ? `
             <div style="font-size: 13px; font-weight: 900; margin-top: 2px; font-family: monospace;">
-              📞 +${order.customer_phone}
+              +${order.customer_phone}
             </div>
           ` : ''}
         </div>
@@ -291,20 +304,45 @@ export function generateReceiptHtml({
         <!-- Full Delivery Address (High Visibility) -->
         <div style="margin-bottom: 6px;">
           <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; margin-bottom: 2px;">
-            📍 DELIVERY ADDRESS:
+            DELIVERY ADDRESS:
           </div>
-          <div style="border: 2px solid #000; padding: 6px 8px; font-weight: 900; font-size: ${is58mm ? '12px' : '14px'}; word-break: break-word; border-radius: 3px;">
-            ${order?.customer_address || 'Counter Pickup (No delivery address)'}
+          <div style="border: 2px solid #000; padding: 6px 8px; font-weight: 900; font-size: ${is58mm ? '12px' : '14px'}; word-break: break-word; border-radius: 3px; background: #fff;">
+            ${order?.house_flat ? `<div style="font-size: 11px; font-weight: 900; color: #111; margin-bottom: 2px;">House/Flat: ${order.house_flat}</div>` : ''}
+            ${order?.area_landmark ? `<div style="font-size: 11px; font-weight: bold; color: #444; margin-bottom: 2px;">Landmark: ${order.area_landmark}</div>` : ''}
+            <div>${order?.customer_address || 'Counter Pickup (No delivery address)'}</div>
+            ${(order?.latitude && order?.longitude) ? `
+              <div style="font-size: 9px; font-family: monospace; font-weight: bold; color: #1b5e20; margin-top: 4px; padding-top: 3px; border-top: 1px dotted #ccc;">
+                GPS Pin: ${Number(order.latitude).toFixed(6)}, ${Number(order.longitude).toFixed(6)}${order.accuracy ? ` (±${Math.round(order.accuracy)}m)` : ''}
+              </div>
+            ` : ''}
           </div>
         </div>
 
+        <!-- Rider Google Maps Live Navigation QR Code & Direct Link -->
+        ${mapsNavUrl ? `
+          <div style="border: 2px dashed #000; padding: 6px 8px; margin-bottom: 6px; border-radius: 3px; text-align: center; background: #fafafa;">
+            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; margin-bottom: 3px;">
+              RIDER GOOGLE MAPS NAVIGATION
+            </div>
+            ${qrDataUrl ? `
+              <div style="margin: 4px auto;">
+                <img src="${qrDataUrl}" style="margin: 0 auto; display: block; max-width: ${is58mm ? '75px' : '95px'};" alt="Google Maps Navigation QR" />
+                <div style="font-size: 8px; font-weight: 900; margin-top: 2px; text-transform: uppercase;">SCAN FOR LIVE DIRECTIONS</div>
+              </div>
+            ` : ''}
+            <div style="font-size: 8px; color: #111; font-family: monospace; word-break: break-all; margin-top: 3px; line-height: 1.2;">
+              ${mapsNavUrl}
+            </div>
+          </div>
+        ` : ''}
+
         <!-- Rider Notes / Customer Instructions -->
-        ${order?.rider_notes || order?.customer_notes ? `
+        ${(order?.rider_notes || order?.delivery_notes || order?.customer_notes) ? `
           <div style="background: #fff8e1; border: 2px solid #000; padding: 6px 8px; margin-bottom: 6px; font-weight: bold; font-size: 11px; border-radius: 3px; word-break: break-word;">
             <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; margin-bottom: 2px;">
-              🛵 RIDER NOTES:
+              RIDER NOTES:
             </div>
-            <div>${order.rider_notes || order.customer_notes}</div>
+            <div>${order?.rider_notes || order?.delivery_notes || order?.customer_notes}</div>
           </div>
         ` : ''}
 
@@ -341,6 +379,142 @@ export function generateReceiptHtml({
         <div style="text-align: center; border-top: 1px solid #000; padding-top: 4px; font-size: 9px; color: #666;">
           <div>Restaurant: ${restaurant?.name || 'Kitchen'}</div>
           <div>DineHQ Automated Rider Dispatch</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 4. TODAY'S SALES SUMMARY (Optimized for 80mm paper)
+  if (templateType === TEMPLATE_TYPES.SALES_SUMMARY || salesSummary) {
+    const summary = salesSummary || order?.salesSummary || {};
+    const topItems = summary.topItems || [];
+    const dateFormatted = summary.date || dateInfo.dateOnly;
+    const timeFormatted = summary.time || dateInfo.timeOnly;
+
+    return `
+      <div style="font-size: ${baseFontSize}; line-height: 1.35; color: #000; font-family: monospace, -apple-system, sans-serif;">
+        <!-- Header -->
+        <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px;">
+          ${showLogo && restaurant?.logo_url ? `
+            <img src="${restaurant.logo_url}" style="max-height: 48px; max-width: 140px; margin: 0 auto 4px auto; display: block; object-fit: contain;" />
+          ` : ''}
+          <h1 style="font-size: ${is58mm ? '16px' : '20px'}; font-weight: 900; margin: 0; text-transform: uppercase;">
+            ${restaurant?.name || 'Restaurant'}
+          </h1>
+          ${showPhone && (restaurant?.phone || restaurant?.whatsapp_number) ? `
+            <div style="font-size: 11px; font-weight: bold; margin-top: 2px;">Ph: +${restaurant?.phone || restaurant?.whatsapp_number}</div>
+          ` : ''}
+          <div style="display: inline-block; background: #000; color: #fff; font-size: ${is58mm ? '11px' : '13px'}; font-weight: 900; padding: 3px 10px; border-radius: 2px; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+            TODAY'S SALES SUMMARY
+          </div>
+          ${showUrdu ? `
+            <div style="font-family: sans-serif; font-size: 11px; font-weight: bold; margin-top: 2px;">
+              روزانہ سیلز و ریونیو رپورٹ
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Meta: Date & Shift Time -->
+        <div style="font-size: 11px; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; font-weight: bold;">
+            <span>Report Date:</span>
+            <span>${dateFormatted}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>Generated At:</span>
+            <span>${timeFormatted}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>Register / Shift:</span>
+            <span style="font-weight: bold;">All Counters & Online</span>
+          </div>
+        </div>
+
+        <!-- Big Highlight KPI Box -->
+        <div style="border: 2px solid #000; background: #f8f8f8; padding: 8px 10px; margin-bottom: 8px; border-radius: 3px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #999; padding-bottom: 5px; margin-bottom: 5px;">
+            <span style="font-size: 11px; font-weight: 900; text-transform: uppercase;">TOTAL ORDERS:</span>
+            <span style="font-size: 16px; font-weight: 900; font-family: monospace;">
+              ${summary.totalOrders || 0} ORDERS
+            </span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; font-weight: 900; text-transform: uppercase;">TOTAL SALES:</span>
+            <span style="font-size: ${is58mm ? '18px' : '22px'}; font-weight: 900; font-family: monospace;">
+              ${formatPKR(summary.totalSales || 0)}
+            </span>
+          </div>
+          ${summary.averageOrderValue ? `
+            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #555; margin-top: 4px; font-weight: bold;">
+              <span>Average Order Value:</span>
+              <span>${formatPKR(summary.averageOrderValue)}</span>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Payment Breakdown: Cash vs Online -->
+        <div style="margin-bottom: 8px;">
+          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 4px;">
+            PAYMENT BREAKDOWN (CASH VS ONLINE)
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: ${baseFontSize};">
+            <tbody>
+              <tr style="border-bottom: 1px dotted #ccc;">
+                <td style="padding: 4px 0; font-weight: bold;">
+                  <span>Cash on Delivery / Counter</span>
+                  <div style="font-size: 9px; color: #555;">${summary.cashSales?.count || 0} orders</div>
+                </td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 900; font-family: monospace; white-space: nowrap;">
+                  ${formatPKR(summary.cashSales?.total || 0)}
+                </td>
+              </tr>
+              <tr style="border-bottom: 1px dotted #ccc;">
+                <td style="padding: 4px 0; font-weight: bold;">
+                  <span>Online (JazzCash/Easypaisa/Card)</span>
+                  <div style="font-size: 9px; color: #555;">${summary.onlineSales?.count || 0} orders</div>
+                </td>
+                <td style="padding: 4px 0; text-align: right; font-weight: 900; font-family: monospace; white-space: nowrap;">
+                  ${formatPKR(summary.onlineSales?.total || 0)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Top 5 Items -->
+        <div style="margin-bottom: 10px;">
+          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <span>TOP 5 BEST-SELLING ITEMS</span>
+            <span>QTY / REVENUE</span>
+          </div>
+
+          ${topItems.length > 0 ? `
+            <table style="width: 100%; border-collapse: collapse; font-size: ${baseFontSize};">
+              <tbody>
+                ${topItems.map((item, idx) => `
+                  <tr style="border-bottom: 1px dashed #eee; vertical-align: top;">
+                    <td style="padding: 3px 0; word-break: break-word;">
+                      <span style="font-weight: 900; margin-right: 4px;">#${idx + 1}</span>
+                      <span style="font-weight: bold;">${item.title}</span>
+                    </td>
+                    <td style="padding: 3px 0; text-align: right; font-family: monospace; white-space: nowrap;">
+                      <span style="font-weight: 900; display: inline-block; background: #eee; padding: 1px 4px; border-radius: 2px; margin-right: 4px;">
+                        ${item.quantity}x
+                      </span>
+                      <span style="font-weight: bold;">${formatPKR(item.revenue || 0)}</span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : `
+            <div style="font-size: 10px; font-style: italic; color: #666; padding: 4px 0;">No sales recorded yet today.</div>
+          `}
+        </div>
+
+        <!-- System Footer Note -->
+        <div style="border-top: 2px solid #000; padding-top: 6px; font-size: 10px; text-align: center;">
+          <div style="font-weight: bold;">DineHQ Restaurant POS & Management System</div>
         </div>
       </div>
     `;

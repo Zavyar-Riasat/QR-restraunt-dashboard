@@ -4,8 +4,8 @@
  * to remote branches or kitchen receipt printers anywhere in the world.
  */
 
-import { BaseDriver } from './BaseDriver';
-import { DRIVER_IDS } from '../printerTypes';
+import { BaseDriver } from './BaseDriver.js';
+import { DRIVER_IDS } from '../printerTypes.js';
 
 export class CloudPrintDriver extends BaseDriver {
   constructor() {

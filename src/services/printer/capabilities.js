@@ -4,7 +4,7 @@
  * instead of throwing cryptic errors at the owner.
  */
 
-import { DRIVER_IDS } from './printerTypes';
+import { DRIVER_IDS } from './printerTypes.js';
 
 export function isWebUSBSupported() {
   return typeof navigator !== 'undefined' && 'usb' in navigator;
@@ -25,13 +25,105 @@ export function isAndroid() {
 
 export function isIOS() {
   if (typeof navigator === 'undefined') return false;
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  return (
+    /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
 }
 
 export function isSafari() {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent;
-  return /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|Edg/i.test(ua);
+  return /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|Edg|OPR/i.test(ua);
+}
+
+/**
+ * Checks if a specific printer connection type is supported on the current device and browser.
+ * On iPhone / iPad Safari: WebUSB, Web Bluetooth, and Android RawBT are strictly unsupported
+ * and hidden to prevent confusion and avoid runtime exceptions.
+ */
+export function isPrinterTypeSupported(typeId) {
+  // iPhone / iPad Safari strictly does NOT support WebUSB, Web Bluetooth, or Android RawBT
+  if (isIOS()) {
+    if (
+      typeId === DRIVER_IDS.USB ||
+      typeId === DRIVER_IDS.BLUETOOTH ||
+      typeId === DRIVER_IDS.RAWBT
+    ) {
+      return false;
+    }
+    return true; // Browser Print & Network (via Print Helper or web gateway) are supported
+  }
+
+  switch (typeId) {
+    case DRIVER_IDS.USB:
+      return isWebUSBSupported() || isWebSerialSupported();
+    case DRIVER_IDS.BLUETOOTH:
+      return isWebBluetoothSupported();
+    case DRIVER_IDS.RAWBT:
+      return isAndroid();
+    case DRIVER_IDS.BROWSER:
+    case DRIVER_IDS.NETWORK:
+    case DRIVER_IDS.CLOUD:
+    default:
+      return true;
+  }
+}
+
+/**
+ * Returns comprehensive hardware and driver diagnostic information
+ * for the current client device.
+ */
+export function getPlatformDiagnostics() {
+  const isApple = isIOS();
+  const isGoogleAndroid = isAndroid();
+  const isAppleSafari = isSafari();
+  const hasUSB = isWebUSBSupported();
+  const hasSerial = isWebSerialSupported();
+  const hasBLE = isWebBluetoothSupported();
+
+  let osName = 'Desktop (Windows / Mac / Linux)';
+  if (isApple) osName = 'Apple iOS (iPhone / iPad)';
+  else if (isGoogleAndroid) osName = 'Android Mobile / Tablet';
+  else if (typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)) osName = 'Windows PC';
+  else if (typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent)) osName = 'macOS';
+
+  let browserName = 'Web Browser';
+  if (typeof navigator !== 'undefined') {
+    if (/Chrome/i.test(navigator.userAgent) && !/Edg/i.test(navigator.userAgent)) browserName = 'Google Chrome';
+    else if (/Edg/i.test(navigator.userAgent)) browserName = 'Microsoft Edge';
+    else if (isAppleSafari) browserName = 'Apple Safari';
+    else if (/Firefox/i.test(navigator.userAgent)) browserName = 'Mozilla Firefox';
+  }
+
+  let recommendedDriver = DRIVER_IDS.BROWSER;
+  if (isApple) {
+    recommendedDriver = DRIVER_IDS.BROWSER;
+  } else if (isGoogleAndroid) {
+    recommendedDriver = hasBLE ? DRIVER_IDS.BLUETOOTH : DRIVER_IDS.RAWBT;
+  } else if (hasUSB) {
+    recommendedDriver = DRIVER_IDS.USB;
+  }
+
+  return {
+    osName,
+    browserName,
+    isIOS: isApple,
+    isSafari: isAppleSafari,
+    isAndroid: isGoogleAndroid,
+    hasWebUSB: hasUSB,
+    hasWebSerial: hasSerial,
+    hasWebBluetooth: hasBLE,
+    recommendedDriver,
+    supportedTypes: [
+      DRIVER_IDS.BROWSER,
+      hasUSB ? DRIVER_IDS.USB : null,
+      hasBLE && !isApple ? DRIVER_IDS.BLUETOOTH : null,
+      isGoogleAndroid ? DRIVER_IDS.RAWBT : null,
+      DRIVER_IDS.NETWORK,
+      DRIVER_IDS.CLOUD,
+    ].filter(Boolean),
+  };
 }
 
 /**
@@ -51,9 +143,8 @@ export function getAvailableDrivers() {
     requiresPairing: false,
   });
 
-  // 2. USB Thermal Printer (WebUSB / WebSerial)
-  const usbSupported = isWebUSBSupported() || isWebSerialSupported();
-  if (usbSupported) {
+  // 2. USB Thermal Printer (WebUSB / WebSerial) - Hidden on iOS Safari
+  if (isPrinterTypeSupported(DRIVER_IDS.USB)) {
     drivers.push({
       id: DRIVER_IDS.USB,
       name: 'USB Thermal Printer',
@@ -64,8 +155,8 @@ export function getAvailableDrivers() {
     });
   }
 
-  // 3. Bluetooth Thermal Printer (BLE)
-  if (isWebBluetoothSupported()) {
+  // 3. Bluetooth Thermal Printer (BLE) - Hidden on iOS Safari
+  if (isPrinterTypeSupported(DRIVER_IDS.BLUETOOTH)) {
     drivers.push({
       id: DRIVER_IDS.BLUETOOTH,
       name: 'Bluetooth Thermal Printer',
@@ -76,8 +167,8 @@ export function getAvailableDrivers() {
     });
   }
 
-  // 4. Android RawBT
-  if (isAndroid()) {
+  // 4. Android RawBT - Android only, hidden on iOS
+  if (isPrinterTypeSupported(DRIVER_IDS.RAWBT)) {
     drivers.push({
       id: DRIVER_IDS.RAWBT,
       name: 'Android RawBT App',

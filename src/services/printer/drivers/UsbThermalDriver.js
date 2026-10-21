@@ -4,9 +4,9 @@
  * and sends raw ESC/POS binary commands directly to the thermal hardware.
  */
 
-import { BaseDriver } from './BaseDriver';
-import { DRIVER_IDS } from '../printerTypes';
-import { isWebUSBSupported, isWebSerialSupported } from '../capabilities';
+import { BaseDriver } from './BaseDriver.js';
+import { DRIVER_IDS } from '../printerTypes.js';
+import { isWebUSBSupported, isWebSerialSupported } from '../capabilities.js';
 
 export class UsbThermalDriver extends BaseDriver {
   constructor() {
@@ -21,6 +21,83 @@ export class UsbThermalDriver extends BaseDriver {
 
   isConnected() {
     return Boolean(this.usbDevice?.opened || this.serialPort?.readable);
+  }
+
+  /**
+   * Health Check: Test USB connection readiness on Chrome / Windows
+   */
+  async testConnection(config = {}) {
+    const start = performance.now();
+
+    if (!this.isSupported()) {
+      return {
+        connected: false,
+        latencyMs: 0,
+        message: 'WebUSB is not supported in this browser.',
+        fixTip: 'Use Google Chrome or Microsoft Edge on Windows, or use Browser Print on Safari/Firefox.',
+      };
+    }
+
+    try {
+      // 1. Device already open and claimed
+      if (this.usbDevice?.opened) {
+        return {
+          connected: true,
+          latencyMs: Math.max(1, Math.round(performance.now() - start)),
+          message: `USB port open and active (${this.usbDevice.productName || 'Thermal POS Printer'}).`,
+          device: this.usbDevice.productName || 'USB Thermal POS',
+        };
+      }
+
+      // 2. Check for previously granted WebUSB devices
+      if (isWebUSBSupported() && navigator.usb?.getDevices) {
+        const pairedDevices = await navigator.usb.getDevices();
+        if (pairedDevices && pairedDevices.length > 0) {
+          const target = config.usbVendorId
+            ? pairedDevices.find(
+                (d) =>
+                  d.vendorId === config.usbVendorId &&
+                  (!config.usbProductId || d.productId === config.usbProductId)
+              ) || pairedDevices[0]
+            : pairedDevices[0];
+
+          return {
+            connected: true,
+            latencyMs: Math.max(1, Math.round(performance.now() - start)),
+            message: `USB Thermal printer recognized: ${target.productName || 'POS Printer'} (VID 0x${target.vendorId.toString(16)}).`,
+            device: target.productName || 'USB Thermal POS',
+          };
+        }
+      }
+
+      // 3. Check for WebSerial ports
+      if (isWebSerialSupported() && navigator.serial?.getPorts) {
+        const serialPorts = await navigator.serial.getPorts();
+        if (serialPorts && serialPorts.length > 0) {
+          return {
+            connected: true,
+            latencyMs: Math.max(1, Math.round(performance.now() - start)),
+            message: 'Serial USB port recognized and available.',
+            device: 'Serial USB Thermal',
+          };
+        }
+      }
+
+      // If WebUSB is supported but no device paired yet:
+      return {
+        connected: false,
+        latencyMs: Math.max(1, Math.round(performance.now() - start)),
+        message: 'WebUSB is ready in Chrome, but no USB printer has been paired yet.',
+        fixTip: 'Plug your thermal printer into a USB port, turn power ON, and click "Connect / Pair" in Printer Settings.',
+      };
+    } catch (err) {
+      return {
+        connected: false,
+        latencyMs: Math.max(1, Math.round(performance.now() - start)),
+        message: `USB connection error: ${err.message}`,
+        fixTip: 'Check USB cable connection and verify another program is not exclusively locking the printer.',
+      };
+    }
   }
 
   /**

@@ -4,11 +4,12 @@
  * for 58mm, 80mm, and A4 paper sizes with KOT, Customer Bill, and Delivery Slip templates.
  */
 
-import { BaseDriver } from './BaseDriver';
-import { DRIVER_IDS, PAPER_SIZES, TEMPLATE_TYPES } from '../printerTypes';
-import { printerService } from '../printerService';
-import { generateReceiptHtml } from '../templateHtmlGenerator';
+import { BaseDriver } from './BaseDriver.js';
+import { DRIVER_IDS, PAPER_SIZES, TEMPLATE_TYPES } from '../printerTypes.js';
+import { printerService } from '../printerService.js';
+import { generateReceiptHtml } from '../templateHtmlGenerator.js';
 import QRCode from 'qrcode';
+import { buildGoogleMapsNavUrl } from '../../../config/mapConfig.js';
 
 export class BrowserPrintDriver extends BaseDriver {
   constructor() {
@@ -21,6 +22,24 @@ export class BrowserPrintDriver extends BaseDriver {
 
   isConnected() {
     return true;
+  }
+
+  /**
+   * Health Check: Test Browser Print readiness (A4, 80mm, 58mm)
+   */
+  async testConnection(config = {}) {
+    const start = performance.now();
+    const isAvail = this.isSupported();
+    const paperSize = config.paperSize || PAPER_SIZES.SIZE_80MM;
+
+    return {
+      connected: isAvail,
+      latencyMs: Math.max(1, Math.round(performance.now() - start)),
+      message: isAvail
+        ? `Browser print engine active and ready for ${paperSize === PAPER_SIZES.SIZE_A4 ? 'A4 regular printer' : `${paperSize} receipt printer`}.`
+        : 'Browser printing is not supported in this runtime environment.',
+      details: 'Universal driver: works on Windows, macOS, Android, and iPhone Safari without external drivers.',
+    };
   }
 
   async print(job, config = {}) {
@@ -81,17 +100,43 @@ export class BrowserPrintDriver extends BaseDriver {
       }
     `;
 
-    // 2. Generate direct QR Code if requested or if customer bill
-    const qrUrl = job.reorderQrUrl || `${window?.location?.origin || ''}/${job.restaurant?.slug || ''}`;
+    // 2. Generate direct QR Code (Reorder QR for Bill, or Google Maps QR for Delivery Slip)
     let qrDataUrl = '';
-    if (qrUrl && templateType === TEMPLATE_TYPES.BILL) {
-      try {
-        qrDataUrl = await QRCode.toDataURL(qrUrl, {
-          margin: 1,
-          width: paperSize === PAPER_SIZES.SIZE_58MM ? 100 : 130,
-        });
-      } catch (err) {
-        console.warn('BrowserPrint QR generation error:', err);
+    if (templateType === TEMPLATE_TYPES.BILL) {
+      const origin = window?.location?.origin || '';
+      const slug = job.restaurant?.slug || 'burgersmoke';
+      let qrUrl = job.reorderQrUrl;
+      if (!qrUrl) {
+        const table = job.order?.table || job.order?.tableNumber;
+        const orderId = job.order?.id;
+        const params = new URLSearchParams();
+        if (table) params.set('table', table);
+        if (orderId) params.set('order', orderId);
+        const qs = params.toString();
+        qrUrl = `${origin}/${slug}${qs ? `?${qs}` : ''}`;
+      }
+      if (qrUrl) {
+        try {
+          qrDataUrl = await QRCode.toDataURL(qrUrl, {
+            margin: 1,
+            width: paperSize === PAPER_SIZES.SIZE_58MM ? 110 : 140,
+            errorCorrectionLevel: 'M',
+          });
+        } catch (err) {
+          console.warn('BrowserPrint QR generation error:', err);
+        }
+      }
+    } else if (templateType === TEMPLATE_TYPES.DELIVERY) {
+      const navUrl = buildGoogleMapsNavUrl(job.order);
+      if (navUrl) {
+        try {
+          qrDataUrl = await QRCode.toDataURL(navUrl, {
+            margin: 1,
+            width: paperSize === PAPER_SIZES.SIZE_58MM ? 95 : 120,
+          });
+        } catch (err) {
+          console.warn('BrowserPrint Delivery QR generation error:', err);
+        }
       }
     }
 
@@ -112,10 +157,19 @@ export class BrowserPrintDriver extends BaseDriver {
       restaurant,
       settings: templateSettings,
       qrDataUrl,
+      salesSummary: job.salesSummary,
     });
 
-    // 4. Trigger print
-    window.print();
+    // 4. Trigger print (skip blocking print dialog during automated health check diagnostics)
+    if (!config.skipDialog && !job.isHealthCheck) {
+      try {
+        if (typeof window !== 'undefined' && typeof window.print === 'function') {
+          window.print();
+        }
+      } catch (e) {
+        console.warn('window.print call notice:', e);
+      }
+    }
 
     // 5. Cleanup after short delay
     setTimeout(() => {

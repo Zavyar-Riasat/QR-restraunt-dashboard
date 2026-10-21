@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import {
   Bell,
   Clock,
@@ -7,6 +7,7 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Truck,
   ChefHat,
   MessageCircle,
@@ -23,14 +24,31 @@ import {
   RefreshCw,
   Sparkles,
   FileText,
+  Check,
+  ChevronDown,
+  RotateCcw,
+  Navigation,
+  Copy,
+  Plus,
+  Send,
+  Pause,
+  Receipt,
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
+import { format12HourTime } from '../utils/dateUtils';
 import { playKitchenChime } from '../services/orderService';
+import {
+  buildGoogleMapsNavUrl,
+  buildOsmNavUrl,
+  buildShareableLocationLink,
+} from '../config/mapConfig.js';
+const LeafletMap = lazy(() => import('./Map/LeafletMap.jsx'));
 import { QRCodeSVG } from 'qrcode.react';
 import { printerService } from '../services/printer/printerService';
 import { DRIVER_IDS, PAPER_SIZE_SPECS, TEMPLATE_TYPES } from '../services/printer/printerTypes';
 import PrinterStatusBadge from './Printer/PrinterStatusBadge';
 import PrintTemplateRenderer from './Printer/PrintTemplateRenderer';
+import EditOrderItemsModal from './Orders/EditOrderItemsModal';
 
 export default function OrdersFeed({
   orders = [],
@@ -39,12 +57,22 @@ export default function OrdersFeed({
   soundEnabled = true,
   onToggleSound,
   newOrderAlert,
+  mutedOrderIds = [],
+  onMuteOrderAlert,
+  isAudioUnlocked = true,
+  onUnlockAudio,
   onOpenPrinterSettings,
+  onPrintSalesSummary,
+  onOpenNewOrder,
+  onDismissOrderAlert,
+  menuItems = [],
 }) {
   const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
   const [search, setSearch] = useState('');
   const [printingOrder, setPrintingOrder] = useState(null);
+  const [editingOrderItems, setEditingOrderItems] = useState(null);
   const [openMenuOrderId, setOpenMenuOrderId] = useState(null);
+  const [activePrintMenuOrderId, setActivePrintMenuOrderId] = useState(null);
   const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
   const [directPrintingId, setDirectPrintingId] = useState(null);
   const [printSuccessToast, setPrintSuccessToast] = useState(null);
@@ -52,12 +80,52 @@ export default function OrdersFeed({
   const [isModalPrinting, setIsModalPrinting] = useState(false);
   const [modalTemplateType, setModalTemplateType] = useState(TEMPLATE_TYPES.KOT);
   const [modalPaperSize, setModalPaperSize] = useState(() => printerService.getConfig().paperSize || '80mm');
+  const [retryQueue, setRetryQueue] = useState(() => printerService.getRetryQueue());
+  const [printedOrdersMap, setPrintedOrdersMap] = useState(() => printerService.getPrintedOrdersMap());
+  const [isRetryingQueue, setIsRetryingQueue] = useState(false);
+  const [copiedLocationId, setCopiedLocationId] = useState(null);
+
+  const handleCopyLocation = (order) => {
+    const url = buildGoogleMapsNavUrl(order);
+    navigator.clipboard.writeText(url);
+    setCopiedLocationId(order.id);
+    setTimeout(() => setCopiedLocationId(null), 2500);
+  };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const reorderUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}`;
 
   useEffect(() => {
-    return printerService.subscribe((cfg) => setPrinterConfig(cfg));
+    const unsubscribe = printerService.subscribe((data) => {
+      if (data?.printers || data?.driver) {
+        setPrinterConfig(printerService.getConfig());
+      }
+      if (data?.retryQueue) {
+        setRetryQueue(data.retryQueue);
+      }
+      if (data?.printedOrders) {
+        setPrintedOrdersMap(data.printedOrders);
+      }
+    });
+
+    const handleRetryQueueUpdated = (e) => {
+      if (e.detail?.queue) {
+        setRetryQueue(e.detail.queue);
+      }
+    };
+
+    const handleOrderPrintedEvent = () => {
+      setPrintedOrdersMap(printerService.getPrintedOrdersMap());
+    };
+
+    window.addEventListener('dinehq_print_retry_queue_updated', handleRetryQueueUpdated);
+    window.addEventListener('dinehq_order_printed', handleOrderPrintedEvent);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('dinehq_print_retry_queue_updated', handleRetryQueueUpdated);
+      window.removeEventListener('dinehq_order_printed', handleOrderPrintedEvent);
+    };
   }, []);
 
   useEffect(() => {
@@ -73,24 +141,77 @@ export default function OrdersFeed({
     return () => window.removeEventListener('dinehq:printer-fallback', handleFallbackEvent);
   }, []);
 
-  const handleDirectPrint = async (order, printType = null) => {
+  const isOrderPrinted = (orderId) => {
+    const orderPrints = printedOrdersMap[orderId];
+    return Boolean(orderPrints && Object.keys(orderPrints).length > 0);
+  };
+
+  const isOrderPrintedOnType = (orderId, templateType) => {
+    const orderPrints = printedOrdersMap[orderId];
+    if (!orderPrints) return false;
+    return Object.values(orderPrints).some((p) => Boolean(p && p[templateType]));
+  };
+
+  const handleRetryNow = async () => {
+    try {
+      setIsRetryingQueue(true);
+      const res = await printerService.processRetryQueue();
+      if (res.printedCount > 0) {
+        setPrintSuccessToast(`Printed ${res.printedCount} queued ${res.printedCount === 1 ? 'order' : 'orders'}!`);
+        setTimeout(() => setPrintSuccessToast(null), 3500);
+      } else if (res.remainingCount > 0) {
+        setFallbackAlert({
+          message: `Printers are still offline. ${res.remainingCount} ${res.remainingCount === 1 ? 'job' : 'jobs'} remaining in queue.`,
+        });
+        setTimeout(() => setFallbackAlert(null), 6000);
+      }
+    } catch (err) {
+      setFallbackAlert({ message: `Retry failed: ${err.message}` });
+    } finally {
+      setIsRetryingQueue(false);
+      setRetryQueue(printerService.getRetryQueue());
+      setPrintedOrdersMap(printerService.getPrintedOrdersMap());
+    }
+  };
+
+  const handlePrintTicket = async (order, templateType) => {
     try {
       setDirectPrintingId(order.id);
+      const table = order?.table;
+      const params = new URLSearchParams();
+      if (table) params.set('table', table);
+      if (order?.id) params.set('order', order.id);
+      const qs = params.toString();
+      const ticketQrUrl = `${reorderUrl}${qs ? `?${qs}` : ''}`;
+
       const res = await printerService.print(
         {
           order,
           restaurant,
-          reorderUrl,
+          reorderUrl: ticketQrUrl,
+          reorderQrUrl: ticketQrUrl,
+          templateType,
         },
-        printType ? { printType } : {}
+        { printType: templateType }
       );
+
+      // Record printed flag
+      printerService.markOrderPrinted(order.id, res.printerId || 'default', templateType);
+      setPrintedOrdersMap(printerService.getPrintedOrdersMap());
+
+      const typeLabel =
+        templateType === TEMPLATE_TYPES.KOT
+          ? 'KOT'
+          : templateType === TEMPLATE_TYPES.BILL
+          ? 'Customer Bill'
+          : 'Delivery Slip';
 
       if (res.usedFallback) {
         setFallbackAlert({
           message: `${res.printerName || res.originalDriver || 'Thermal printer'} was unavailable. Switched to standard browser print.`,
         });
       } else {
-        setPrintSuccessToast(`Order #${order.id} printed to ${res.printerName || res.driver || 'printer'}!`);
+        setPrintSuccessToast(`Order #${order.id} ${typeLabel} printed successfully!`);
         setTimeout(() => setPrintSuccessToast(null), 3000);
       }
     } catch (err) {
@@ -100,6 +221,11 @@ export default function OrdersFeed({
     } finally {
       setDirectPrintingId(null);
     }
+  };
+
+  const handleDirectPrint = async (order, printType = null) => {
+    const targetType = printType || TEMPLATE_TYPES.KOT;
+    return handlePrintTicket(order, targetType);
   };
 
   const handleModalPrint = async () => {
@@ -134,7 +260,7 @@ export default function OrdersFeed({
       filter === 'all'
         ? true
         : filter === 'active'
-        ? order.status === 'new' || order.status === 'preparing' || order.status === 'out_for_delivery'
+        ? order.status === 'new' || order.status === 'preparing' || order.status === 'out_for_delivery' || order.status === 'ready' || order.status === 'held'
         : order.status === filter;
 
     const query = search.toLowerCase();
@@ -156,6 +282,13 @@ export default function OrdersFeed({
             <span>New Order</span>
           </span>
         );
+      case 'held':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold">
+            <Pause className="w-3.5 h-3.5 text-amber-700" />
+            <span>Held / Draft</span>
+          </span>
+        );
       case 'preparing':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF3D9] border border-[#FCE1A8] text-[#F5A623] text-xs font-bold">
@@ -164,6 +297,7 @@ export default function OrdersFeed({
           </span>
         );
       case 'out_for_delivery':
+      case 'ready':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-xs font-bold">
             <Truck className="w-3.5 h-3.5 text-[#1F9D55]" />
@@ -189,7 +323,7 @@ export default function OrdersFeed({
     }
   };
 
-  const handleWhatsAppCustomer = (order) => {
+  const handleSmsCustomer = (order) => {
     const cleanPhone = (order.customer_phone || '').replace(/\D/g, '');
     if (!cleanPhone) {
       alert('No customer phone number available.');
@@ -197,23 +331,169 @@ export default function OrdersFeed({
     }
     const storeName = restaurant?.name || 'Kitchen';
     const text = encodeURIComponent(
-      `Hello ${order.customer_name}! 👋\nThis is ${storeName} regarding your order #${order.id}.\nYour order is currently ${order.status.replace(/_/g, ' ')}!`
+      `Hello ${order.customer_name}! This is ${storeName} regarding your order #${order.id}. Your order is currently ${order.status.replace(/_/g, ' ')}.`
     );
-    window.open(`https://wa.me/${cleanPhone}?text=${text}`, '_blank');
+    window.open(`sms:+${cleanPhone}?body=${text}`, '_blank');
   };
+
+  const pendingNewOrders = orders.filter((o) => o.status === 'new');
+  const latestNewOrder = pendingNewOrders[0];
+  const unmutedPendingCount = pendingNewOrders.filter((o) => !mutedOrderIds.includes(o.id)).length;
 
   return (
     <div className={`bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6 ${printingOrder ? 'print:p-0 print:border-none print:shadow-none print:bg-transparent print:space-y-0' : ''}`}>
       {/* Background Feed Content (Hidden when printing KOT modal) */}
       <div className={`space-y-6 ${printingOrder ? 'no-print' : ''}`}>
-        {/* Live Order Incoming Alert Banner */}
-      {newOrderAlert && (
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-bold text-xs flex items-center justify-between shadow-lg shadow-emerald-600/20 animate-bounce">
-          <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-amber-300 animate-pulse" />
-            <span>{newOrderAlert}</span>
+        
+        {/* Audio Context Unlock Banner (Browser Autoplay Policy) */}
+        {!isAudioUnlocked && soundEnabled && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500 text-slate-950 font-bold text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-amber-500/25 animate-fadeIn border-2 border-amber-600">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-950/15 flex items-center justify-center shrink-0">
+                <Volume2 className="w-5 h-5 text-slate-950 animate-pulse" />
+              </div>
+              <div>
+                <div className="font-black tracking-tight">Kitchen Audio Alerts Require Click Permission</div>
+                <div className="text-[11px] text-slate-900/80 font-normal">
+                  Browser policy requires one click to permit continuous loud alarms for new kitchen orders.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onUnlockAudio}
+              className="px-4 py-2 rounded-xl bg-slate-950 text-white hover:bg-slate-900 active:scale-95 text-xs font-black transition cursor-pointer flex items-center justify-center gap-2 shrink-0 shadow-md"
+            >
+              <Volume2 className="w-4 h-4 text-amber-400" />
+              <span>Enable Kitchen Alarm</span>
+            </button>
           </div>
-          <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-mono">Just Now</span>
+        )}
+
+        {/* Prominent Red Glowing "New Order" Banner */}
+        {pendingNewOrders.length > 0 && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white font-bold text-xs sm:text-sm flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl shadow-red-600/30 border-2 border-red-400 animate-pulse">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 ring-4 ring-white/10">
+                <Bell className="w-6 h-6 text-amber-300 animate-bounce" />
+              </div>
+              <div>
+                <div className="text-base sm:text-lg font-black tracking-tight flex items-center gap-2.5 flex-wrap">
+                  <span>🚨 NEW ORDER RECEIVED!</span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-white text-red-700 text-xs font-black">
+                    {pendingNewOrders.length} {pendingNewOrders.length === 1 ? 'Pending Action' : 'Orders Pending'}
+                  </span>
+                  {unmutedPendingCount > 0 && soundEnabled && (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider animate-bounce">
+                      🔊 Alarm Active
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-rose-100 font-medium mt-1">
+                  {latestNewOrder && (
+                    <span>
+                      Order #{latestNewOrder.id} • {latestNewOrder.customer_name || 'Customer'} • {formatPKR(latestNewOrder.total_payable)} (
+                      {latestNewOrder.order_type === 'dine_in'
+                        ? `Table ${latestNewOrder.table_number || 'Dine-in'}`
+                        : latestNewOrder.order_type === 'pickup'
+                        ? 'Pickup / Takeaway'
+                        : 'Delivery'}
+                      )
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              {latestNewOrder && (
+                <button
+                  type="button"
+                  onClick={() => onUpdateStatus(latestNewOrder.id, 'preparing')}
+                  className="px-4 py-2.5 rounded-xl bg-white text-red-700 hover:bg-rose-50 active:scale-95 text-xs font-black transition cursor-pointer flex items-center gap-1.5 shadow-md"
+                >
+                  <ChefHat className="w-4 h-4 text-red-600" />
+                  <span>Accept & Prepare (#{latestNewOrder.id})</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onMuteOrderAlert) {
+                    pendingNewOrders.forEach((o) => onMuteOrderAlert(o.id));
+                  }
+                }}
+                className="px-3.5 py-2.5 rounded-xl bg-red-950/60 hover:bg-red-950 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border border-red-500/50"
+                title="Mute repeating alarm sound for pending orders"
+              >
+                <VolumeX className="w-4 h-4 text-rose-200" />
+                <span>Mute Alarm</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Live Order Incoming Alert Notification Toast (if no pending list banner or for latest toast) */}
+        {newOrderAlert && pendingNewOrders.length === 0 && (
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-bold text-xs flex items-center justify-between shadow-lg shadow-emerald-600/20">
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span>{newOrderAlert}</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-mono">Just Now</span>
+              {onDismissOrderAlert && (
+                <button
+                  type="button"
+                  onClick={onDismissOrderAlert}
+                  className="p-1 hover:bg-white/20 rounded-lg transition text-white cursor-pointer"
+                  title="Dismiss notification"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Printer Offline Retry Queue Alert Banner (Red Banner) */}
+      {retryQueue.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-rose-600/25 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5 text-white animate-pulse" />
+            </div>
+            <div>
+              <div className="text-sm font-extrabold tracking-tight">
+                Printer offline - {new Set(retryQueue.map((q) => q.orderId)).size}{' '}
+                {new Set(retryQueue.map((q) => q.orderId)).size === 1 ? 'order' : 'orders'} waiting to print
+              </div>
+              <div className="text-[11px] text-rose-100 font-normal mt-0.5">
+                Jobs held for {Array.from(new Set(retryQueue.map((q) => q.printerName || 'Printer'))).join(', ')}. Will auto-print once reconnected.
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              disabled={isRetryingQueue}
+              onClick={handleRetryNow}
+              className="px-3.5 py-2 rounded-xl bg-white text-rose-700 hover:bg-rose-50 active:scale-95 text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRetryingQueue ? 'animate-spin' : ''}`} />
+              <span>Retry Now</span>
+            </button>
+            {onOpenPrinterSettings && (
+              <button
+                type="button"
+                onClick={onOpenPrinterSettings}
+                className="px-3 py-2 rounded-xl bg-rose-800/80 hover:bg-rose-800 text-white text-xs font-semibold transition cursor-pointer"
+              >
+                Printer Settings
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -269,6 +549,20 @@ export default function OrdersFeed({
             <PrinterStatusBadge onOpenSettings={onOpenPrinterSettings} />
           )}
 
+          {/* Print Today's Sales Summary (80mm) */}
+          {onPrintSalesSummary && (
+            <button
+              type="button"
+              onClick={onPrintSalesSummary}
+              className="p-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs border border-slate-800"
+              title="Print Today's Sales Summary report on 80mm paper"
+            >
+              <Printer className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Sales Summary</span>
+              <span className="text-[10px] bg-slate-800 text-amber-300 font-mono px-1 rounded border border-slate-700">80mm</span>
+            </button>
+          )}
+
           {/* Audio Chime Controls */}
           <div className="flex items-center gap-1.5">
             <button
@@ -322,7 +616,7 @@ export default function OrdersFeed({
                 filter === 'active' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
               }`}
             >
-              Active ({orders.filter((o) => o.status === 'new' || o.status === 'preparing' || o.status === 'out_for_delivery').length})
+              Active ({orders.filter((o) => o.status === 'new' || o.status === 'preparing' || o.status === 'out_for_delivery' || o.status === 'ready').length})
             </button>
             <button
               onClick={() => setFilter('completed')}
@@ -333,6 +627,19 @@ export default function OrdersFeed({
               Completed ({orders.filter((o) => o.status === 'completed').length})
             </button>
           </div>
+
+          {onOpenNewOrder && (
+            <button
+              type="button"
+              id="new-order-feed-btn"
+              onClick={onOpenNewOrder}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#F5A623] hover:from-[#E05A0C] hover:to-[#E59512] active:scale-95 text-white text-xs font-black shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 border border-amber-300/30"
+              title="Open POS to place a new order"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>+ New Order</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -352,10 +659,10 @@ export default function OrdersFeed({
               key={order.id}
               className={`p-5 rounded-2xl border transition shadow-xs flex flex-col justify-between ${
                 order.status === 'new'
-                  ? 'bg-[#FDECEC]/30 border-[#F9C3C5]'
+                  ? `bg-[#FDECEC]/30 border-[#F9C3C5] ${!mutedOrderIds.includes(order.id) ? 'ring-2 ring-red-400 shadow-md shadow-red-500/10' : ''}`
                   : order.status === 'preparing'
                   ? 'bg-[#FEF3D9]/30 border-[#FCE1A8]'
-                  : order.status === 'out_for_delivery'
+                  : order.status === 'out_for_delivery' || order.status === 'ready'
                   ? 'bg-[#E7F6EC]/30 border-[#C0E9CE]'
                   : 'bg-white border-[#F0E4D7]'
               }`}
@@ -364,51 +671,273 @@ export default function OrdersFeed({
               <div>
                 <div className="flex items-start justify-between pb-3 border-b border-[#F0E4D7] gap-2">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-extrabold text-[#2B2118] text-sm">
                         #{order.id}
                       </span>
+                      {isOrderPrinted(order.id) && (
+                        <span
+                          id={`printed-badge-${order.id}`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-[10px] font-bold shadow-2xs"
+                          title="Order ticket has been printed"
+                        >
+                          <Check className="w-3 h-3 stroke-[2.5]" />
+                          <span>Printed</span>
+                        </span>
+                      )}
                       <span className="text-[11px] text-[#7A6A5C] flex items-center gap-1">
                         <Clock className="w-3 h-3 text-[#9E8E81]" />
                         <span>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </span>
                     </div>
-                    <div className="text-base sm:text-lg font-black text-[#2B2118] mt-1 flex items-center gap-2">
-                      <User className="w-4 h-4 text-[#F26B1D] shrink-0" />
-                      <span>{order.customer_name || 'Walk-in / Direct Customer'}</span>
+
+                    <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                      <div className="text-base sm:text-lg font-black text-[#2B2118] flex items-center gap-1.5">
+                        <User className="w-4 h-4 text-[#F26B1D] shrink-0" />
+                        <span>{order.customer_name || 'Walk-in / Direct Customer'}</span>
+                      </div>
+
+                      {/* Order Source Label (Customer Menu vs Manager / POS) */}
+                      {order.order_source === 'manager' || order.source === 'manager' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">
+                          🏪 Manager POS {order.staff_name ? `• ${order.staff_name}` : ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold">
+                          📱 Customer Menu
+                        </span>
+                      )}
+
+                      {/* Order Type Badge */}
+                      {order.order_type === 'dine_in' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 text-[11px] font-extrabold">
+                          🍽️ Dine-In {order.table_number ? `• Table ${order.table_number}` : ''}
+                        </span>
+                      ) : order.order_type === 'pickup' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 text-[11px] font-extrabold">
+                          🛍️ Takeaway / Pickup
+                        </span>
+                      ) : order.order_type === 'phone' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-extrabold">
+                          📞 Phone Order
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 text-[11px] font-extrabold">
+                          🛵 Delivery
+                        </span>
+                      )}
+
+                      {/* Payment Method Badge */}
+                      {order.payment_method && (
+                        <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md font-mono uppercase">
+                          {order.payment_method === 'jazzcash'
+                            ? 'JazzCash'
+                            : order.payment_method === 'easypaisa'
+                            ? 'Easypaisa'
+                            : order.payment_method === 'cash_counter'
+                            ? 'Pay at Counter'
+                            : 'Cash on Delivery'}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <div>{getStatusBadge(order.status)}</div>
                 </div>
 
-                {/* Delivery Info */}
-                <div className="py-2.5 space-y-1 text-xs text-[#7A6A5C] border-b border-[#F0E4D7]/70">
-                  {order.customer_phone && (
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-[#9E8E81]" />
-                      <span className="font-mono">+{order.customer_phone}</span>
+                {/* Delivery / Dining Location Info */}
+                <div className="py-2.5 space-y-2 text-xs text-[#7A6A5C] border-b border-[#F0E4D7]/70">
+                  {order.order_type === 'dine_in' ? (
+                    <div>
+                      {order.customer_phone && (
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Phone className="w-3.5 h-3.5 text-[#9E8E81]" />
+                          <span className="font-mono">+{order.customer_phone}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-1.5 flex-1 font-semibold text-purple-900">
+                          <MapPin className="w-3.5 h-3.5 text-purple-600 shrink-0 mt-0.5" />
+                          <span>Table #{order.table_number || 'Dine-In Area'} (Restaurant Dine-in Guest)</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : order.order_type === 'pickup' ? (
+                    <div>
+                      {order.customer_phone && (
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Phone className="w-3.5 h-3.5 text-[#9E8E81]" />
+                          <span className="font-mono">+{order.customer_phone}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-1.5 flex-1 font-semibold text-blue-900">
+                          <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                          <span>Self-Pickup / Takeaway by customer at counter</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Delivery Order with Phone, Navigation, and Map Preview */
+                    <div className="space-y-2.5">
+                      {/* Customer Contact & Navigation Buttons */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        {order.customer_phone ? (
+                          <a
+                            href={`tel:+${order.customer_phone.replace(/\D/g, '')}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition font-bold font-mono text-xs cursor-pointer shadow-2xs"
+                            title="Call Customer"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>+{order.customer_phone}</span>
+                            <span className="text-[10px] text-emerald-600 font-sans font-semibold ml-0.5">• Call Customer</span>
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 font-mono text-[11px]">No phone</span>
+                        )}
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* 1. Navigate Button (Google Maps navigation or address search) */}
+                          <a
+                            href={buildGoogleMapsNavUrl(order)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-[#F26B1D] text-[#F26B1D] hover:bg-[#FFF1E6] transition text-[11px] font-bold shadow-2xs cursor-pointer"
+                            title="Navigate directly with GPS coordinates or address"
+                          >
+                            <Navigation className="w-3 h-3 text-[#F26B1D]" />
+                            <span>Navigate</span>
+                            <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                          </a>
+
+                          {/* 2. Open in OpenStreetMap Button */}
+                          {(order.latitude || order.location_coords?.lat) && (
+                            <a
+                              href={buildOsmNavUrl(
+                                order.latitude || order.location_coords.lat,
+                                order.longitude || order.location_coords.lng,
+                                18
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-[#7A6A5C] text-[#2B2118] hover:bg-slate-50 transition text-[11px] font-bold shadow-2xs cursor-pointer"
+                              title="Open location in OpenStreetMap.org"
+                            >
+                              <span>Open in OpenStreetMap</span>
+                              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                            </a>
+                          )}
+
+                          {/* 3. Copy Location Link Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLocation(order)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition text-[11px] font-bold shadow-2xs cursor-pointer"
+                            title="Copy Location Link"
+                          >
+                            {copiedLocationId === order.id ? (
+                              <Check className="w-3 h-3 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-slate-500" />
+                            )}
+                            <span>{copiedLocationId === order.id ? 'Copied!' : 'Copy Location Link'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Structured Delivery Address */}
+                      <div className="flex items-start gap-1.5 text-slate-800">
+                        <MapPin className="w-3.5 h-3.5 text-[#F26B1D] shrink-0 mt-0.5" />
+                        <div className="space-y-0.5 flex-1 min-w-0">
+                          <p className="leading-snug font-semibold text-xs text-[#2B2118] break-words">
+                            {order.customer_address || 'Delivery Address'}
+                          </p>
+
+                          {(order.house_flat || order.area_landmark) && (
+                            <div className="flex items-center gap-2 flex-wrap text-[11px] text-[#7A6A5C] pt-0.5">
+                              {order.house_flat && (
+                                <span className="bg-[#FFF9F2] px-1.5 py-0.5 rounded border border-[#F0E4D7] font-medium">
+                                  House/Flat: {order.house_flat}
+                                </span>
+                              )}
+                              {order.area_landmark && (
+                                <span className="bg-[#FFF9F2] px-1.5 py-0.5 rounded border border-[#F0E4D7] font-medium">
+                                  Landmark: {order.area_landmark}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Small Leaflet OpenStreetMap Preview with Pin */}
+                      {(order.latitude || order.location_coords?.lat) && (
+                        <div className="rounded-xl border border-[#F0E4D7] overflow-hidden bg-slate-50 mt-1 shadow-2xs">
+                          <div className="px-2.5 py-1 flex items-center justify-between text-[10px] bg-[#FFF9F2] border-b border-[#F0E4D7] font-mono">
+                            <span className="font-bold text-[#2B2118] flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                              Pin: {Number(order.latitude || order.location_coords.lat).toFixed(4)},{' '}
+                              {Number(order.longitude || order.location_coords.lng).toFixed(4)}
+                            </span>
+                            {order.accuracy && (
+                              <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200 font-bold">
+                                ±{Math.round(order.accuracy)}m
+                              </span>
+                            )}
+                          </div>
+                          <div className="relative w-full h-32 bg-slate-100">
+                            <Suspense
+                              fallback={
+                                <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[10px] text-slate-400">
+                                  Loading Map...
+                                </div>
+                              }
+                            >
+                              <LeafletMap
+                                center={{
+                                  lat: Number(order.latitude || order.location_coords.lat),
+                                  lng: Number(order.longitude || order.location_coords.lng),
+                                }}
+                                zoom={16}
+                                draggable={false}
+                                interactive={false}
+                                height="128px"
+                                popupText={order.customer_address}
+                              />
+                            </Suspense>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-1.5 flex-1">
-                      <MapPin className="w-3.5 h-3.5 text-[#9E8E81] shrink-0 mt-0.5" />
-                      <span className="leading-snug">{order.customer_address}</span>
-                    </div>
-                  </div>
-                  {order.customer_notes && (
+
+                  {/* Rider Note / Special Instructions */}
+                  {(order.delivery_notes || order.customer_notes) && (
                     <div className="p-2 rounded-lg bg-[#FEF3D9] border border-[#FCE1A8] text-[#2B2118] text-[11px] font-medium mt-1">
-                      <span className="font-bold text-[#F5A623]">Note: </span>
-                      <span>{order.customer_notes}</span>
+                      <span className="font-bold text-[#F5A623]">Rider Note: </span>
+                      <span>{order.delivery_notes || order.customer_notes}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Ordered Items */}
                 <div className="py-3 space-y-2">
-                  <p className="text-[11px] font-bold text-[#7A6A5C] uppercase tracking-wider">
-                    Ordered Dishes ({order.items?.length || 0})
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold text-[#7A6A5C] uppercase tracking-wider">
+                      Ordered Dishes ({order.items?.length || 0})
+                    </p>
+                    {order.status !== 'cancelled' && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingOrderItems(order)}
+                        className="text-[11px] font-bold text-[#F26B1D] hover:text-[#D95A12] bg-[#FFF1E6] hover:bg-[#FFE3D0] px-2.5 py-1 rounded-lg border border-[#F26B1D]/30 transition flex items-center gap-1 cursor-pointer"
+                        title="Edit items, remove accidental items (e.g. water), or recalculate bill"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        <span>Edit Bill / Items</span>
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-1.5">
                     {order.items?.map((item, idx) => (
                       <div key={idx} className="text-xs bg-[#FFF9F2] p-2 rounded-xl border border-[#F0E4D7]">
@@ -457,33 +986,70 @@ export default function OrdersFeed({
 
                 {/* Workflow Dominant Button + "..." Secondary Actions Menu */}
                 <div className="flex items-center gap-2 pt-1 relative">
-                  {order.status === 'new' && (
+                  {order.status === 'held' && (
                     <button
-                      onClick={() => onUpdateStatus(order.id, 'preparing')}
+                      onClick={() => onUpdateStatus(order.id, 'new')}
                       className="flex-1 py-3 px-4 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-orange-500/20"
                     >
-                      <ChefHat className="w-4 h-4 text-white" />
-                      <span>Accept & Prepare</span>
+                      <Send className="w-4 h-4 text-white" />
+                      <span>Resume & Send to Kitchen</span>
                     </button>
+                  )}
+
+                  {order.status === 'new' && (
+                    <div className="flex items-center gap-2 flex-1">
+                      <button
+                        onClick={() => onUpdateStatus(order.id, 'preparing')}
+                        className="flex-1 py-3 px-4 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-orange-500/20"
+                      >
+                        <ChefHat className="w-4 h-4 text-white" />
+                        <span>Accept & Prepare</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onMuteOrderAlert && onMuteOrderAlert(order.id)}
+                        className={`p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center cursor-pointer shrink-0 ${
+                          mutedOrderIds.includes(order.id)
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+                            : 'bg-rose-50 text-rose-600 border-rose-300 hover:bg-rose-100 animate-pulse'
+                        }`}
+                        title={mutedOrderIds.includes(order.id) ? 'Alarm muted for this order (Click to unmute)' : 'Mute repeating alarm for this order'}
+                      >
+                        {mutedOrderIds.includes(order.id) ? (
+                          <VolumeX className="w-4 h-4 text-slate-400" />
+                        ) : (
+                          <Volume2 className="w-4 h-4 text-rose-600" />
+                        )}
+                      </button>
+                    </div>
                   )}
 
                   {order.status === 'preparing' && (
                     <button
-                      onClick={() => onUpdateStatus(order.id, 'out_for_delivery')}
+                      onClick={() => onUpdateStatus(order.id, order.order_type === 'delivery' ? 'out_for_delivery' : 'ready')}
                       className="flex-1 py-3 px-4 rounded-xl bg-[#F5A623] hover:bg-[#D98E16] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-amber-500/20"
                     >
-                      <Truck className="w-4 h-4 text-white" />
-                      <span>Dispatch for Delivery</span>
+                      {order.order_type === 'delivery' ? (
+                        <>
+                          <Truck className="w-4 h-4 text-white" />
+                          <span>Dispatch for Delivery</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-white" />
+                          <span>Mark Ready / Served</span>
+                        </>
+                      )}
                     </button>
                   )}
 
-                  {order.status === 'out_for_delivery' && (
+                  {(order.status === 'out_for_delivery' || order.status === 'ready') && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'completed')}
                       className="flex-1 py-3 px-4 rounded-xl bg-[#1F9D55] hover:bg-[#188044] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-green-500/20"
                     >
                       <CheckCircle2 className="w-4 h-4 text-white" />
-                      <span>Mark Delivered</span>
+                      <span>{order.order_type === 'delivery' ? 'Mark Delivered' : 'Complete Order'}</span>
                     </button>
                   )}
 
@@ -501,22 +1067,113 @@ export default function OrdersFeed({
                     </div>
                   )}
 
-                  {/* Quick 1-Click Print Ticket Button */}
-                  <button
-                    type="button"
-                    disabled={directPrintingId === order.id}
-                    onClick={() => handleDirectPrint(order)}
-                    className="p-3 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#F26B1D] transition cursor-pointer border border-[#F26B1D] hover:border-[#D95A12] flex items-center justify-center shadow-2xs shrink-0"
-                    title="1-Click Print KOT Receipt"
-                  >
-                    {directPrintingId === order.id ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-[#F26B1D]" />
-                    ) : (
-                      <Printer className="w-4 h-4" />
-                    )}
-                  </button>
+                  {/* One Clear "Print" / "Reprint" Button with Dropdown Menu */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      id={`order-print-btn-${order.id}`}
+                      disabled={directPrintingId === order.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActivePrintMenuOrderId(activePrintMenuOrderId === order.id ? null : order.id);
+                      }}
+                      className={`py-3 px-3.5 rounded-xl border text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 shadow-2xs shrink-0 ${
+                        isOrderPrinted(order.id)
+                          ? 'bg-[#E7F6EC] border-[#A8E2BC] text-[#167840] hover:bg-[#D5F2DF]'
+                          : 'bg-white border-[#F26B1D] text-[#F26B1D] hover:bg-[#FFF1E6]'
+                      }`}
+                      title={isOrderPrinted(order.id) ? 'Ticket already printed - Click to reprint' : 'Print ticket for this order'}
+                    >
+                      {directPrintingId === order.id ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : isOrderPrinted(order.id) ? (
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      ) : (
+                        <Printer className="w-3.5 h-3.5" />
+                      )}
+                      <span>{isOrderPrinted(order.id) ? 'Reprint' : 'Print'}</span>
+                      <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                    </button>
 
-                  {/* "..." Dropdown Menu */}
+                    {activePrintMenuOrderId === order.id && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-30"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActivePrintMenuOrderId(null);
+                          }}
+                        />
+                        <div className="absolute right-0 bottom-full mb-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                          <div className="px-3.5 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            <span>{isOrderPrinted(order.id) ? 'Reprint Tickets' : 'Print Ticket'}</span>
+                            {isOrderPrinted(order.id) && (
+                              <span className="text-[#1F9D55] font-extrabold">✓ Printed</span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            id={`print-kot-btn-${order.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePrintTicket(order, TEMPLATE_TYPES.KOT);
+                              setActivePrintMenuOrderId(null);
+                            }}
+                            className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-[#FFF1E6] hover:text-[#F26B1D] flex items-center justify-between transition cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChefHat className="w-4 h-4 text-amber-500" />
+                              <span>{isOrderPrintedOnType(order.id, TEMPLATE_TYPES.KOT) ? 'Reprint KOT' : 'Print KOT'}</span>
+                            </div>
+                            {isOrderPrintedOnType(order.id, TEMPLATE_TYPES.KOT) && (
+                              <span className="text-[10px] text-emerald-600 font-semibold">✓</span>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            id={`print-bill-btn-${order.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePrintTicket(order, TEMPLATE_TYPES.BILL);
+                              setActivePrintMenuOrderId(null);
+                            }}
+                            className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-[#FFF1E6] hover:text-[#F26B1D] flex items-center justify-between transition cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-blue-500" />
+                              <span>{isOrderPrintedOnType(order.id, TEMPLATE_TYPES.BILL) ? 'Reprint Bill' : 'Print Bill'}</span>
+                            </div>
+                            {isOrderPrintedOnType(order.id, TEMPLATE_TYPES.BILL) && (
+                              <span className="text-[10px] text-emerald-600 font-semibold">✓</span>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            id={`print-delivery-btn-${order.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePrintTicket(order, TEMPLATE_TYPES.DELIVERY);
+                              setActivePrintMenuOrderId(null);
+                            }}
+                            className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-[#FFF1E6] hover:text-[#F26B1D] flex items-center justify-between transition cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4 text-emerald-600" />
+                              <span>{isOrderPrintedOnType(order.id, TEMPLATE_TYPES.DELIVERY) ? 'Reprint Delivery Slip' : 'Print Delivery Slip'}</span>
+                            </div>
+                            {isOrderPrintedOnType(order.id, TEMPLATE_TYPES.DELIVERY) && (
+                              <span className="text-[10px] text-emerald-600 font-semibold">✓</span>
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* "..." Dropdown Menu for secondary customer & status actions */}
                   <div className="relative">
                     <button
                       type="button"
@@ -534,51 +1191,68 @@ export default function OrdersFeed({
                           onClick={() => setOpenMenuOrderId(null)}
                         />
                         <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
-                          <button
-                            onClick={() => {
-                              handleDirectPrint(order, 'kot');
-                              setOpenMenuOrderId(null);
-                            }}
-                            className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
-                          >
-                            <Printer className="w-4 h-4 text-amber-500" />
-                            <span>Print KOT Ticket</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              handleDirectPrint(order, 'bill');
-                              setOpenMenuOrderId(null);
-                            }}
-                            className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
-                          >
-                            <FileText className="w-4 h-4 text-blue-500" />
-                            <span>Print Customer Bill</span>
-                          </button>
-
                           {order.customer_address && (
                             <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customer_address)}`}
+                              href={buildGoogleMapsNavUrl(order)}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={() => setOpenMenuOrderId(null)}
                               className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition"
                             >
-                              <ExternalLink className="w-4 h-4 text-slate-500" />
-                              <span>View in Maps</span>
+                              <Navigation className="w-4 h-4 text-[#F26B1D]" />
+                              <span>Open in Google Maps</span>
+                            </a>
+                          )}
+
+                          {order.customer_address && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleCopyLocation(order);
+                                setOpenMenuOrderId(null);
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
+                            >
+                              <Copy className="w-4 h-4 text-slate-500" />
+                              <span>Copy Location Link</span>
+                            </button>
+                          )}
+
+                          {order.customer_phone && (
+                            <a
+                              href={`tel:+${order.customer_phone.replace(/\D/g, '')}`}
+                              onClick={() => setOpenMenuOrderId(null)}
+                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition"
+                            >
+                              <Phone className="w-4 h-4 text-emerald-600" />
+                              <span>Call Customer (+{order.customer_phone})</span>
                             </a>
                           )}
 
                           {order.customer_phone && (
                             <button
                               onClick={() => {
-                                handleWhatsAppCustomer(order);
+                                handleSmsCustomer(order);
                                 setOpenMenuOrderId(null);
                               }}
-                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition cursor-pointer"
+                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition cursor-pointer"
                             >
-                              <MessageCircle className="w-4 h-4 text-emerald-600" />
-                              <span>WhatsApp Customer</span>
+                              <MessageCircle className="w-4 h-4 text-slate-500" />
+                              <span>SMS / Message Customer</span>
+                            </button>
+                          )}
+
+                          {order.status !== 'cancelled' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuOrderId(null);
+                                setEditingOrderItems(order);
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition cursor-pointer"
+                            >
+                              <Receipt className="w-4 h-4 text-[#F26B1D]" />
+                              <span>Edit Bill / Remove Items</span>
                             </button>
                           )}
 
@@ -743,6 +1417,23 @@ export default function OrdersFeed({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Order Items & Recalculate Bill Modal */}
+      {editingOrderItems && (
+        <EditOrderItemsModal
+          isOpen={Boolean(editingOrderItems)}
+          onClose={() => setEditingOrderItems(null)}
+          order={editingOrderItems}
+          restaurant={restaurant}
+          menuItems={menuItems}
+          onOrderUpdated={(updated) => {
+            setEditingOrderItems(null);
+          }}
+          onPrintBill={(updatedOrder, templateType) => {
+            handlePrintTicket(updatedOrder, templateType);
+          }}
+        />
       )}
     </div>
   );

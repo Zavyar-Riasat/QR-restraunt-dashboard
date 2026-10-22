@@ -5,6 +5,7 @@ import {
   Bluetooth,
   Wifi,
   Smartphone,
+  HardDrive,
   X,
   Check,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
   ArrowRight,
   ArrowLeft,
   RotateCcw,
+  Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { printerService } from '../../services/printer/printerService';
@@ -46,6 +48,8 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
     vendorId: null,
     productId: null,
     deviceId: null,
+    stationLabel: '',
+    serialNumber: '',
     ip: '192.168.1.100',
     port: 9100,
   });
@@ -53,6 +57,22 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
   // Pairing state
   const [isPairing, setIsPairing] = useState(false);
   const [pairingError, setPairingError] = useState('');
+  const [pairingSuccess, setPairingSuccess] = useState(false);
+  const [systemPrinters, setSystemPrinters] = useState([]);
+
+  // Fetch installed Windows printers if running under Electron
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI?.getSystemPrinters) {
+      window.electronAPI
+        .getSystemPrinters()
+        .then((printers) => {
+          if (Array.isArray(printers)) {
+            setSystemPrinters(printers);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   // Step 4 Test State
   const [isTesting, setIsTesting] = useState(false);
@@ -90,6 +110,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
         deviceName: info.name || 'USB Thermal POS Printer',
         vendorId: info.vendorId,
         productId: info.productId,
+        serialNumber: info.serialNumber || '',
       }));
       setPairingSuccess(true);
       if (!name || name === 'Kitchen') {
@@ -99,6 +120,35 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
       if (err.name !== 'NotFoundError') {
         setPairingError(err.message || 'Failed to connect USB printer.');
       }
+    } finally {
+      setIsPairing(false);
+    }
+  };
+
+  // Helper to auto-detect USB printers by class 0x07 or ESC/POS vendor IDs
+  const handleAutoDetectUSB = async () => {
+    try {
+      setIsPairing(true);
+      setPairingError('');
+      const detected = await printerService.autoDetectPrinter();
+      if (!detected) {
+        throw new Error(
+          'No compatible USB thermal printer (class 0x07 or known ESC/POS vendor) was detected. Please plug in your printer and try "Scan & Select USB Printer".'
+        );
+      }
+      setConnectionInfo((prev) => ({
+        ...prev,
+        deviceName: detected.productName || detected.name || 'USB Thermal POS Printer',
+        vendorId: detected.vendorId,
+        productId: detected.productId,
+        serialNumber: detected.serialNumber || '',
+      }));
+      setPairingSuccess(true);
+      if (!name || name === 'Kitchen') {
+        setName('Counter (USB)');
+      }
+    } catch (err) {
+      setPairingError(err.message || 'Auto-detection failed.');
     } finally {
       setIsPairing(false);
     }
@@ -312,6 +362,8 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                     switch (opt.icon) {
                       case 'Usb':
                         return <Usb className="w-6 h-6" />;
+                      case 'HardDrive':
+                        return <HardDrive className="w-6 h-6" />;
                       case 'Bluetooth':
                         return <Bluetooth className="w-6 h-6" />;
                       case 'Wifi':
@@ -557,14 +609,96 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                   </span>
                 </h4>
 
+                {/* Windows Installed Printer (Port-Independent Silent Spooler) */}
+                {printerType === DRIVER_IDS.WINDOWS && (
+                  <div className="space-y-4">
+                    <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-start gap-2.5">
+                      <HardDrive className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Port-Independent Windows Spooler</p>
+                        <p className="text-[11px] text-blue-800/90 mt-0.5 leading-relaxed">
+                          Windows Installed Printer prints through your Windows driver and spooler. It is <strong>100% immune to USB port changes</strong> because Windows manages the USB port binding automatically, even if the cable is plugged into a different slot.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-[#2B2118] uppercase tracking-wider block">
+                        Windows Printer Name
+                      </label>
+                      <p className="text-[11px] text-[#7A6A5C]">
+                        Enter the exact printer name as shown in Windows Settings &gt; Printers & Scanners.
+                      </p>
+
+                      {systemPrinters.length > 0 ? (
+                        <select
+                          value={connectionInfo.deviceName}
+                          onChange={(e) =>
+                            setConnectionInfo((prev) => ({ ...prev, deviceName: e.target.value }))
+                          }
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-xs font-bold focus:outline-none focus:border-[#F26B1D] shadow-2xs"
+                        >
+                          <option value="">-- Select installed Windows printer --</option>
+                          {systemPrinters.map((p) => (
+                            <option key={p.name || p} value={p.name || p}>
+                              {p.displayName || p.name || p} {p.isDefault ? '(Default)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={connectionInfo.deviceName}
+                          onChange={(e) =>
+                            setConnectionInfo((prev) => ({ ...prev, deviceName: e.target.value }))
+                          }
+                          placeholder="e.g. POS-80, EPSON TM-T20III, Xprinter XP-N160I"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-xs font-bold focus:outline-none focus:border-[#F26B1D] shadow-2xs"
+                        />
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[11px] text-[#7A6A5C]">Common models:</span>
+                        {['POS-80', 'EPSON TM-T20III', 'Xprinter XP-N160I', 'POS-58', 'Microsoft Print to PDF'].map((commonName) => (
+                          <button
+                            key={commonName}
+                            type="button"
+                            onClick={() => {
+                              setConnectionInfo((prev) => ({ ...prev, deviceName: commonName }));
+                              if (!name || name === 'Kitchen') setName(`Counter (${commonName})`);
+                            }}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition cursor-pointer ${
+                              connectionInfo.deviceName === commonName
+                                ? 'bg-[#F26B1D] text-white border-[#F26B1D]'
+                                : 'bg-white text-[#7A6A5C] border-[#F0E4D7] hover:border-[#F26B1D]'
+                            }`}
+                          >
+                            {commonName}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* USB Connection */}
                 {printerType === DRIVER_IDS.USB && (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Port-Independent USB Identification</p>
+                        <p className="text-[11px] text-emerald-700 leading-relaxed">
+                          This printer is tracked by its unique USB Vendor ID and Product ID, <strong>never by COM port or bus slot</strong>. If you plug it into another USB port, DineHQ automatically reconnects in the background.
+                        </p>
+                      </div>
+                    </div>
+
                     <p className="text-xs text-[#7A6A5C]">
-                      Make sure your USB thermal printer is plugged in and turned on, then click below to pair.
+                      Make sure your USB thermal printer is plugged in and turned on, then select or auto-detect it.
                     </p>
 
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       <button
                         type="button"
                         onClick={handleScanUSB}
@@ -579,6 +713,16 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                         <span>{isPairing ? 'Scanning for USB...' : 'Scan & Select USB Printer'}</span>
                       </button>
 
+                      <button
+                        type="button"
+                        onClick={handleAutoDetectUSB}
+                        disabled={isPairing}
+                        className="px-4 py-2.5 rounded-xl bg-white border border-[#F26B1D] text-[#F26B1D] hover:bg-[#FFF1E6] text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-2xs disabled:opacity-50"
+                      >
+                        <Zap className="w-4 h-4 text-[#F26B1D]" />
+                        <span>Auto-Detect Printer</span>
+                      </button>
+
                       {connectionInfo.deviceName && (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-xs font-bold">
                           <CheckCircle2 className="w-4 h-4" />
@@ -586,6 +730,53 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                         </div>
                       )}
                     </div>
+
+                    {connectionInfo.vendorId && (
+                      <div className="p-3 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-[#7A6A5C] font-medium">Hardware Signature:</span>
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-white border border-[#F0E4D7] text-[#2B2118]">
+                            VID: 0x{connectionInfo.vendorId.toString(16).padStart(4, '0')} | PID: 0x{(connectionInfo.productId || 0).toString(16).padStart(4, '0')}
+                            {connectionInfo.serialNumber ? ` | S/N: ${connectionInfo.serialNumber}` : ''}
+                          </span>
+                        </div>
+
+                        {/* Station Label Disambiguation */}
+                        <div className="pt-2 border-t border-[#F0E4D7]/70 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-bold text-[#7A6A5C]">
+                              Station Label (for identical printers)
+                            </label>
+                            <span className="text-[10px] text-[#9E8E81]">
+                              Disambiguates duplicate models
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={connectionInfo.stationLabel || ''}
+                              onChange={(e) =>
+                                setConnectionInfo((prev) => ({ ...prev, stationLabel: e.target.value }))
+                              }
+                              placeholder="e.g. Kitchen Station 1, Counter 2"
+                              className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs font-semibold text-[#2B2118] focus:outline-none focus:border-[#F26B1D]"
+                            />
+                            {['Kitchen', 'Counter', 'Bar'].map((lbl) => (
+                              <button
+                                key={lbl}
+                                type="button"
+                                onClick={() =>
+                                  setConnectionInfo((prev) => ({ ...prev, stationLabel: lbl }))
+                                }
+                                className="px-2 py-1 rounded bg-white border border-[#F0E4D7] text-[10px] font-bold text-[#7A6A5C] hover:border-[#F26B1D]"
+                              >
+                                {lbl}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {pairingError && (
                       <div className="p-3 rounded-xl bg-[#FDECEC] border border-[#F9C3C5] text-[#D92D20] text-xs font-medium flex items-center gap-2">

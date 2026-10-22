@@ -142,9 +142,14 @@ export default function DirectOrderCheckout({
       return;
     }
 
-    if (orderType === 'delivery' && !deliveryLocation.formattedAddress.trim()) {
-      setFormError('Please enter your full delivery address.');
-      return;
+    if (orderType === 'delivery') {
+      const typedAddress = (deliveryLocation.formattedAddress || '').trim();
+      const landmark = (deliveryLocation.areaLandmark || '').trim();
+      const house = (deliveryLocation.houseFlat || '').trim();
+      if (!typedAddress && !landmark && !house) {
+        setFormError('Please enter your delivery address or nearest landmark.');
+        return;
+      }
     }
 
     if (!isKitchenOpen) {
@@ -159,13 +164,19 @@ export default function DirectOrderCheckout({
 
     try {
       setIsSubmitting(true);
+      const deliveryAddress = (
+        deliveryLocation.formattedAddress?.trim() ||
+        [deliveryLocation.houseFlat, deliveryLocation.areaLandmark].filter(Boolean).join(', ') ||
+        'Customer Delivery Address'
+      );
+
       const result = await handleDirectOrderCheckout({
         cart,
         restaurant,
         customerDetails: {
           ...customer,
           name: customer.name.trim() || (orderType === 'dine_in' ? `Table ${tableNumber}` : 'Guest Customer'),
-          address: orderType === 'delivery' ? deliveryLocation.formattedAddress.trim() : customer.address,
+          address: orderType === 'delivery' ? deliveryAddress : customer.address,
           phone: phoneValidation?.normalized || customer.phone?.trim() || '',
           orderType,
           tableNumber: orderType === 'dine_in' ? tableNumber : null,

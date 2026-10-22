@@ -24,8 +24,12 @@ import {
   Lock,
   Palette,
   Printer,
-  RefreshCw,
+  Info,
+  Bike,
+  Trash2,
+  Plus,
 } from 'lucide-react';
+import { riderService } from '../services/riderService';
 import { useAuth } from '../context/AuthContext';
 import { printerService } from '../services/printer/printerService';
 import { DRIVER_IDS, PAPER_SIZE_SPECS } from '../services/printer/printerTypes';
@@ -54,6 +58,43 @@ export default function StoreSettings({
   const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
   const [isTestingPrint, setIsTestingPrint] = useState(false);
   const [printTestStatus, setPrintTestStatus] = useState(null);
+
+  // Riders Fleet State
+  const [riders, setRiders] = useState(() =>
+    riderService.getRiders(restaurant?.id || 'rest-101')
+  );
+  const [newRiderName, setNewRiderName] = useState('');
+  const [newRiderPhone, setNewRiderPhone] = useState('');
+  const [riderError, setRiderError] = useState('');
+  const [riderSuccess, setRiderSuccess] = useState('');
+
+  const handleAddRider = (e) => {
+    e.preventDefault();
+    setRiderError('');
+    setRiderSuccess('');
+    try {
+      const restId = restaurant?.id || 'rest-101';
+      const added = riderService.addRider(restId, {
+        name: newRiderName,
+        phone: newRiderPhone,
+      });
+      setRiders(riderService.getRiders(restId));
+      setNewRiderName('');
+      setNewRiderPhone('');
+      setRiderSuccess(`Rider "${added.name}" added successfully!`);
+      setTimeout(() => setRiderSuccess(''), 4000);
+    } catch (err) {
+      setRiderError(err.message || 'Failed to add rider.');
+    }
+  };
+
+  const handleDeleteRider = (riderId) => {
+    const restId = restaurant?.id || 'rest-101';
+    const updated = riderService.deleteRider(restId, riderId);
+    setRiders(updated);
+    setRiderSuccess('Rider removed from fleet.');
+    setTimeout(() => setRiderSuccess(''), 3000);
+  };
 
   useEffect(() => {
     return printerService.subscribe((cfg) => setPrinterConfig(cfg));
@@ -382,6 +423,18 @@ export default function StoreSettings({
           className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
         >
           Manager Password
+        </a>
+        <a
+          href="#riders-section"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
+        >
+          Delivery Riders
+        </a>
+        <a
+          href="#about-section"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
+        >
+          About & Attribution
         </a>
       </div>
 
@@ -1039,6 +1092,180 @@ export default function StoreSettings({
               </button>
             </div>
           </form>
+        </div>
+      </div>
+
+      {/* 5. Riders List in Settings */}
+      <div id="riders-section" className="bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-[#F0E4D7]">
+          <div>
+            <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight flex items-center gap-2">
+              <Bike className="w-5 h-5 text-[#F26B1D]" />
+              Delivery Fleet & Riders
+            </h2>
+            <p className="text-xs sm:text-sm text-[#7A6A5C] mt-0.5">
+              Register riders to quickly assign orders and share doorstep navigation links.
+            </p>
+          </div>
+
+          {riderSuccess && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E7F6EC] text-[#1F9D55] border border-[#C0E9CE] text-xs font-bold animate-fadeIn">
+              <Check className="w-3.5 h-3.5 stroke-[3]" />
+              <span>{riderSuccess}</span>
+            </span>
+          )}
+        </div>
+
+        {riderError && (
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{riderError}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Form: Add New Rider */}
+          <form onSubmit={handleAddRider} className="p-5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-3.5 h-fit">
+            <div className="flex items-center gap-2 pb-2 border-b border-[#F0E4D7]">
+              <Plus className="w-4 h-4 text-[#F26B1D]" />
+              <h3 className="text-sm font-bold text-[#2B2118]">Add Delivery Rider</h3>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
+                Rider Full Name *
+              </label>
+              <input
+                type="text"
+                value={newRiderName}
+                onChange={(e) => setNewRiderName(e.target.value)}
+                placeholder="e.g. Muhammad Ali"
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                value={newRiderPhone}
+                onChange={(e) => setNewRiderPhone(e.target.value)}
+                placeholder="0300 1234567"
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-xs font-mono focus:outline-none focus:border-[#F26B1D] transition shadow-2xs"
+              />
+              <p className="text-[11px] text-[#7A6A5C]">
+                Used for dispatch notifications and customer coordination.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white font-bold text-xs shadow-md shadow-orange-500/20 transition cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Rider to Fleet</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Right Column: Registered Riders List */}
+          <div className="lg:col-span-2 space-y-3">
+            <div className="flex items-center justify-between text-xs text-[#7A6A5C] px-1">
+              <span className="font-bold uppercase tracking-wider">
+                Active Riders ({riders.length})
+              </span>
+              <span>Available for 1-click assignment</span>
+            </div>
+
+            <div className="divide-y divide-slate-100 rounded-2xl bg-white border border-[#F0E4D7] overflow-hidden shadow-2xs">
+              {riders.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-xs">
+                  No riders added yet. Register your delivery riders on the left.
+                </div>
+              ) : (
+                riders.map((r) => (
+                  <div
+                    key={r.id}
+                    className="p-4 flex items-center justify-between gap-3 hover:bg-[#FFF9F2]/50 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-[#FFF1E6] text-[#F26B1D] font-extrabold text-sm flex items-center justify-center shadow-2xs">
+                        <Bike className="w-5 h-5 stroke-[2.5]" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-[#2B2118] flex items-center gap-2">
+                          <span>{r.name}</span>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+                            Active
+                          </span>
+                        </h4>
+                        <a
+                          href={`tel:${r.phone}`}
+                          className="text-xs font-mono text-[#7A6A5C] hover:text-[#2B2118] flex items-center gap-1.5 mt-0.5"
+                        >
+                          <Phone className="w-3 h-3 text-emerald-600" />
+                          <span>{r.phone}</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`tel:${r.phone}`}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-[#F0E4D7] text-xs font-bold text-[#2B2118] hover:bg-slate-50 transition"
+                        title="Call rider"
+                      >
+                        Call
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRider(r.id)}
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                        title="Remove rider"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 6. Settings > About & OpenStreetMap Attribution */}
+      <div id="about-section" className="bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 pb-3 border-b border-[#F0E4D7]">
+          <Info className="w-5 h-5 text-[#F26B1D]" />
+          <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight">
+            About DineHQ
+          </h2>
+        </div>
+        <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2.5 text-xs text-[#7A6A5C]">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-[#2B2118]">Platform</span>
+            <span className="font-mono text-[11px] bg-white px-2 py-0.5 rounded-md border border-[#F0E4D7]">DineHQ POS & Kitchen Dispatch v2.4</span>
+          </div>
+          <p className="leading-relaxed">
+            Fast, offline-resilient restaurant point-of-sale, QR ordering, and doorstep delivery dispatch system.
+          </p>
+          <div className="pt-2.5 border-t border-[#F0E4D7] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="font-bold text-[#2B2118]">Geographic & Map Attribution</span>
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#F26B1D] hover:underline font-bold inline-flex items-center gap-1"
+            >
+              <span>Map data © OpenStreetMap contributors</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>

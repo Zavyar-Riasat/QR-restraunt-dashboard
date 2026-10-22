@@ -11,7 +11,7 @@ export const validatePakistaniPhone = (phoneInput) => {
     return { isValid: false, normalized: '', error: 'Phone number is required.' };
   }
 
-  const clean = String(phoneInput).trim().replace(/[\s\-\(\)]/g, '');
+  const clean = String(phoneInput).trim().replace(/[\s\-()]/g, '');
 
   // 1. Format: +923XXXXXXXXX (13 chars) or 923XXXXXXXXX (12 chars)
   if (/^(\+?92)3\d{9}$/.test(clean)) {
@@ -96,8 +96,14 @@ export const handleDirectOrderCheckout = async ({
 
   // Validate Delivery Address
   if (orderType === 'delivery') {
-    if (!customerDetails?.address || !customerDetails.address.trim()) {
-      throw new Error('Please enter your complete delivery address (House / Street / Area).');
+    const deliveryAddress = (
+      customerDetails?.address ||
+      customerDetails?.formattedAddress ||
+      [customerDetails?.houseFlat, customerDetails?.areaLandmark].filter(Boolean).join(', ')
+    )?.trim();
+
+    if (!deliveryAddress) {
+      throw new Error('Please enter your complete delivery address or nearest landmark.');
     }
   }
 

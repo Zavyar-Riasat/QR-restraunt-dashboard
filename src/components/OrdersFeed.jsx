@@ -13,7 +13,6 @@ import {
   MessageCircle,
   Package,
   Search,
-  Filter,
   Volume2,
   VolumeX,
   Printer,
@@ -22,7 +21,6 @@ import {
   XCircle,
   MoreVertical,
   RefreshCw,
-  Sparkles,
   FileText,
   Check,
   ChevronDown,
@@ -33,22 +31,23 @@ import {
   Send,
   Pause,
   Receipt,
+  Bike,
 } from 'lucide-react';
-import { formatPKR } from '../utils/currencyUtils';
-import { format12HourTime } from '../utils/dateUtils';
+import { formatPKR, computeOrderPaymentState } from '../utils/currencyUtils';
 import { playKitchenChime } from '../services/orderService';
 import {
   buildGoogleMapsNavUrl,
   buildOsmNavUrl,
-  buildShareableLocationLink,
 } from '../config/mapConfig.js';
 const LeafletMap = lazy(() => import('./Map/LeafletMap.jsx'));
-import { QRCodeSVG } from 'qrcode.react';
 import { printerService } from '../services/printer/printerService';
-import { DRIVER_IDS, PAPER_SIZE_SPECS, TEMPLATE_TYPES } from '../services/printer/printerTypes';
+import { TEMPLATE_TYPES } from '../services/printer/printerTypes';
 import PrinterStatusBadge from './Printer/PrinterStatusBadge';
 import PrintTemplateRenderer from './Printer/PrintTemplateRenderer';
 import EditOrderItemsModal from './Orders/EditOrderItemsModal';
+import SendToRiderMenu from './Orders/SendToRiderMenu';
+import OrderDetailsModal from './Orders/OrderDetailsModal';
+import RecordPaymentModal from './Orders/RecordPaymentModal';
 
 export default function OrdersFeed({
   orders = [],
@@ -71,6 +70,7 @@ export default function OrdersFeed({
   const [search, setSearch] = useState('');
   const [printingOrder, setPrintingOrder] = useState(null);
   const [editingOrderItems, setEditingOrderItems] = useState(null);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [openMenuOrderId, setOpenMenuOrderId] = useState(null);
   const [activePrintMenuOrderId, setActivePrintMenuOrderId] = useState(null);
   const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
@@ -84,6 +84,7 @@ export default function OrdersFeed({
   const [printedOrdersMap, setPrintedOrdersMap] = useState(() => printerService.getPrintedOrdersMap());
   const [isRetryingQueue, setIsRetryingQueue] = useState(false);
   const [copiedLocationId, setCopiedLocationId] = useState(null);
+  const [selectedPaymentOrder, setSelectedPaymentOrder] = useState(null);
 
   const handleCopyLocation = (order) => {
     const url = buildGoogleMapsNavUrl(order);
@@ -221,11 +222,6 @@ export default function OrdersFeed({
     } finally {
       setDirectPrintingId(null);
     }
-  };
-
-  const handleDirectPrint = async (order, printType = null) => {
-    const targetType = printType || TEMPLATE_TYPES.KOT;
-    return handlePrintTicket(order, targetType);
   };
 
   const handleModalPrint = async () => {
@@ -549,20 +545,6 @@ export default function OrdersFeed({
             <PrinterStatusBadge onOpenSettings={onOpenPrinterSettings} />
           )}
 
-          {/* Print Today's Sales Summary (80mm) */}
-          {onPrintSalesSummary && (
-            <button
-              type="button"
-              onClick={onPrintSalesSummary}
-              className="p-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs border border-slate-800"
-              title="Print Today's Sales Summary report on 80mm paper"
-            >
-              <Printer className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Sales Summary</span>
-              <span className="text-[10px] bg-slate-800 text-amber-300 font-mono px-1 rounded border border-slate-700">80mm</span>
-            </button>
-          )}
-
           {/* Audio Chime Controls */}
           <div className="flex items-center gap-1.5">
             <button
@@ -627,19 +609,6 @@ export default function OrdersFeed({
               Completed ({orders.filter((o) => o.status === 'completed').length})
             </button>
           </div>
-
-          {onOpenNewOrder && (
-            <button
-              type="button"
-              id="new-order-feed-btn"
-              onClick={onOpenNewOrder}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#F5A623] hover:from-[#E05A0C] hover:to-[#E59512] active:scale-95 text-white text-xs font-black shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 border border-amber-300/30"
-              title="Open POS to place a new order"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>+ New Order</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -654,9 +623,11 @@ export default function OrdersFeed({
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {filteredOrders.map((order) => (
-            <div
-              key={order.id}
+          {filteredOrders.map((order) => {
+            const paymentState = computeOrderPaymentState(order);
+            return (
+              <div
+                key={order.id}
               className={`p-5 rounded-2xl border transition shadow-xs flex flex-col justify-between ${
                 order.status === 'new'
                   ? `bg-[#FDECEC]/30 border-[#F9C3C5] ${!mutedOrderIds.includes(order.id) ? 'ring-2 ring-red-400 shadow-md shadow-red-500/10' : ''}`
@@ -672,9 +643,14 @@ export default function OrdersFeed({
                 <div className="flex items-start justify-between pb-3 border-b border-[#F0E4D7] gap-2">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-extrabold text-[#2B2118] text-sm">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrderDetails(order)}
+                        className="font-mono font-extrabold text-[#2B2118] text-sm hover:text-[#F26B1D] hover:underline cursor-pointer"
+                        title="Click to view full order details"
+                      >
                         #{order.id}
-                      </span>
+                      </button>
                       {isOrderPrinted(order.id) && (
                         <span
                           id={`printed-badge-${order.id}`}
@@ -692,10 +668,15 @@ export default function OrdersFeed({
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap mt-1.5">
-                      <div className="text-base sm:text-lg font-black text-[#2B2118] flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrderDetails(order)}
+                        className="text-base sm:text-lg font-black text-[#2B2118] hover:text-[#F26B1D] flex items-center gap-1.5 cursor-pointer text-left"
+                        title="Click to view full order details"
+                      >
                         <User className="w-4 h-4 text-[#F26B1D] shrink-0" />
                         <span>{order.customer_name || 'Walk-in / Direct Customer'}</span>
-                      </div>
+                      </button>
 
                       {/* Order Source Label (Customer Menu vs Manager / POS) */}
                       {order.order_source === 'manager' || order.source === 'manager' ? (
@@ -727,6 +708,14 @@ export default function OrdersFeed({
                         </span>
                       )}
 
+                      {/* Assigned Delivery Rider Badge */}
+                      {order.assigned_rider && (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                          <Bike className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Rider: {order.assigned_rider.name}</span>
+                        </span>
+                      )}
+
                       {/* Payment Method Badge */}
                       {order.payment_method && (
                         <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md font-mono uppercase">
@@ -739,6 +728,34 @@ export default function OrdersFeed({
                             : 'Cash on Delivery'}
                         </span>
                       )}
+
+                      {/* Payment Status Badge: Paid (green), Partial (amber), Unpaid (red) */}
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          paymentState.paymentStatus === 'paid'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : paymentState.paymentStatus === 'partial'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                            : 'bg-red-100 text-red-800 border border-red-300'
+                        }`}
+                      >
+                        {paymentState.paymentStatus === 'paid' ? (
+                          <>
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Paid</span>
+                          </>
+                        ) : paymentState.paymentStatus === 'partial' ? (
+                          <>
+                            <Clock className="w-3 h-3 text-amber-600" />
+                            <span>Partial</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-3 h-3 text-red-600" />
+                            <span>Unpaid</span>
+                          </>
+                        )}
+                      </span>
                     </div>
                   </div>
 
@@ -797,6 +814,13 @@ export default function OrdersFeed({
                         )}
 
                         <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* Send to Rider Menu Button */}
+                          <SendToRiderMenu
+                            order={order}
+                            restaurant={restaurant}
+                            buttonSize="sm"
+                          />
+
                           {/* 1. Navigate Button (Google Maps navigation or address search) */}
                           <a
                             href={buildGoogleMapsNavUrl(order)}
@@ -809,39 +833,6 @@ export default function OrdersFeed({
                             <span>Navigate</span>
                             <ExternalLink className="w-2.5 h-2.5 opacity-70" />
                           </a>
-
-                          {/* 2. Open in OpenStreetMap Button */}
-                          {(order.latitude || order.location_coords?.lat) && (
-                            <a
-                              href={buildOsmNavUrl(
-                                order.latitude || order.location_coords.lat,
-                                order.longitude || order.location_coords.lng,
-                                18
-                              )}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-[#7A6A5C] text-[#2B2118] hover:bg-slate-50 transition text-[11px] font-bold shadow-2xs cursor-pointer"
-                              title="Open location in OpenStreetMap.org"
-                            >
-                              <span>Open in OpenStreetMap</span>
-                              <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                            </a>
-                          )}
-
-                          {/* 3. Copy Location Link Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleCopyLocation(order)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition text-[11px] font-bold shadow-2xs cursor-pointer"
-                            title="Copy Location Link"
-                          >
-                            {copiedLocationId === order.id ? (
-                              <Check className="w-3 h-3 text-emerald-600" />
-                            ) : (
-                              <Copy className="w-3 h-3 text-slate-500" />
-                            )}
-                            <span>{copiedLocationId === order.id ? 'Copied!' : 'Copy Location Link'}</span>
-                          </button>
                         </div>
                       </div>
 
@@ -982,6 +973,75 @@ export default function OrdersFeed({
                       {formatPKR(order.total_payable)}
                     </span>
                   </div>
+                </div>
+
+                {/* Per-Order Payment Section: Total, Amount Paid, Remaining, Add Payment */}
+                <div className="p-3 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-[#7A6A5C] uppercase tracking-wider">
+                        Payment:
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          paymentState.paymentStatus === 'paid'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : paymentState.paymentStatus === 'partial'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                            : 'bg-red-100 text-red-800 border border-red-300'
+                        }`}
+                      >
+                        {paymentState.paymentStatus === 'paid' ? 'Paid' : paymentState.paymentStatus === 'partial' ? 'Partial' : 'Unpaid'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPaymentOrder(order)}
+                      className="px-2.5 py-1 rounded-xl bg-white hover:bg-orange-50 border border-[#F26B1D]/40 text-[#F26B1D] text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                      title="Add or manage payments for this order"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Payment</span>
+                    </button>
+                  </div>
+
+                  {/* 3 Stats: Total, Paid, Remaining */}
+                  <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
+                    <div className="p-1.5 rounded-xl bg-white border border-[#F0E4D7]">
+                      <span className="text-[9px] text-[#7A6A5C] uppercase font-semibold block">Total</span>
+                      <span className="font-mono font-bold text-[#2B2118] text-xs">
+                        {formatPKR(paymentState.totalPayable)}
+                      </span>
+                    </div>
+                    <div className="p-1.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <span className="text-[9px] text-emerald-700 uppercase font-semibold block">Paid</span>
+                      <span className="font-mono font-bold text-emerald-800 text-xs">
+                        {formatPKR(paymentState.amountPaid)}
+                      </span>
+                    </div>
+                    <div
+                      className={`p-1.5 rounded-xl border ${
+                        paymentState.remainingBalancePaisa > 0
+                          ? 'bg-red-50 border-red-200 text-red-900'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      }`}
+                    >
+                      <span className="text-[9px] uppercase font-semibold block opacity-80">Remaining</span>
+                      <span className="font-mono font-bold text-xs">
+                        {formatPKR(paymentState.remainingBalance)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {paymentState.activePayments.length > 0 && (
+                    <div className="flex items-center justify-between text-[10px] text-[#7A6A5C] pt-0.5">
+                      <span>{paymentState.activePayments.length} payment(s)</span>
+                      <span className="font-mono font-semibold">
+                        Latest: {paymentState.activePayments[paymentState.activePayments.length - 1]?.method?.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Workflow Dominant Button + "..." Secondary Actions Menu */}
@@ -1191,16 +1251,32 @@ export default function OrdersFeed({
                           onClick={() => setOpenMenuOrderId(null)}
                         />
                         <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
-                          {order.customer_address && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedOrderDetails(order);
+                              setOpenMenuOrderId(null);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
+                          >
+                            <FileText className="w-4 h-4 text-[#F26B1D]" />
+                            <span>View Full Details</span>
+                          </button>
+                          {/* Secondary Maps link: Open in OpenStreetMap */}
+                          {(order.latitude || order.location_coords?.lat) && (
                             <a
-                              href={buildGoogleMapsNavUrl(order)}
+                              href={buildOsmNavUrl(
+                                order.latitude || order.location_coords.lat,
+                                order.longitude || order.location_coords.lng,
+                                18
+                              )}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={() => setOpenMenuOrderId(null)}
                               className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition"
                             >
-                              <Navigation className="w-4 h-4 text-[#F26B1D]" />
-                              <span>Open in Google Maps</span>
+                              <ExternalLink className="w-4 h-4 text-slate-500" />
+                              <span>Open in OpenStreetMap</span>
                             </a>
                           )}
 
@@ -1213,20 +1289,15 @@ export default function OrdersFeed({
                               }}
                               className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
                             >
-                              <Copy className="w-4 h-4 text-slate-500" />
-                              <span>Copy Location Link</span>
+                              {copiedLocationId === order.id ? (
+                                <Check className="w-4 h-4 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-4 h-4 text-slate-500" />
+                              )}
+                              <span className={copiedLocationId === order.id ? 'text-emerald-700 font-bold' : ''}>
+                                {copiedLocationId === order.id ? 'Copied Location!' : 'Copy Location Link'}
+                              </span>
                             </button>
-                          )}
-
-                          {order.customer_phone && (
-                            <a
-                              href={`tel:+${order.customer_phone.replace(/\D/g, '')}`}
-                              onClick={() => setOpenMenuOrderId(null)}
-                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition"
-                            >
-                              <Phone className="w-4 h-4 text-emerald-600" />
-                              <span>Call Customer (+{order.customer_phone})</span>
-                            </a>
                           )}
 
                           {order.customer_phone && (
@@ -1239,20 +1310,6 @@ export default function OrdersFeed({
                             >
                               <MessageCircle className="w-4 h-4 text-slate-500" />
                               <span>SMS / Message Customer</span>
-                            </button>
-                          )}
-
-                          {order.status !== 'cancelled' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenMenuOrderId(null);
-                                setEditingOrderItems(order);
-                              }}
-                              className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition cursor-pointer"
-                            >
-                              <Receipt className="w-4 h-4 text-[#F26B1D]" />
-                              <span>Edit Bill / Remove Items</span>
                             </button>
                           )}
 
@@ -1279,7 +1336,8 @@ export default function OrdersFeed({
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       </div>
@@ -1432,6 +1490,34 @@ export default function OrdersFeed({
           }}
           onPrintBill={(updatedOrder, templateType) => {
             handlePrintTicket(updatedOrder, templateType);
+          }}
+        />
+      )}
+
+      {/* Order Details Modal with Send to Rider Menu */}
+      {selectedOrderDetails && (
+        <OrderDetailsModal
+          isOpen={Boolean(selectedOrderDetails)}
+          onClose={() => setSelectedOrderDetails(null)}
+          order={selectedOrderDetails}
+          restaurant={restaurant}
+          onUpdateStatus={onUpdateStatus}
+          onPrintTicket={handlePrintTicket}
+          onOrderUpdated={(updated) => {
+            setSelectedOrderDetails(updated);
+          }}
+        />
+      )}
+
+      {/* Record Payment Modal */}
+      {selectedPaymentOrder && (
+        <RecordPaymentModal
+          order={selectedPaymentOrder}
+          isOpen={Boolean(selectedPaymentOrder)}
+          onClose={() => setSelectedPaymentOrder(null)}
+          restaurant={restaurant}
+          onPaymentRecorded={(updated) => {
+            setSelectedPaymentOrder(null);
           }}
         />
       )}

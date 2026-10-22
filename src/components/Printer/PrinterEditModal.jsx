@@ -6,6 +6,9 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
+  HardDrive,
+  Usb,
+  Zap,
 } from 'lucide-react';
 import { printerService } from '../../services/printer/printerService';
 import {
@@ -19,6 +22,51 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
   const [formData, setFormData] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
   const [testStatus, setTestStatus] = useState(null);
+  const [systemPrinters, setSystemPrinters] = useState([]);
+  const [isPairing, setIsPairing] = useState(false);
+  const [pairingError, setPairingError] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI?.getSystemPrinters) {
+      window.electronAPI
+        .getSystemPrinters()
+        .then((printers) => {
+          if (Array.isArray(printers)) {
+            setSystemPrinters(printers);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const handleAutoDetectUSB = async () => {
+    try {
+      setIsPairing(true);
+      setPairingError('');
+      const detected = await printerService.autoDetectPrinter();
+      if (!detected) {
+        throw new Error('No compatible USB thermal printer detected.');
+      }
+      setFormData((prev) => ({
+        ...prev,
+        connection: {
+          ...prev.connection,
+          deviceName: detected.productName || detected.name || prev.connection?.deviceName,
+          vendorId: detected.vendorId,
+          productId: detected.productId,
+          serialNumber: detected.serialNumber || prev.connection?.serialNumber || '',
+        },
+      }));
+      setTestStatus({
+        type: 'success',
+        text: `Detected USB Printer: ${detected.productName || 'Thermal POS'} (VID: 0x${detected.vendorId.toString(16)})`,
+      });
+    } catch (err) {
+      setPairingError(err.message || 'Auto-detection failed.');
+    } finally {
+      setIsPairing(false);
+    }
+  };
 
   useEffect(() => {
     if (printer) {
@@ -313,6 +361,153 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
               />
             </div>
           </div>
+
+          {/* Windows Installed Printer Configuration */}
+          {formData.type === DRIVER_IDS.WINDOWS && (
+            <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <HardDrive className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                    Windows Installed Printer (Port-Independent)
+                  </h4>
+                  <p className="text-[11px] text-blue-800/90 mt-0.5 leading-relaxed">
+                    Prints through your Windows driver and background spooler. <strong>100% immune to USB port changes</strong> because Windows transparently manages device binding.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-bold text-slate-700 block">
+                  Windows Printer Name
+                </label>
+                {systemPrinters.length > 0 ? (
+                  <select
+                    value={formData.connection?.deviceName || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        connection: { ...formData.connection, deviceName: e.target.value },
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                  >
+                    <option value="">-- Select installed Windows printer --</option>
+                    {systemPrinters.map((p) => (
+                      <option key={p.name || p} value={p.name || p}>
+                        {p.displayName || p.name || p} {p.isDefault ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={formData.connection?.deviceName || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        connection: { ...formData.connection, deviceName: e.target.value },
+                      })
+                    }
+                    placeholder="e.g. POS-80, EPSON TM-T20III, Xprinter XP-N160I"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white"
+                  />
+                )}
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-slate-500">Presets:</span>
+                  {['POS-80', 'EPSON TM-T20III', 'Xprinter XP-N160I', 'POS-58', 'Microsoft Print to PDF'].map((commonName) => (
+                    <button
+                      key={commonName}
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          connection: { ...formData.connection, deviceName: commonName },
+                        })
+                      }
+                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition cursor-pointer ${
+                        formData.connection?.deviceName === commonName
+                          ? 'bg-[#F26B1D] text-white border-[#F26B1D]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-[#F26B1D]'
+                      }`}
+                    >
+                      {commonName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* USB Direct Thermal Configuration */}
+          {formData.type === DRIVER_IDS.USB && (
+            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+                    USB Identification: Vendor ID & Product ID
+                  </h4>
+                  <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-relaxed">
+                    Identified by USB hardware VID & PID, <strong>never by COM port or bus path</strong>. Automatically reconnects even if moved to another USB port.
+                  </p>
+                </div>
+              </div>
+
+              {formData.connection?.vendorId && (
+                <div className="p-2.5 rounded-xl bg-white border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="text-slate-600 font-medium">Hardware Profile:</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-800">
+                    VID: 0x{formData.connection.vendorId.toString(16).padStart(4, '0')} | PID: 0x{(formData.connection.productId || 0).toString(16).padStart(4, '0')}
+                    {formData.connection?.serialNumber ? ` | S/N: ${formData.connection.serialNumber}` : ''}
+                  </span>
+                </div>
+              )}
+
+              {/* Station Label Disambiguation */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700">
+                    Station Label (for identical models)
+                  </label>
+                  <span className="text-[10px] text-slate-500">
+                    Disambiguates duplicate printers
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={formData.connection?.stationLabel || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      connection: { ...formData.connection, stationLabel: e.target.value },
+                    })
+                  }
+                  placeholder="e.g. Kitchen Station, Front Counter"
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-semibold bg-white"
+                />
+              </div>
+
+              <div className="pt-1 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleAutoDetectUSB}
+                  disabled={isPairing}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-emerald-500 text-emerald-700 hover:bg-emerald-50 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                >
+                  <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{isPairing ? 'Detecting...' : 'Auto-Detect Printer on USB'}</span>
+                </button>
+              </div>
+
+              {pairingError && (
+                <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
+                  {pairingError}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Network IP/Port if Network type */}
           {formData.type === DRIVER_IDS.NETWORK && (

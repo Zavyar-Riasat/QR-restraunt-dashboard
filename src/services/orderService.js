@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js';
+import { toPaisa, toRupees, computeOrderPaymentState } from '../utils/currencyUtils.js';
 
 const ORDERS_STORAGE_PREFIX = 'dinehq_orders_';
 
@@ -124,19 +125,56 @@ const isSupabaseConfigured = () => {
   );
 };
 
+export const generateRiderToken = () => {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  let token = 'rtk_';
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    for (let i = 0; i < 16; i++) {
+      token += chars[bytes[i] % chars.length];
+    }
+  } else {
+    for (let i = 0; i < 16; i++) {
+      token += chars[Math.floor(Math.random() * chars.length)];
+    }
+  }
+  return token;
+};
+
 // Starter initial orders for new or demo restaurants so the orders board is immediately functional
 const getStarterOrders = (restaurantId, restaurantName) => [
   {
     id: 'DB-8421',
     restaurant_id: restaurantId,
     customer_name: 'Ahmed Khan',
-    customer_phone: '923019876543',
+    customer_phone: '03019876543',
     customer_address: 'House #42, Street 8, Sector F-7/2, Islamabad',
     customer_notes: 'Please add extra chili garlic dip and napkins.',
     subtotal: 2180,
     delivery_fee: 150,
     total_payable: 2330,
+    total_payable_paisa: 233000,
+    order_type: 'delivery',
     status: 'preparing', // new, preparing, out_for_delivery, completed, cancelled
+    payment_status: 'partial', // Partial payment of Rs. 1,000, remaining Rs. 1,330
+    payments: [
+      {
+        id: 'PAY-8421-1',
+        order_id: 'DB-8421',
+        amount_paisa: 100000,
+        amount: 1000,
+        method: 'cash',
+        date: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
+        note: 'Partial payment received in advance',
+        recorded_by: 'Cashier Ali',
+        is_void: false,
+        created_at: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
+        edit_history: [],
+      },
+    ],
+    rider_token: 'rtk_demo_8421',
+    assigned_rider: { id: 'rdr-1', name: 'Muhammad Ali', phone: '0301-2345678' },
     items: [
       {
         title: 'Truffle Double Smash',
@@ -152,13 +190,19 @@ const getStarterOrders = (restaurantId, restaurantName) => [
     id: 'DB-7319',
     restaurant_id: restaurantId,
     customer_name: 'Sara Malik',
-    customer_phone: '923214567890',
+    customer_phone: '03214567890',
     customer_address: 'Apartment 4B, Silver Heights, Phase 5 DHA',
     customer_notes: 'Call before knocking, baby is asleep.',
     subtotal: 1580,
     delivery_fee: 150,
     total_payable: 1730,
+    total_payable_paisa: 173000,
+    order_type: 'delivery',
     status: 'new',
+    payment_status: 'unpaid', // Unpaid Rs. 1,730
+    payments: [],
+    rider_token: 'rtk_demo_7319',
+    assigned_rider: null,
     items: [
       {
         title: 'Crispy Nashville Hot Chicken',
@@ -181,13 +225,35 @@ const getStarterOrders = (restaurantId, restaurantName) => [
     id: 'DB-6102',
     restaurant_id: restaurantId,
     customer_name: 'Usman Tariq',
-    customer_phone: '923335558899',
+    customer_phone: '03335558899',
     customer_address: 'Office #302, Evacuee Trust Complex, Blue Area',
     customer_notes: 'Urgent lunch delivery please.',
     subtotal: 3450,
     delivery_fee: 0,
     total_payable: 3450,
+    total_payable_paisa: 345000,
+    order_type: 'delivery',
     status: 'completed',
+    payment_status: 'paid', // Paid in full
+    payments: [
+      {
+        id: 'PAY-6102-1',
+        order_id: 'DB-6102',
+        amount_paisa: 345000,
+        amount: 3450,
+        method: 'jazzcash',
+        date: new Date(Date.now() - 95 * 60 * 1000).toISOString(),
+        note: 'Full settlement via JazzCash',
+        recorded_by: 'Store Manager',
+        is_void: false,
+        created_at: new Date(Date.now() - 95 * 60 * 1000).toISOString(),
+        edit_history: [],
+      },
+    ],
+    rider_token: 'rtk_demo_6102',
+    assigned_rider: { id: 'rdr-2', name: 'Zubair Ahmed', phone: '0321-9876543' },
+    completed_at: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+    delivered_at: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
     items: [
       {
         title: 'Super Smash Duo Combo',
@@ -253,15 +319,43 @@ export const orderService = {
   /**
    * Save a newly placed order directly inside the app (In-App Direct Kitchen Order)
    */
-  async createOrder({
-    restaurant,
-    customerDetails,
-    cart,
-    subtotal,
-    deliveryFee = 0,
-    finalTotal,
-    orderId,
-  }) {
+  async createOrder(paramsOrRestId, maybePayload) {
+    let restaurant, customerDetails, cart, subtotal, deliveryFee = 0, finalTotal, orderId;
+    if (typeof paramsOrRestId === 'string') {
+      restaurant = { id: paramsOrRestId };
+      const p = maybePayload || {};
+      customerDetails = {
+        name: p.customer_name,
+        phone: p.customer_phone,
+        address: p.customer_address,
+        orderType: p.order_type || 'delivery',
+        paymentMethod: p.payment_method || 'cash',
+        payment_status: p.payment_status,
+        amount_received: p.amount_received ?? p.initial_payment_amount,
+        ...p,
+      };
+      cart = (p.items || []).map((it) => ({
+        item: { title: it.title },
+        title: it.title,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+      }));
+      subtotal = p.subtotal || p.total_payable || 0;
+      deliveryFee = p.delivery_fee || 0;
+      finalTotal = p.total_payable || (subtotal + deliveryFee);
+      orderId = p.id;
+    } else {
+      ({
+        restaurant,
+        customerDetails,
+        cart = [],
+        subtotal = 0,
+        deliveryFee = 0,
+        finalTotal,
+        orderId,
+      } = paramsOrRestId || {});
+    }
+
     // 1. Bot Honeypot Protection
     if (customerDetails?.honeypot && customerDetails.honeypot.trim() !== '') {
       console.warn('Bot detected via honeypot trap.');
@@ -363,12 +457,67 @@ export const orderService = {
       subtotal: Number(subtotal) || 0,
       delivery_fee: Number(deliveryFee) || 0,
       total_payable: Number(finalTotal) || ((Number(subtotal) || 0) + (Number(deliveryFee) || 0)),
+      total_payable_paisa: toPaisa(Number(finalTotal) || ((Number(subtotal) || 0) + (Number(deliveryFee) || 0))),
       estimated_prep_time: restaurant?.prep_time || '20–30 mins',
       status: customerDetails?.status || 'new', // new, preparing, out_for_delivery, completed, cancelled, held
       items: formattedItems,
       idempotency_key: idempotencyKey || null,
       created_at: new Date().toISOString(),
+      rider_token: customerDetails?.rider_token || generateRiderToken(),
+      assigned_rider: customerDetails?.assigned_rider || null,
     };
+
+    // Calculate initial payments & payment status
+    const calculatedPayablePaisa = newOrder.total_payable_paisa;
+    let initialPayments = Array.isArray(customerDetails?.payments) ? [...customerDetails.payments] : [];
+
+    const amtReceived = customerDetails?.amount_received != null && Number(customerDetails.amount_received) > 0
+      ? Number(customerDetails.amount_received)
+      : null;
+
+    if (initialPayments.length === 0) {
+      if (amtReceived && amtReceived > 0) {
+        const receivedPaisa = toPaisa(amtReceived);
+        initialPayments.push({
+          id: `PAY-${cleanId}-1`,
+          order_id: cleanId,
+          amount_paisa: receivedPaisa,
+          amount: toRupees(receivedPaisa),
+          method: customerDetails?.paymentMethod || 'cash',
+          date: new Date().toISOString(),
+          note: customerDetails?.payment_note || 'Amount received at order creation',
+          recorded_by: customerDetails?.staff_name || 'POS Staff',
+          is_void: false,
+          created_at: new Date().toISOString(),
+          edit_history: [],
+        });
+      } else if (customerDetails?.payment_status === 'paid') {
+        initialPayments.push({
+          id: `PAY-${cleanId}-1`,
+          order_id: cleanId,
+          amount_paisa: calculatedPayablePaisa,
+          amount: toRupees(calculatedPayablePaisa),
+          method: customerDetails?.paymentMethod || 'cash',
+          date: new Date().toISOString(),
+          note: 'Full settlement at order creation',
+          recorded_by: customerDetails?.staff_name || 'Staff',
+          is_void: false,
+          created_at: new Date().toISOString(),
+          edit_history: [],
+        });
+      }
+    }
+
+    const initialPaymentState = computeOrderPaymentState({
+      total_payable_paisa: calculatedPayablePaisa,
+      payments: initialPayments,
+      payment_status: customerDetails?.payment_status,
+      amount_received: amtReceived,
+    });
+
+    newOrder.payments = initialPayments;
+    newOrder.payment_status = initialPaymentState.paymentStatus;
+    newOrder.amount_received = initialPaymentState.amountPaid;
 
     // 1. Try persisting to Supabase if an orders table exists
     if (isSupabaseConfigured()) {
@@ -441,6 +590,7 @@ export const orderService = {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Sanitize any existing orders by removing residual discounts and recalculating total
+          let hasMissingTokens = false;
           const cleaned = parsed.map((order) => {
             const copy = { ...order };
             delete copy.discount_percentage;
@@ -448,8 +598,25 @@ export const orderService = {
             if (copy.subtotal != null) {
               copy.total_payable = (Number(copy.subtotal) || 0) + (Number(copy.delivery_fee) || 0);
             }
+            if (!copy.rider_token) {
+              copy.rider_token = generateRiderToken();
+              hasMissingTokens = true;
+            }
+            if (copy.total_payable_paisa == null && copy.total_payable != null) {
+              copy.total_payable_paisa = toPaisa(copy.total_payable);
+            }
+            if (!Array.isArray(copy.payments)) {
+              copy.payments = [];
+            }
+            const pState = computeOrderPaymentState(copy);
+            copy.payment_status = pState.paymentStatus;
             return copy;
           });
+          if (hasMissingTokens && typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(cleaned));
+            } catch (_) {}
+          }
           return cleaned;
         }
       }
@@ -554,6 +721,135 @@ export const orderService = {
   },
 
   /**
+   * Look up order by secret rider token across all stores
+   * Handles 24h expiration calculation after completion
+   */
+  async getOrderByRiderToken(token) {
+    if (!token) return null;
+
+    let targetOrder = null;
+    let targetRestId = null;
+
+    // 1. Search localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(ORDERS_STORAGE_PREFIX)) {
+            const restId = key.replace(ORDERS_STORAGE_PREFIX, '');
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                const found = list.find((o) => o.rider_token === token || o.id === token);
+                if (found) {
+                  targetOrder = found;
+                  targetRestId = restId;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error finding order by rider token:', e);
+      }
+    }
+
+    // 2. If not found in localStorage, check starter orders for demo fallbacks
+    if (!targetOrder) {
+      const demoList = getStarterOrders('rest-101');
+      const foundDemo = demoList.find((o) => o.rider_token === token || o.id === token);
+      if (foundDemo) {
+        targetOrder = foundDemo;
+        targetRestId = 'rest-101';
+      }
+    }
+
+    if (!targetOrder) return null;
+
+    // Check if token has expired: 24 hours after order completion/delivery
+    const completedTimestamp = targetOrder.completed_at || targetOrder.delivered_at;
+    const isCompleted = targetOrder.status === 'completed' || targetOrder.status === 'delivered';
+    const isExpired = Boolean(
+      isCompleted &&
+      completedTimestamp &&
+      (Date.now() - new Date(completedTimestamp).getTime() > 24 * 60 * 60 * 1000)
+    );
+
+    return {
+      order: targetOrder,
+      restaurantId: targetRestId,
+      isExpired,
+      completedTime: completedTimestamp,
+    };
+  },
+
+  /**
+   * Rider Page live status update (Picked Up, Delivered)
+   */
+  updateOrderByRiderToken(token, newStatus, additionalUpdates = {}) {
+    if (!token) return null;
+
+    if (typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(ORDERS_STORAGE_PREFIX)) {
+            const restId = key.replace(ORDERS_STORAGE_PREFIX, '');
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                const found = list.find((o) => o.rider_token === token || o.id === token);
+                if (found) {
+                  const updates = { ...additionalUpdates };
+                  const nowIso = new Date().toISOString();
+                  if (newStatus === 'out_for_delivery' && !updates.picked_up_at) {
+                    updates.picked_up_at = nowIso;
+                  }
+                  if (newStatus === 'completed' || newStatus === 'delivered') {
+                    if (!updates.delivered_at) updates.delivered_at = nowIso;
+                    if (!updates.completed_at) updates.completed_at = nowIso;
+                  }
+
+                  this.updateOrderStatus(restId, found.id, newStatus, updates);
+                  return { ...found, status: newStatus, ...updates };
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error updating order by rider token:', e);
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Assign a rider to an order
+   */
+  assignRiderToOrder(restaurantId, orderId, rider) {
+    const assignedPayload = rider
+      ? {
+          id: rider.id,
+          name: rider.name,
+          phone: rider.phone,
+          assigned_at: new Date().toISOString(),
+        }
+      : null;
+
+    const orders = this.getOrders(restaurantId);
+    const existing = orders.find((o) => o.id === orderId);
+    const currentStatus = existing?.status || 'new';
+
+    return this.updateOrderStatus(restaurantId, orderId, currentStatus, {
+      assigned_rider: assignedPayload,
+    });
+  },
+
+  /**
    * Append newly added items to an existing running table order
    */
   appendItemsToOrder(restaurantId, orderId, newCartItems = []) {
@@ -583,13 +879,18 @@ export const orderService = {
       ? (newSubtotal * (Number(existing.discount) || 0)) / 100
       : (Number(existing.discount) || 0);
     const newTotal = Math.max(0, newSubtotal - discountAmount + (Number(existing.delivery_fee) || 0));
-
-    const updatedOrder = {
+    const baseUpdatedOrder = {
       ...existing,
       items: combinedItems,
       subtotal: newSubtotal,
       total_payable: newTotal,
       updated_at: new Date().toISOString(),
+    };
+    const appendPaymentState = computeOrderPaymentState(baseUpdatedOrder);
+    const updatedOrder = {
+      ...baseUpdatedOrder,
+      total_payable_paisa: appendPaymentState.totalPayablePaisa,
+      payment_status: appendPaymentState.paymentStatus,
     };
 
     const updatedList = orders.map((o) => (o.id === orderId ? updatedOrder : o));
@@ -612,6 +913,7 @@ export const orderService = {
         items: combinedItems,
         subtotal: newSubtotal,
         total_payable: newTotal,
+        payment_status: appendPaymentState.paymentStatus,
       }).eq('id', orderId).then().catch(() => {});
     }
 
@@ -648,7 +950,7 @@ export const orderService = {
 
     const newTotal = Math.max(0, newSubtotal - discountAmount + deliveryFee);
 
-    const updatedOrder = {
+    const baseUpdatedOrder = {
       ...existing,
       ...additionalOverrides,
       items: updatedItems,
@@ -658,6 +960,12 @@ export const orderService = {
       delivery_fee: deliveryFee,
       total_payable: newTotal,
       updated_at: new Date().toISOString(),
+    };
+    const updatePaymentState = computeOrderPaymentState(baseUpdatedOrder);
+    const updatedOrder = {
+      ...baseUpdatedOrder,
+      total_payable_paisa: updatePaymentState.totalPayablePaisa,
+      payment_status: updatePaymentState.paymentStatus,
     };
 
     const updatedList = orders.map((o) => (o.id === orderId ? updatedOrder : o));
@@ -680,6 +988,7 @@ export const orderService = {
         items: updatedItems,
         subtotal: newSubtotal,
         total_payable: newTotal,
+        payment_status: updatePaymentState.paymentStatus,
       }).eq('id', orderId).then().catch(() => {});
     }
 

@@ -108,9 +108,11 @@ export default function NewOrderModal({
   const [discountType, setDiscountType] = useState('fixed'); // 'fixed' | 'percent'
   const [discountValue, setDiscountValue] = useState('');
 
-  // Payment
+  // Payment & Customer Khata (Udhaar)
   const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'card' | 'jazzcash' | 'easypaisa' | 'unpaid'
   const [amountReceived, setAmountReceived] = useState('');
+  const [amountReceivedNow, setAmountReceivedNow] = useState('');
+  const [addRemainingToCustomerAccount, setAddRemainingToCustomerAccount] = useState(false);
 
   // Item customization modal
   const [customizingItem, setCustomizingItem] = useState(null);
@@ -352,6 +354,8 @@ export default function NewOrderModal({
     setOrderNotes('');
     setDiscountValue('');
     setAmountReceived('');
+    setAmountReceivedNow('');
+    setAddRemainingToCustomerAccount(false);
     setAppendToExistingOrderId(null);
     setSelectedTable(null);
     setShowTablePicker(true);
@@ -380,15 +384,24 @@ export default function NewOrderModal({
         setErrorMsg('Customer phone is required for delivery.');
         return;
       }
-      const finalAddress = (deliveryLocation.formattedAddress || customerAddress).trim();
+      const finalAddress = (
+        deliveryLocation.formattedAddress ||
+        [deliveryLocation.houseFlat, deliveryLocation.areaLandmark].filter(Boolean).join(', ') ||
+        customerAddress
+      ).trim();
       if (!finalAddress) {
-        setErrorMsg('Delivery address is required. Please search an address or pin a location.');
+        setErrorMsg('Delivery address is required. Please type your address or nearest landmark.');
         return;
       }
     }
 
     if (orderType === 'phone' && !customerPhone.trim()) {
       setErrorMsg('Phone number is required for phone orders.');
+      return;
+    }
+
+    if (addRemainingToCustomerAccount && !customerPhone.trim()) {
+      setErrorMsg('Customer phone number is required to add remaining balance to their customer account (Udhaar / Khata).');
       return;
     }
 
@@ -446,9 +459,24 @@ export default function NewOrderModal({
 
       // 2. Creating a brand new in-store order
       const initialStatus = actionType === 'hold' ? 'held' : 'new';
-      const paymentStatus = paymentMethod === 'unpaid' ? 'unpaid' : 'paid';
+      const effectiveAmountReceived = amountReceivedNow !== ''
+        ? Number(amountReceivedNow)
+        : (paymentMethod === 'unpaid' ? 0 : grandTotal);
 
-      const finalDeliveryAddress = (deliveryLocation.formattedAddress || customerAddress).trim();
+      let calculatedPaymentStatus = 'unpaid';
+      if (paymentMethod === 'unpaid' || effectiveAmountReceived === 0) {
+        calculatedPaymentStatus = 'unpaid';
+      } else if (effectiveAmountReceived >= grandTotal) {
+        calculatedPaymentStatus = 'paid';
+      } else {
+        calculatedPaymentStatus = 'partial';
+      }
+
+      const finalDeliveryAddress = (
+        deliveryLocation.formattedAddress ||
+        [deliveryLocation.houseFlat, deliveryLocation.areaLandmark].filter(Boolean).join(', ') ||
+        customerAddress
+      ).trim();
       const finalLat = deliveryLocation.latitude != null ? Number(deliveryLocation.latitude) : (locationCoords?.lat || null);
       const finalLng = deliveryLocation.longitude != null ? Number(deliveryLocation.longitude) : (locationCoords?.lng || null);
 
@@ -472,10 +500,11 @@ export default function NewOrderModal({
           deliveryNotes: deliveryLocation.deliveryNote || orderNotes,
           notes: deliveryLocation.deliveryNote ? `${orderNotes ? orderNotes + ' • ' : ''}${deliveryLocation.deliveryNote}` : orderNotes,
           paymentMethod: paymentMethod === 'cash' ? 'Cash at Counter' : paymentMethod,
-          payment_status: paymentStatus,
+          payment_status: calculatedPaymentStatus,
           discount: discountAmount,
           discount_type: discountType,
-          amount_received: amountReceived ? Number(amountReceived) : null,
+          amount_received: effectiveAmountReceived,
+          add_remaining_to_khata: addRemainingToCustomerAccount,
           change_due: changeDue,
           status: initialStatus,
         },
@@ -1247,57 +1276,112 @@ export default function NewOrderModal({
                 </div>
               </div>
 
-              {/* Cash Received & Change Calculation (when cash selected) */}
-              {paymentMethod === 'cash' && (
-                <div className="p-2 bg-[#E7F6EC]/40 rounded-xl border border-[#C0E9CE] space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-700">Cash Received:</span>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min="0"
-                        value={amountReceived}
-                        onChange={(e) => setAmountReceived(e.target.value)}
-                        placeholder={String(grandTotal)}
-                        className="w-24 px-2 py-0.5 rounded bg-white border border-[#C0E9CE] text-xs font-mono font-bold text-right focus:outline-none"
-                      />
-                    </div>
+              {/* Payment Section: Amount Received Now & Udhaar/Khata Option */}
+              <div className="p-3 bg-[#FFF9F2] rounded-2xl border border-[#F0E4D7] space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#2B2118]">Amount received now:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] font-bold text-slate-400 font-mono">Rs.</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={amountReceivedNow}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAmountReceivedNow(val);
+                        setAmountReceived(val);
+                        if (val !== '' && Number(val) < grandTotal) {
+                          setAddRemainingToCustomerAccount(true);
+                        } else {
+                          setAddRemainingToCustomerAccount(false);
+                        }
+                      }}
+                      placeholder={paymentMethod === 'unpaid' ? '0' : String(grandTotal)}
+                      className="w-28 px-2.5 py-1 rounded-xl bg-white border border-[#F0E4D7] text-xs font-mono font-bold text-right focus:outline-none focus:ring-2 focus:ring-[#F26B1D]"
+                    />
                   </div>
+                </div>
 
-                  {/* Quick Cash Suggestions */}
-                  <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+                {/* Quick Shortcuts */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAmountReceivedNow(String(grandTotal));
+                      setAmountReceived(String(grandTotal));
+                      setAddRemainingToCustomerAccount(false);
+                      if (paymentMethod === 'unpaid') setPaymentMethod('cash');
+                    }}
+                    className="px-2 py-0.5 rounded-lg bg-white text-[10px] font-bold text-slate-700 border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Exact (Full)
+                  </button>
+                  {grandTotal > 0 && (
                     <button
                       type="button"
-                      onClick={() => setAmountReceived(String(grandTotal))}
-                      className="px-1.5 py-0.5 rounded bg-white text-[10px] font-bold text-slate-700 border border-slate-200"
+                      onClick={() => {
+                        const half = Math.round(grandTotal / 2);
+                        setAmountReceivedNow(String(half));
+                        setAmountReceived(String(half));
+                        setAddRemainingToCustomerAccount(true);
+                        if (paymentMethod === 'unpaid') setPaymentMethod('cash');
+                      }}
+                      className="px-2 py-0.5 rounded-lg bg-white text-[10px] font-bold text-amber-700 border border-amber-200 hover:bg-amber-50 cursor-pointer"
                     >
-                      Exact
+                      50% Partial
                     </button>
-                    {[500, 1000, 2000, 5000].map((amt) => {
-                      if (amt < grandTotal) return null;
-                      return (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => setAmountReceived(String(amt))}
-                          className="px-1.5 py-0.5 rounded bg-white text-[10px] font-bold text-slate-700 border border-slate-200"
-                        >
-                          {amt}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAmountReceivedNow('0');
+                      setAmountReceived('0');
+                      setPaymentMethod('unpaid');
+                      setAddRemainingToCustomerAccount(true);
+                    }}
+                    className="px-2 py-0.5 rounded-lg bg-white text-[10px] font-bold text-red-700 border border-red-200 hover:bg-red-50 cursor-pointer"
+                  >
+                    Rs. 0 (Full Khata)
+                  </button>
+                </div>
 
-                  {amountReceived && Number(amountReceived) >= grandTotal && (
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-[#C0E9CE]">
-                      <span className="font-bold text-emerald-900">Change to Return:</span>
-                      <span className="font-mono font-black text-sm text-emerald-700">
-                        {formatPKR(changeDue)}
+                {/* Remaining Balance & Khata Checkbox */}
+                {((amountReceivedNow !== '' && Number(amountReceivedNow) < grandTotal) || paymentMethod === 'unpaid') && (
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 space-y-1.5 text-xs text-amber-950">
+                    <div className="flex items-center justify-between font-bold">
+                      <span>Remaining Balance:</span>
+                      <span className="font-mono text-red-700 text-sm">
+                        {formatPKR(Math.max(0, grandTotal - (Number(amountReceivedNow) || 0)))}
                       </span>
                     </div>
-                  )}
-                </div>
-              )}
+
+                    <label className="flex items-center gap-2 pt-0.5 cursor-pointer font-bold text-[11px] text-[#2B2118]">
+                      <input
+                        type="checkbox"
+                        checked={addRemainingToCustomerAccount}
+                        onChange={(e) => setAddRemainingToCustomerAccount(e.target.checked)}
+                        className="w-4 h-4 text-[#F26B1D] rounded border-amber-400 focus:ring-[#F26B1D]"
+                      />
+                      <span>Add remaining to customer account (Udhaar / Khata)</span>
+                    </label>
+                    {addRemainingToCustomerAccount && !customerPhone.trim() && (
+                      <p className="text-[10px] text-red-600 font-semibold pl-6">
+                        * Enter customer phone number above to link balance.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Change to Return if cash overpayment */}
+                {amountReceivedNow && Number(amountReceivedNow) > grandTotal && paymentMethod === 'cash' && (
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-[#F0E4D7]">
+                    <span className="font-bold text-emerald-900">Change to Return:</span>
+                    <span className="font-mono font-black text-sm text-emerald-700">
+                      {formatPKR(Math.max(0, Number(amountReceivedNow) - grandTotal))}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {/* Totals Summary */}
               <div className="space-y-1 pt-1 border-t border-[#F0E4D7]">

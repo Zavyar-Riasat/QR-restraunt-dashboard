@@ -5,6 +5,7 @@
 export const DRIVER_IDS = {
   BROWSER: 'browser',
   USB: 'usb',
+  WINDOWS: 'windows',
   BLUETOOTH: 'bluetooth',
   RAWBT: 'rawbt',
   NETWORK: 'network',
@@ -97,6 +98,14 @@ export const PRINTER_TYPE_OPTIONS = [
     tag: 'Direct USB',
   },
   {
+    id: DRIVER_IDS.WINDOWS,
+    name: 'Windows Installed Printer',
+    subtitle: 'Silent Spooler / Driver',
+    description: 'Prints through the Windows printer driver (e.g. POS-80, Xprinter, Epson). 100% immune to USB port changes!',
+    icon: 'HardDrive',
+    tag: 'Port-Independent',
+  },
+  {
     id: DRIVER_IDS.BLUETOOTH,
     name: 'Bluetooth Printer',
     subtitle: 'Wireless Mobile / Counter',
@@ -136,7 +145,7 @@ export const createDefaultPrinter = (overrides = {}) => ({
   type: DRIVER_IDS.BROWSER,
   typeName: 'Normal Printer (A4)',
   paperSize: PAPER_SIZES.SIZE_80MM,
-  status: 'connected', // 'connected' | 'disconnected'
+  status: 'connected', // 'connected' | 'reconnecting' | 'disconnected' / 'not_found'
   printTarget: PRINT_TARGETS.BOTH, // 'kot' | 'bill' | 'both'
   categories: ['all'], // ['all'] or array of category IDs
   copies: 1,

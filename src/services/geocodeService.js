@@ -32,13 +32,21 @@ async function scheduleRateLimitedFetch(url, options = {}) {
     lastRequestTimestamp = Date.now();
 
     try {
-      const response = await fetch(url, options);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
         throw new Error(`Nominatim HTTP error: ${response.status}`);
       }
       return await response.json();
     } catch (err) {
-      console.warn('Geocoding fetch notice:', err.message);
+      console.warn('Geocoding fetch notice (non-blocking):', err.message);
       return null;
     }
   });

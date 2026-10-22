@@ -34,41 +34,18 @@ export default function PrinterHealthCheckModal({
 
   const platform = getPlatformDiagnostics();
 
-  // Keep printer list synchronized
-  useEffect(() => {
-    return printerService.subscribe((data) => {
-      if (data?.printers) {
-        setPrinters(data.printers);
-      }
-    });
-  }, []);
+  const selectedPrinter = React.useMemo(() => {
+    return (
+      printers.find((p) => p.id === selectedPrinterId) ||
+      printers[0] ||
+      printerService.getDefaultPrinter()
+    );
+  }, [printers, selectedPrinterId]);
 
-  // Sync selected printer when modal opens or initialPrinterId changes
-  useEffect(() => {
-    if (isOpen) {
-      const currentList = printerService.getPrinters();
-      setPrinters(currentList);
-      const targetId =
-        initialPrinterId ||
-        selectedPrinterId ||
-        printerService.getDefaultPrinter()?.id ||
-        currentList[0]?.id;
-      setSelectedPrinterId(targetId);
-      // Automatically run health check on modal open
-      runDiagnostic(targetId);
-    }
-  }, [isOpen, initialPrinterId]);
-
-  if (!isOpen) return null;
-
-  const selectedPrinter =
-    printers.find((p) => p.id === selectedPrinterId) ||
-    printers[0] ||
-    printerService.getDefaultPrinter();
-
-  const runDiagnostic = async (printerIdToTest) => {
+  const runDiagnostic = React.useCallback(async (printerIdToTest) => {
+    const currentPrinters = printerService.getPrinters();
     const target =
-      printers.find((p) => p.id === (printerIdToTest || selectedPrinterId)) ||
+      currentPrinters.find((p) => p.id === (printerIdToTest || selectedPrinterId)) ||
       selectedPrinter;
 
     if (!target) return;
@@ -119,7 +96,32 @@ export default function PrinterHealthCheckModal({
       setIsRunning(false);
       setActiveStepIndex(-1);
     }
-  };
+  }, [selectedPrinterId, selectedPrinter]);
+
+  // Keep printer list synchronized
+  useEffect(() => {
+    return printerService.subscribe((data) => {
+      if (data?.printers) {
+        setPrinters(data.printers);
+      }
+    });
+  }, []);
+
+  // Sync selected printer when modal opens or initialPrinterId changes
+  useEffect(() => {
+    if (isOpen) {
+      const currentList = printerService.getPrinters();
+      setPrinters(currentList);
+      const targetId =
+        initialPrinterId ||
+        selectedPrinterId ||
+        printerService.getDefaultPrinter()?.id ||
+        currentList[0]?.id;
+      setSelectedPrinterId(targetId);
+      // Automatically run health check on modal open
+      runDiagnostic(targetId);
+    }
+  }, [isOpen, initialPrinterId, runDiagnostic]);
 
   const renderTypeIcon = (type) => {
     switch (type) {
@@ -136,6 +138,8 @@ export default function PrinterHealthCheckModal({
         return <Printer className="w-4 h-4 text-[#F26B1D]" />;
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">

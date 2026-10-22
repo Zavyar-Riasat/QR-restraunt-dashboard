@@ -48,7 +48,8 @@ export function isPrinterTypeSupported(typeId) {
     if (
       typeId === DRIVER_IDS.USB ||
       typeId === DRIVER_IDS.BLUETOOTH ||
-      typeId === DRIVER_IDS.RAWBT
+      typeId === DRIVER_IDS.RAWBT ||
+      typeId === DRIVER_IDS.WINDOWS
     ) {
       return false;
     }

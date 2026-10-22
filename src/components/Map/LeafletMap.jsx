@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -11,17 +11,54 @@ import {
   DEFAULT_FALLBACK_COORDS,
 } from '../../config/mapConfig';
 
-// Fix Leaflet's default icon path issues in bundlers / React / Vite
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+// Robust icon URL resolver for Next.js ({ src: '...' }), Vite (string), and Webpack
+const getAssetUrl = (asset, fallbackCdnUrl) => {
+  if (typeof asset === 'string') return asset;
+  if (asset && typeof asset === 'object' && asset.src) return asset.src;
+  if (asset && typeof asset === 'object' && asset.default) {
+    return typeof asset.default === 'string' ? asset.default : asset.default.src || fallbackCdnUrl;
+  }
+  return fallbackCdnUrl;
+};
+
+const icon2xUrl = getAssetUrl(
+  markerIcon2x,
+  'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png'
+);
+const iconUrl = getAssetUrl(
+  markerIcon,
+  'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png'
+);
+const shadowUrl = getAssetUrl(
+  markerShadow,
+  'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+);
+
+// Global fallback for Leaflet default icon prototype
+if (typeof window !== 'undefined' && L && L.Icon && L.Icon.Default) {
+  delete L.Icon.Default.prototype._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: icon2xUrl,
+    iconUrl: iconUrl,
+    shadowUrl: shadowUrl,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
+}
+
+// Explicit icon instance to guarantee Next.js / bundler rendering
+const createMapPinIcon = () =>
+  L.icon({
+    iconRetinaUrl: icon2xUrl,
+    iconUrl: iconUrl,
+    shadowUrl: shadowUrl,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
 
 export default function LeafletMap({
   center,
@@ -36,9 +73,11 @@ export default function LeafletMap({
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const [isAttributionOpen, setIsAttributionOpen] = useState(false);
 
-  const activeLat = center?.lat ?? DEFAULT_FALLBACK_COORDS.lat;
-  const activeLng = center?.lng ?? DEFAULT_FALLBACK_COORDS.lng;
+  const activeLat = Number(center?.lat ?? DEFAULT_FALLBACK_COORDS.lat);
+  const activeLng = Number(center?.lng ?? DEFAULT_FALLBACK_COORDS.lng);
 
   // Initialize Map
   useEffect(() => {
@@ -57,14 +96,20 @@ export default function LeafletMap({
       attributionControl: true,
     });
 
+    // Remove the "Leaflet" prefix as strictly required
+    if (map.attributionControl) {
+      map.attributionControl.setPrefix(false);
+    }
+
     // Standard OpenStreetMap tiles with required attribution
     L.tileLayer(TILE_URL, {
       attribution: ATTRIBUTION,
       maxZoom: 19,
     }).addTo(map);
 
-    // Marker
+    // Marker with explicit icon
     const marker = L.marker([activeLat, activeLng], {
+      icon: createMapPinIcon(),
       draggable,
       autoPan: true,
     }).addTo(map);
@@ -74,47 +119,94 @@ export default function LeafletMap({
     }
 
     if (draggable && onLocationChange) {
+      marker.on('dragstart', () => {
+        isDraggingRef.current = true;
+      });
+
       marker.on('dragend', (e) => {
         const pos = e.target.getLatLng();
-        onLocationChange({ lat: pos.lat, lng: pos.lng });
+        const fixedLat = Number(Number(pos.lat).toFixed(6));
+        const fixedLng = Number(Number(pos.lng).toFixed(6));
+        setTimeout(() => {
+          isDraggingRef.current = false;
+        }, 150);
+        onLocationChange({ lat: fixedLat, lng: fixedLng });
       });
 
       // Also allow clicking anywhere on map to reposition marker
       map.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        marker.setLatLng([lat, lng]);
-        onLocationChange({ lat, lng });
+        const fixedLat = Number(Number(e.latlng.lat).toFixed(6));
+        const fixedLng = Number(Number(e.latlng.lng).toFixed(6));
+        marker.setLatLng([fixedLat, fixedLng]);
+        onLocationChange({ lat: fixedLat, lng: fixedLng });
       });
     }
 
     mapInstanceRef.current = map;
     markerRef.current = marker;
 
-    // Invalidate size to ensure tiles render immediately in dynamic or modal containers
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 150);
+    // Fix map not rendering inside modals/tabs:
+    // 1. Observe container resize (handles modal opening, tab switching, layout shifts)
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.invalidateSize({ pan: false });
+            }
+          }
+        }
+      });
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
+    // 2. Staggered timers to catch modal transition animations (fade-in, scale, slide)
+    const timerIds = [50, 150, 300, 500, 1000].map((ms) =>
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize({ pan: false });
+        }
+      }, ms)
+    );
+
+    // 3. Listen to window resize and visibilitychange
+    const handleWindowChange = () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ pan: false });
+      }
+    };
+    window.addEventListener('resize', handleWindowChange);
+    document.addEventListener('visibilitychange', handleWindowChange);
 
     return () => {
+      timerIds.forEach(clearTimeout);
+      if (resizeObserver) resizeObserver.disconnect();
+      window.removeEventListener('resize', handleWindowChange);
+      document.removeEventListener('visibilitychange', handleWindowChange);
       map.remove();
       mapInstanceRef.current = null;
       markerRef.current = null;
     };
   }, []);
 
-  // Update map view & marker when center coordinates change externally
+  // Update map view & marker when center coordinates change externally (without jumping)
   useEffect(() => {
     const map = mapInstanceRef.current;
     const marker = markerRef.current;
     if (!map || !marker) return;
 
+    // Ignore while user is actively dragging the marker
+    if (isDraggingRef.current) return;
+
     const currentLatLng = marker.getLatLng();
     const dist = Math.hypot(currentLatLng.lat - activeLat, currentLatLng.lng - activeLng);
 
-    // Only update if position changed significantly (> 0.00005 deg ~ 5m)
-    if (dist > 0.00005) {
+    // Only update if position changed significantly (> 0.0001 deg ~ 11m)
+    // This stops small precision rounding jumps from causing infinite flyTo loops
+    if (dist > 0.0001) {
       marker.setLatLng([activeLat, activeLng]);
-      map.flyTo([activeLat, activeLng], zoom, { duration: 0.8 });
+      map.flyTo([activeLat, activeLng], zoom, { duration: 0.6 });
     }
   }, [activeLat, activeLng, zoom]);
 
@@ -129,11 +221,67 @@ export default function LeafletMap({
     }
   }, [draggable]);
 
+  // Invalidate size whenever height or className changes
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.invalidateSize({ pan: false });
+    }
+  }, [height, className]);
+
   return (
-    <div
-      ref={mapContainerRef}
-      style={{ height, width: '100%' }}
-      className={`rounded-xl overflow-hidden relative shadow-inner z-0 ${className}`}
-    />
+    <div className={`relative overflow-hidden rounded-xl shadow-inner compact-osm-map ${className}`}>
+      <style>{`
+        .compact-osm-map .leaflet-control-attribution {
+          display: none !important;
+        }
+      `}</style>
+      <div
+        ref={mapContainerRef}
+        style={{ height, width: '100%' }}
+        className="w-full h-full z-0"
+      />
+
+      {/* Compact OpenStreetMap Attribution Icon ("i" that expands on tap/click) */}
+      <div className="absolute bottom-1.5 right-1.5 z-[500] pointer-events-auto select-none">
+        {isAttributionOpen ? (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/95 backdrop-blur-xs text-[10px] font-medium text-slate-700 shadow-md border border-slate-200 animate-fadeIn">
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-800 hover:text-[#F26B1D] font-bold underline transition"
+            >
+              © OpenStreetMap
+            </a>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsAttributionOpen(false);
+              }}
+              className="text-slate-400 hover:text-slate-600 ml-0.5 p-0.5 cursor-pointer leading-none"
+              title="Close attribution"
+              aria-label="Close attribution"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsAttributionOpen(true);
+            }}
+            className="w-5 h-5 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-slate-950 border border-slate-300 shadow-sm flex items-center justify-center text-[11px] font-serif font-black transition cursor-pointer"
+            title="Map attribution: © OpenStreetMap"
+            aria-label="Show map attribution"
+          >
+            i
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
+

@@ -14,8 +14,10 @@ import {
   ChevronDown,
   Store,
   Plus,
+  Printer,
 } from 'lucide-react';
 import PrinterStatusBadge from './Printer/PrinterStatusBadge';
+import InstallAppButton from './PWA/InstallAppButton';
 
 export default function Navbar({
   restaurant,
@@ -28,6 +30,8 @@ export default function Navbar({
   onOpenPreview,
   onOpenPrinterSettings,
   onOpenNewOrder,
+  onPrintSalesSummary,
+  isPrintingSummary = false,
 }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -134,6 +138,30 @@ export default function Navbar({
             {copied ? <Check className="w-3.5 h-3.5 text-[#1F9D55]" /> : <Copy className="w-3.5 h-3.5 text-[#7A6A5C]" />}
             <span>{copied ? 'Copied!' : 'Copy Menu URL'}</span>
           </button>
+
+          {/* PWA Install Button (hidden once installed) */}
+          <InstallAppButton />
+
+          {/* Primary "Print Today's Summary" Button */}
+          {onPrintSalesSummary && (
+            <button
+              id="print-today-summary-navbar-btn"
+              type="button"
+              disabled={isPrintingSummary}
+              onClick={onPrintSalesSummary}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold border border-slate-800 transition cursor-pointer shadow-2xs shrink-0 disabled:opacity-50"
+              title="Print Today's Sales Summary (80mm thermal receipt)"
+            >
+              <Printer className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden md:inline">
+                {isPrintingSummary ? 'Printing...' : "Today's Summary"}
+              </span>
+              <span className="md:hidden">Summary</span>
+              <span className="text-[9px] bg-slate-800 text-amber-300 font-mono px-1 py-0.2 rounded border border-slate-700">
+                80mm
+              </span>
+            </button>
+          )}
 
           {/* Big "+ New Order" Button */}
           {onOpenNewOrder && (

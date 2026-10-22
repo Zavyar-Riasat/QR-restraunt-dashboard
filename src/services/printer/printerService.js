@@ -11,6 +11,7 @@ import {
 } from './printerTypes.js';
 import { BrowserPrintDriver } from './drivers/BrowserPrintDriver.js';
 import { UsbThermalDriver } from './drivers/UsbThermalDriver.js';
+import { WindowsPrintDriver } from './drivers/WindowsPrintDriver.js';
 import { BluetoothDriver } from './drivers/BluetoothDriver.js';
 import { RawBtDriver } from './drivers/RawBtDriver.js';
 import { NetworkDriver } from './drivers/NetworkDriver.js';
@@ -25,6 +26,7 @@ class PrinterService {
     this.drivers = {
       [DRIVER_IDS.BROWSER]: new BrowserPrintDriver(),
       [DRIVER_IDS.USB]: new UsbThermalDriver(),
+      [DRIVER_IDS.WINDOWS]: new WindowsPrintDriver(),
       [DRIVER_IDS.BLUETOOTH]: new BluetoothDriver(),
       [DRIVER_IDS.RAWBT]: new RawBtDriver(),
       [DRIVER_IDS.NETWORK]: new NetworkDriver(),
@@ -41,12 +43,71 @@ class PrinterService {
       window.addEventListener('focus', () => {
         this.processRetryQueue().catch(() => {});
       });
+
+      // Listen for USB hardware connection events from driver
+      window.addEventListener('dinehq:printer-status-changed', (event) => {
+        const detail = event.detail || {};
+        if (detail.status === 'connected') {
+          // Find matching USB printer and update status
+          const list = this.getPrinters();
+          const usbPrinters = list.filter((p) => p.type === DRIVER_IDS.USB);
+          usbPrinters.forEach((p) => {
+            this.setPrinterStatus(p.id, 'connected');
+          });
+        } else if (detail.status === 'reconnecting') {
+          const list = this.getPrinters();
+          const usbPrinters = list.filter((p) => p.type === DRIVER_IDS.USB);
+          usbPrinters.forEach((p) => {
+            this.setPrinterStatus(p.id, 'reconnecting');
+          });
+        }
+      });
+
       setInterval(() => {
         const queue = this.getRetryQueue();
         if (queue.length > 0) {
           this.processRetryQueue().catch(() => {});
         }
-      }, 15000);
+      }, 10000);
+
+      // Perform silent background reconnect on startup
+      setTimeout(() => {
+        this.silentReconnectAll();
+      }, 500);
+    }
+  }
+
+  /**
+   * Silently re-scan and auto-reconnect all configured USB printers
+   * Matches strictly by Vendor ID + Product ID across ANY port.
+   */
+  async silentReconnectAll() {
+    const printers = this.getPrinters();
+    const usbDriver = this.drivers[DRIVER_IDS.USB];
+
+    for (const printer of printers) {
+      if (printer.type === DRIVER_IDS.USB) {
+        try {
+          const vid = printer.connection?.vendorId;
+          const pid = printer.connection?.productId;
+          if (vid && pid) {
+            const res = await usbDriver.autoReconnect({
+              vendorId: vid,
+              productId: pid,
+              serialNumber: printer.connection?.serialNumber,
+            });
+            if (res.connected) {
+              this.setPrinterStatus(printer.id, 'connected');
+            } else if (res.requiresUserGesture) {
+              this.setPrinterStatus(printer.id, 'reconnecting');
+            }
+          }
+        } catch (e) {
+          console.warn(`Auto-reconnect notice for ${printer.name}:`, e);
+        }
+      } else if (printer.type === DRIVER_IDS.WINDOWS || printer.type === DRIVER_IDS.BROWSER) {
+        this.setPrinterStatus(printer.id, 'connected');
+      }
     }
   }
 
@@ -580,6 +641,9 @@ class PrinterService {
 
     const driverConfig = {
       driver: driverId,
+      deviceName: printer.connection?.deviceName || printer.name,
+      connection: printer.connection,
+      copies: printer.copies || 1,
       paperSize: printer.paperSize || PAPER_SIZES.SIZE_80MM,
       kickCashDrawer: Boolean(printer.openCashDrawer),
       cutPaper: true,
@@ -610,6 +674,47 @@ class PrinterService {
       }
     }
 
+    // If USB printer is currently reconnecting or detached, try silent auto-reconnect first
+    if (driverId === DRIVER_IDS.USB && (printer.status === 'reconnecting' || printer.status === 'not_found' || printer.status === 'disconnected')) {
+      const usbDriver = this.drivers[DRIVER_IDS.USB];
+      const recResult = await usbDriver.autoReconnect({
+        vendorId: printer.connection?.vendorId,
+        productId: printer.connection?.productId,
+        serialNumber: printer.connection?.serialNumber,
+      });
+
+      if (recResult.connected) {
+        this.setPrinterStatus(printer.id, 'connected');
+      } else {
+        // Queue the print job while printer is reconnecting!
+        const queuedItem = this.addToRetryQueue(
+          job.order,
+          printer,
+          job.templateType || TEMPLATE_TYPES.KOT,
+          new Error('Printer reconnecting'),
+          job.restaurant
+        );
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('dinehq_printer_job_queued', {
+              detail: {
+                printerName: printer.name,
+                orderId: job.order?.id,
+                queueCount: this.getRetryQueue().length,
+              },
+            })
+          );
+        }
+
+        return {
+          success: true,
+          queued: true,
+          message: `Printer '${printer.name}' is reconnecting. Receipt queued and will print automatically once connected.`,
+        };
+      }
+    }
+
     try {
       const result = await driver.print(job, driverConfig);
       this.setPrinterStatus(printer.id, 'connected');
@@ -621,10 +726,44 @@ class PrinterService {
       };
     } catch (primaryErr) {
       console.warn(
-        `Printer ${printer.name} (${driver.name}) failed:`,
-        primaryErr.message || primaryErr,
-        '. Falling back to Browser Print.'
+        `Printer ${printer.name} (${driver.name}) notice:`,
+        primaryErr.message || primaryErr
       );
+
+      // If USB port changed and requires reconnect
+      if (
+        primaryErr.message === 'PRINTER_PORT_CHANGED' ||
+        primaryErr.message?.toLowerCase().includes('device') ||
+        primaryErr.message?.toLowerCase().includes('port')
+      ) {
+        this.setPrinterStatus(printer.id, 'reconnecting');
+        this.addToRetryQueue(
+          job.order,
+          printer,
+          job.templateType || TEMPLATE_TYPES.KOT,
+          primaryErr,
+          job.restaurant
+        );
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('dinehq_printer_port_changed', {
+              detail: {
+                printer,
+                message: 'Printer moved to a new port — tap Reconnect',
+              },
+            })
+          );
+        }
+
+        return {
+          success: true,
+          queued: true,
+          portChanged: true,
+          message: `Printer '${printer.name}' moved to a new port. Print job queued; will print automatically once reconnected.`,
+        };
+      }
+
       this.setPrinterStatus(printer.id, 'disconnected');
 
       // AUTOMATIC FALLBACK TO BROWSER PRINT
@@ -658,6 +797,100 @@ class PrinterService {
         );
       }
     }
+  }
+
+  /**
+   * One-tap Quick Reconnect:
+   * Re-authorizes device after port change with a single tap and immediately prints any queued jobs.
+   */
+  async quickReconnectPrinter(printerId = null) {
+    const targetPrinter = printerId ? this.getPrinterById(printerId) : this.getDefaultPrinter();
+    if (!targetPrinter) throw new Error('No printer to reconnect');
+
+    const usbDriver = this.drivers[DRIVER_IDS.USB];
+    const info = await usbDriver.quickReconnect({
+      vendorId: targetPrinter.connection?.vendorId,
+      productId: targetPrinter.connection?.productId,
+      serialNumber: targetPrinter.connection?.serialNumber,
+    });
+
+    const updated = this.savePrinter({
+      ...targetPrinter,
+      status: 'connected',
+      connection: {
+        ...targetPrinter.connection,
+        deviceName: info.name || targetPrinter.connection?.deviceName,
+        vendorId: info.vendorId || targetPrinter.connection?.vendorId,
+        productId: info.productId || targetPrinter.connection?.productId,
+        serialNumber: info.serialNumber || targetPrinter.connection?.serialNumber,
+      },
+    });
+
+    this.setPrinterStatus(updated.id, 'connected');
+
+    // Immediately flush queued print jobs!
+    setTimeout(async () => {
+      try {
+        const flushed = await this.processRetryQueue(updated.id);
+        if (flushed.printedCount > 0 && typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('dinehq_queue_auto_printed', {
+              detail: {
+                printerName: updated.name,
+                count: flushed.printedCount,
+              },
+            })
+          );
+        }
+      } catch (e) {
+        console.warn('Queue flush notice:', e);
+      }
+    }, 300);
+
+    return updated;
+  }
+
+  /**
+   * Auto-Detect Printer Fallback:
+   * Scans for USB printer class (0x07) and known ESC/POS vendors, or Windows system printers.
+   */
+  async autoDetectPrinter() {
+    // 1. Check USB driver auto-detect
+    const usbDriver = this.drivers[DRIVER_IDS.USB];
+    const detectedUsb = await usbDriver.autoDetectPrinter();
+    if (detectedUsb) {
+      return {
+        type: DRIVER_IDS.USB,
+        typeName: 'USB Printer',
+        ...detectedUsb,
+      };
+    }
+
+    // 2. Check Windows installed printers (in Electron or browser)
+    const winDriver = this.drivers[DRIVER_IDS.WINDOWS];
+    const installed = await winDriver.getInstalledPrinters();
+    if (installed && installed.length > 0) {
+      const thermalCandidate = installed.find((p) => {
+        const n = (p.name || '').toLowerCase();
+        return (
+          n.includes('pos') ||
+          n.includes('thermal') ||
+          n.includes('receipt') ||
+          n.includes('xprinter') ||
+          n.includes('epson')
+        );
+      }) || installed[0];
+
+      return {
+        type: DRIVER_IDS.WINDOWS,
+        typeName: 'Windows Installed Printer',
+        name: thermalCandidate.name,
+        deviceName: thermalCandidate.name,
+        isWindows: true,
+      };
+    }
+
+    return null;
   }
 
   /**

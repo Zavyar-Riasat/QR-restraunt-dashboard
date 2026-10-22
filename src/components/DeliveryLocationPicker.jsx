@@ -49,8 +49,11 @@ export default function DeliveryLocationPicker({
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapZoom, setMapZoom] = useState(DEFAULT_MAP_ZOOM);
 
   const searchContainerRef = useRef(null);
+  const requestSeqRef = useRef(0);
+  const hasUserManuallyEditedAddressRef = useRef(Boolean(locationData.formattedAddress));
 
   const hasCoordinates = Boolean(
     locationData.latitude != null &&
@@ -58,6 +61,14 @@ export default function DeliveryLocationPicker({
     !isNaN(Number(locationData.latitude)) &&
     !isNaN(Number(locationData.longitude))
   );
+
+  // Helper: check if browser is in a secure HTTPS or localhost context
+  const checkIsSecureContext = () => {
+    if (typeof window === 'undefined') return true;
+    if (window.isSecureContext) return true;
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  };
 
   // Auto-enable map loading once coordinates are present
   useEffect(() => {
@@ -120,21 +131,36 @@ export default function DeliveryLocationPicker({
     setMapLoaded(true);
     setShowSearchResults(false);
     setSearchQuery(item.label);
+    const fixedLat = Number(Number(item.lat).toFixed(6));
+    const fixedLng = Number(Number(item.lng).toFixed(6));
+    requestSeqRef.current++;
+    hasUserManuallyEditedAddressRef.current = false;
 
     handleLocationUpdate({
-      latitude: item.lat,
-      longitude: item.lng,
+      latitude: fixedLat,
+      longitude: fixedLng,
       accuracy: 30,
       formattedAddress: item.fullAddress || item.label,
     });
+    setMapZoom(17);
   };
 
   // Browser Geolocation API ("Share My Location")
   const handleShareLocation = () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setMapLoaded(true);
       setGeoNotice({
         type: 'warning',
-        message: 'Location is not supported by your browser. You can type your address instead.',
+        message: 'Location is not supported by your browser. Move the pin to your exact location.',
+      });
+      return;
+    }
+
+    if (!checkIsSecureContext()) {
+      setMapLoaded(true);
+      setGeoNotice({
+        type: 'warning',
+        message: 'Geolocation requires HTTPS. Move the pin to your exact location.',
       });
       return;
     }
@@ -142,54 +168,76 @@ export default function DeliveryLocationPicker({
     setIsLocating(true);
     setGeoNotice({
       type: 'info',
-      message: 'Please tap "Allow" when prompted so our rider can navigate straight to your doorstep.',
+      message: 'Locating... Tap "Allow" when prompted so our rider can navigate straight to your doorstep.',
     });
+
+    const currentSeq = ++requestSeqRef.current;
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         setIsLocating(false);
         setMapLoaded(true);
         const { latitude, longitude, accuracy } = pos.coords;
+        const fixedLat = Number(Number(latitude).toFixed(6));
+        const fixedLng = Number(Number(longitude).toFixed(6));
+        const roundedAccuracy = Math.round(accuracy);
 
-        setGeoNotice({
-          type: 'success',
-          message: `Location captured (accurate to ~${Math.round(accuracy)}m). You can adjust the pin or edit your address.`,
-        });
-        setTimeout(() => setGeoNotice(null), 5000);
+        if (accuracy > 100) {
+          // Low accuracy: auto-zoom the map and prompt customer to drag pin
+          setMapZoom(18);
+          setGeoNotice({
+            type: 'warning',
+            message: `Low accuracy (±${roundedAccuracy}m). Move the pin to your exact location.`,
+          });
+        } else {
+          setMapZoom(17);
+          setGeoNotice({
+            type: 'success',
+            message: `Location captured (±${roundedAccuracy}m). You can adjust the pin or edit your address.`,
+          });
+          setTimeout(() => setGeoNotice(null), 5000);
+        }
 
-        // Reverse geocode via Nominatim to prefill the address
-        let revAddress = '';
-        try {
-          revAddress = await geocodeService.reverseGeocode(latitude, longitude);
-        } catch (_) {}
-
+        // Save lat/lng strictly with 6 decimal places immediately
         handleLocationUpdate({
-          latitude,
-          longitude,
-          accuracy: Math.round(accuracy),
-          formattedAddress: locationData.formattedAddress || revAddress || '',
+          latitude: fixedLat,
+          longitude: fixedLng,
+          accuracy: roundedAccuracy,
         });
+
+        // Reverse geocode via Nominatim to prefill the address if customer hasn't typed yet
+        try {
+          const revAddress = await geocodeService.reverseGeocode(fixedLat, fixedLng);
+          // Prevent race condition: do not overwrite if customer took a subsequent action
+          if (currentSeq !== requestSeqRef.current) return;
+          // Never overwrite customer's manually edited address text
+          if (!hasUserManuallyEditedAddressRef.current && revAddress) {
+            handleLocationUpdate({
+              formattedAddress: revAddress,
+            });
+          }
+        } catch (_) {}
       },
       (err) => {
         setIsLocating(false);
-        let errorMsg = 'Could not detect location. You can type your address instead.';
-        if (err.code === 1) {
-          errorMsg = 'Location permission was denied. You can type your address instead.';
-        } else if (err.code === 2) {
-          errorMsg = 'Location position unavailable. You can type your address instead.';
-        } else if (err.code === 3) {
-          errorMsg = 'Location request timed out. You can type your address instead.';
+        setMapLoaded(true);
+        let errorMsg = 'Could not detect location. Move the pin to your exact location.';
+        if (err.code === 1) { // PERMISSION_DENIED
+          errorMsg = 'Location permission denied. Move the pin to your exact location.';
+        } else if (err.code === 2) { // POSITION_UNAVAILABLE
+          errorMsg = 'Location unavailable. Move the pin to your exact location.';
+        } else if (err.code === 3) { // TIMEOUT (10s)
+          errorMsg = 'Location request timed out. Move the pin to your exact location.';
         }
 
         setGeoNotice({
           type: 'warning',
           message: errorMsg,
         });
-        setTimeout(() => setGeoNotice(null), 6000);
       },
       {
         enableHighAccuracy: true,
-        timeout: 12000,
+        timeout: 10000, // 10s strictly required
         maximumAge: 0,
       }
     );
@@ -197,18 +245,29 @@ export default function DeliveryLocationPicker({
 
   // Callback when customer drags the pin on the OpenStreetMap Leaflet map
   const handlePinDragged = async ({ lat, lng }) => {
-    // Reverse geocode new position to update address field
-    let revAddress = '';
-    try {
-      revAddress = await geocodeService.reverseGeocode(lat, lng);
-    } catch (_) {}
+    const fixedLat = Number(Number(lat).toFixed(6));
+    const fixedLng = Number(Number(lng).toFixed(6));
+    const currentSeq = ++requestSeqRef.current;
 
+    // Immediately update coordinates with fixed 6 decimals without waiting for reverse-geocoding
     handleLocationUpdate({
-      latitude: lat,
-      longitude: lng,
+      latitude: fixedLat,
+      longitude: fixedLng,
       accuracy: 10,
-      formattedAddress: revAddress || locationData.formattedAddress,
     });
+
+    // Reverse geocode new position to update address field if not manually typed
+    try {
+      const revAddress = await geocodeService.reverseGeocode(fixedLat, fixedLng);
+      // Discard if user dragged again while geocode was in-flight
+      if (currentSeq !== requestSeqRef.current) return;
+
+      if (!hasUserManuallyEditedAddressRef.current && revAddress) {
+        handleLocationUpdate({
+          formattedAddress: revAddress,
+        });
+      }
+    } catch (_) {}
   };
 
   const handleLocationUpdate = (updates) => {
@@ -221,12 +280,14 @@ export default function DeliveryLocationPicker({
   };
 
   const handleClearPin = () => {
+    requestSeqRef.current++;
     handleLocationUpdate({
       latitude: null,
       longitude: null,
       accuracy: null,
     });
     setSearchQuery('');
+    setGeoNotice(null);
   };
 
   const handleCopyLink = () => {
@@ -432,7 +493,7 @@ export default function DeliveryLocationPicker({
             >
               <LeafletMap
                 center={mapCenter}
-                zoom={DEFAULT_MAP_ZOOM}
+                zoom={mapZoom}
                 draggable={true}
                 onLocationChange={handlePinDragged}
                 height="192px"
@@ -459,11 +520,12 @@ export default function DeliveryLocationPicker({
               id="full-delivery-address-input"
               placeholder="Street name, Sector / Block, Town / City..."
               value={locationData.formattedAddress || ''}
-              onChange={(e) =>
+              onChange={(e) => {
+                hasUserManuallyEditedAddressRef.current = Boolean(e.target.value.trim());
                 handleLocationUpdate({
                   formattedAddress: e.target.value,
-                })
-              }
+                });
+              }}
               className="w-full pl-10 pr-3.5 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] focus:bg-white resize-none transition shadow-2xs leading-relaxed"
             />
           </div>

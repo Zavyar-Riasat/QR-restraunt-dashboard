@@ -37,6 +37,7 @@ export default function PrintTemplateRenderer({
   if (order?.id) params.set('order', order.id);
   const qs = params.toString();
   const reorderUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}${qs ? `?${qs}` : ''}`;
+  const riderLink = order?.rider_token ? `${origin}/rider/${order.rider_token}` : null;
   const mapsNavUrl = order ? buildGoogleMapsNavUrl(order) : '';
 
   // Container width styling
@@ -442,25 +443,25 @@ export default function PrintTemplateRenderer({
             </div>
           </div>
 
-          {/* Rider Google Maps Live Navigation QR Code & Direct Link */}
-          {mapsNavUrl && (
+          {/* Rider Order Link & Navigation QR Code */}
+          {(riderLink || mapsNavUrl) && (
             <div className="p-2.5 rounded-sm border-2 border-dashed border-black bg-slate-50 text-center space-y-1.5 my-2">
               <div className="text-[11px] font-black uppercase tracking-wider text-slate-900">
-                Rider Google Maps Navigation
+                {riderLink ? 'Rider Delivery Link & Navigation' : 'Rider Google Maps Navigation'}
               </div>
               <div className="flex justify-center p-1 bg-white border border-slate-200 rounded max-w-fit mx-auto shadow-xs">
                 <QRCodeSVG
-                  value={mapsNavUrl}
+                  value={riderLink || mapsNavUrl}
                   size={is58mm ? 75 : 95}
                   level="M"
                   includeMargin={true}
                 />
               </div>
               <div className="text-[9px] font-black uppercase tracking-wider text-slate-800">
-                Scan with Phone Camera to Open Directions
+                {riderLink ? 'Scan with Phone Camera to Open Rider Page' : 'Scan with Phone Camera to Open Directions'}
               </div>
               <div className="text-[8px] font-mono text-slate-600 break-all leading-tight px-1 select-all">
-                {mapsNavUrl}
+                {riderLink || mapsNavUrl}
               </div>
             </div>
           )}

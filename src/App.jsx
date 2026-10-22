@@ -6,6 +6,7 @@ import OwnerDashboardPage from './pages/OwnerDashboardPage';
 import CustomerMenuPage from './pages/CustomerMenuPage';
 import LoginPage from './pages/LoginPage';
 import AdminPanelPage from './pages/AdminPanelPage';
+import RiderDeliveryPage from './pages/RiderDeliveryPage';
 
 export default function App() {
   return (
@@ -14,6 +15,9 @@ export default function App() {
         <Routes>
           {/* Public Customer Authentication Page */}
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Public No-Login Delivery Rider Page */}
+          <Route path="/rider/:token" element={<RiderDeliveryPage />} />
 
           {/* Master Admin Portal (Restricted to Administrators via Middleware) */}
           <Route
@@ -34,7 +38,14 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/dashboard" element={<Navigate to="/" replace />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <OwnerDashboardPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Customer-Facing Mobile Web Menus (Open to Public Diners) */}
           <Route path="/menu/:slug" element={<CustomerMenuPage />} />

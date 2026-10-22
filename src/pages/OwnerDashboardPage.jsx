@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ExecutiveKPIs from '../components/ExecutiveKPIs';
@@ -10,11 +10,18 @@ import OrdersFeed from '../components/OrdersFeed';
 import { restaurantService } from '../services/restaurantService';
 import { orderService, playKitchenChime, playLoudKitchenAlarm, unlockAudioContext } from '../services/orderService';
 import { useAuth } from '../context/AuthContext';
-import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus } from 'lucide-react';
+import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users } from 'lucide-react';
 import PrinterSetupWizard from '../components/Printer/PrinterSetupWizard';
 import { printerService } from '../services/printer/printerService';
 import NewOrderModal from '../components/POS/NewOrderModal';
 import TableManager from '../components/TableManagement/TableManager';
+import CustomerManager from '../components/Customers/CustomerManager';
+import ReceiveCustomerPaymentModal from '../components/Customers/ReceiveCustomerPaymentModal';
+import { customerKhataService } from '../services/customerKhataService';
+import PrinterReconnectBanner from '../components/Printer/PrinterReconnectBanner';
+import OfflineBanner from '../components/PWA/OfflineBanner';
+import NotificationPromptBanner from '../components/PWA/NotificationPromptBanner';
+import { pwaService } from '../services/pwaService';
 
 export default function OwnerDashboardPage() {
   const navigate = useNavigate();
@@ -42,6 +49,46 @@ export default function OwnerDashboardPage() {
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [posInitialTable, setPosInitialTable] = useState(null);
   const [posInitialOrderType, setPosInitialOrderType] = useState('dine_in');
+
+  // Khata & Customers state
+  const [khataFilter, setKhataFilter] = useState('all');
+  const [receivePaymentCustomer, setReceivePaymentCustomer] = useState(null);
+  const [khataSummary, setKhataSummary] = useState({
+    totalCustomers: 0,
+    customersWithBalanceCount: 0,
+    totalReceivablePaisa: 0,
+    topOverdueCustomers: [],
+  });
+
+  // Refresh Khata & customer balance summary
+  const refreshKhataSummary = useCallback(() => {
+    if (!restaurant?.id) return;
+    try {
+      const summary = customerKhataService.getKhataSummary(restaurant.id);
+      setKhataSummary(summary);
+    } catch (e) {
+      console.warn('Error refreshing khata summary:', e);
+    }
+  }, [restaurant?.id]);
+
+  useEffect(() => {
+    refreshKhataSummary();
+  }, [refreshKhataSummary, orders]);
+
+  useEffect(() => {
+    const handleCustomerUpdated = () => {
+      refreshKhataSummary();
+    };
+    window.addEventListener('dinehq_customer_updated', handleCustomerUpdated);
+    return () => {
+      window.removeEventListener('dinehq_customer_updated', handleCustomerUpdated);
+    };
+  }, [restaurant?.id]);
+
+  const handleNavigateToKhata = (filter = 'has_balance') => {
+    setKhataFilter(filter);
+    setActiveTab('customers');
+  };
 
   const handleOpenNewOrder = (table = null, orderType = 'dine_in') => {
     setPosInitialTable(table);
@@ -95,6 +142,32 @@ export default function OwnerDashboardPage() {
       window.removeEventListener('keydown', handleGesture);
     };
   }, []);
+
+  // Keep screen awake while the Orders screen is open (Screen Wake Lock API)
+  useEffect(() => {
+    const handleWakeLock = async () => {
+      if (activeTab === 'orders' && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        await pwaService.acquireWakeLock();
+      } else if (activeTab !== 'orders') {
+        await pwaService.releaseWakeLock();
+      }
+    };
+
+    handleWakeLock();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && activeTab === 'orders') {
+        pwaService.acquireWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      pwaService.releaseWakeLock();
+    };
+  }, [activeTab]);
 
   // Repeating loud alarm sound loop for pending new orders (repeats every 4.5s until accepted or muted)
   useEffect(() => {
@@ -206,7 +279,10 @@ export default function OwnerDashboardPage() {
             setNewOrderAlert((prev) => (prev && prev.includes(`#${order.id}`) ? null : prev));
           }, 10000);
 
-          // Trigger Desktop Notification if tab is in the background
+          // Dispatch PWA Web Push notification and background audio alert
+          pwaService.notifyNewOrder(order);
+
+          // Trigger Desktop Notification if tab is in the background (direct fallback)
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
             try {
               const notif = new Notification(`🚨 New Order #${order.id} (Rs. ${order.total_payable?.toLocaleString()})`, {
@@ -475,6 +551,12 @@ export default function OwnerDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#FFF9F2] text-[#2B2118] flex flex-col font-sans selection:bg-[#F26B1D] selection:text-white">
+      {/* Offline Alert & Push Notification Permission Banners */}
+      <div className="no-print">
+        <OfflineBanner />
+        <NotificationPromptBanner />
+      </div>
+
       {/* Top Navbar */}
       <div className="no-print">
         <Navbar
@@ -488,12 +570,17 @@ export default function OwnerDashboardPage() {
           onOpenPreview={handleOpenLiveCustomerMenu}
           onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
           onOpenNewOrder={() => handleOpenNewOrder(null, 'dine_in')}
+          onPrintSalesSummary={handlePrintTodaySalesSummary}
+          isPrintingSummary={isPrintingSummary}
         />
       </div>
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* Top Executive ROI KPI Cards & Sales Summary Action */}
+        {/* Friendly Printer Reconnect / Auto-Detect Banner */}
+        <PrinterReconnectBanner onOpenSettings={() => setIsPrinterModalOpen(true)} />
+
+        {/* Top Executive ROI KPI Cards */}
         <section className="no-print space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 backdrop-blur-xs p-4 rounded-2xl border border-[#F0E4D7]">
             <div>
@@ -509,21 +596,6 @@ export default function OwnerDashboardPage() {
                 Real-time gross revenue, order volume, and daily register metrics
               </p>
             </div>
-
-            <button
-              id="print-today-sales-summary-btn"
-              type="button"
-              disabled={isPrintingSummary}
-              onClick={handlePrintTodaySalesSummary}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white text-xs sm:text-sm font-bold shadow-sm shadow-slate-900/10 transition cursor-pointer border border-slate-800 shrink-0"
-              title="Print Today's Sales Summary (80mm thermal receipt)"
-            >
-              <Printer className="w-4 h-4 text-amber-400" />
-              <span>{isPrintingSummary ? 'Printing Summary...' : "Print Today's Sales Summary"}</span>
-              <span className="text-[10px] bg-slate-800 text-amber-300 font-mono px-1.5 py-0.5 rounded border border-slate-700">
-                80mm
-              </span>
-            </button>
           </div>
 
           {summaryToast && (
@@ -536,7 +608,16 @@ export default function OwnerDashboardPage() {
             </div>
           )}
 
-          <ExecutiveKPIs restaurant={restaurant} menuItems={menuItems} orderStats={orderStats} />
+          <ExecutiveKPIs
+            restaurant={restaurant}
+            menuItems={menuItems}
+            orderStats={orderStats}
+            totalReceivablePaisa={khataSummary.totalReceivablePaisa}
+            customersWithBalanceCount={khataSummary.customersWithBalanceCount}
+            topOverdueCustomers={khataSummary.topOverdueCustomers}
+            onNavigateToKhata={handleNavigateToKhata}
+            onReceivePayment={(customer) => setReceivePaymentCustomer(customer)}
+          />
         </section>
 
         {/* Tab Navigation */}
@@ -554,6 +635,26 @@ export default function OwnerDashboardPage() {
             {activeOrdersCount > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse">
                 {activeOrdersCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('customers');
+              setKhataFilter('all');
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'customers'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Customers</span>
+            {khataSummary.customersWithBalanceCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono">
+                {khataSummary.customersWithBalanceCount}
               </span>
             )}
           </button>
@@ -634,7 +735,6 @@ export default function OwnerDashboardPage() {
               isAudioUnlocked={isAudioUnlocked}
               onUnlockAudio={handleUnlockAudio}
               onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
-              onPrintSalesSummary={handlePrintTodaySalesSummary}
               onOpenNewOrder={() => handleOpenNewOrder(null, 'dine_in')}
               onDismissOrderAlert={() => setNewOrderAlert(null)}
               menuItems={menuItems}
@@ -675,6 +775,18 @@ export default function OwnerDashboardPage() {
               onCreateCategory={handleCreateCategory}
               onUpdateCategory={handleUpdateCategory}
               onDeleteCategory={handleDeleteCategory}
+            />
+          )}
+
+          {activeTab === 'customers' && (
+            <CustomerManager
+              restaurant={restaurant}
+              currentUser={user}
+              orders={orders}
+              initialFilter={khataFilter}
+              onViewOrder={(orderId) => {
+                setActiveTab('orders');
+              }}
             />
           )}
 
@@ -720,8 +832,29 @@ export default function OwnerDashboardPage() {
             setOrders(refreshed);
             setOrderStats(orderService.getOrderStats(restaurant.id));
           }
+          refreshKhataSummary();
         }}
       />
+
+      {/* Quick Receive Payment Modal (e.g. from Executive Top Overdue Widget) */}
+      {receivePaymentCustomer && (
+        <ReceiveCustomerPaymentModal
+          customer={receivePaymentCustomer}
+          isOpen={Boolean(receivePaymentCustomer)}
+          onClose={() => setReceivePaymentCustomer(null)}
+          restaurant={restaurant}
+          currentUser={user}
+          onPaymentCompleted={() => {
+            setReceivePaymentCustomer(null);
+            if (restaurant?.id) {
+              const refreshed = orderService.getOrders(restaurant.id);
+              setOrders(refreshed);
+              setOrderStats(orderService.getOrderStats(restaurant.id));
+            }
+            refreshKhataSummary();
+          }}
+        />
+      )}
 
       {/* Printer Setup Wizard Modal */}
       <PrinterSetupWizard

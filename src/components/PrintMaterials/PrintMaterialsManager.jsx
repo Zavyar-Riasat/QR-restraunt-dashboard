@@ -1208,7 +1208,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
             </div>
           </div>
 
-          {/* Bottom Action Footer Bar */}
+          {/* Bottom Quality Status Bar */}
           <div className="no-print p-3 rounded-2xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-slate-600">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -1216,25 +1216,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                 300 DPI Export Ready • Error Correction Level H • Fully Scannable
               </span>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleDownloadPDF}
-                disabled={isExportingPDF}
-                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>PDF (300 DPI)</span>
-              </button>
-
-              <button
-                onClick={handlePrint}
-                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print</span>
-              </button>
-            </div>
+            <span className="text-[11px] text-slate-400 font-medium">Use top toolbar to Export or Print</span>
           </div>
         </div>
       </div>

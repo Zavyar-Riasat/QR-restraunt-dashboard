@@ -46,7 +46,7 @@ export default function PrinterStatusBadge({ onOpenSettings }) {
     <button
       type="button"
       onClick={onOpenSettings}
-      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border transition cursor-pointer group shadow-2xs ${
+      className={`h-9 inline-flex items-center gap-2 px-3 rounded-xl border transition cursor-pointer group shadow-2xs whitespace-nowrap shrink-0 ${
         anyReconnecting
           ? 'bg-amber-50/80 border-amber-300 hover:bg-amber-100 text-amber-900'
           : anyDisconnected

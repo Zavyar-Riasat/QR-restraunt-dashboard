@@ -42,17 +42,17 @@ export default function InstallAppButton() {
 
   return (
     <>
-      <div className="relative inline-block">
+      <div className="relative inline-flex items-center shrink-0">
         <button
           type="button"
           id="pwa-install-app-btn"
           onClick={handleInstallClick}
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
-          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#FFF1E6] to-[#FFE8D6] hover:from-[#F26B1D] hover:to-[#E55B0D] text-[#D95A12] hover:text-white border border-[#FCD8BF] hover:border-[#F26B1D] text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer shadow-2xs group"
+          className="h-9 px-3 rounded-xl bg-gradient-to-r from-[#FFF1E6] to-[#FFE8D6] hover:from-[#F26B1D] hover:to-[#E55B0D] text-[#D95A12] hover:text-white border border-[#FCD8BF] hover:border-[#F26B1D] text-xs font-bold transition-all duration-200 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs group whitespace-nowrap shrink-0"
           title="Install DineHQ on this computer for quick access."
         >
-          <Download className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" />
+          <Download className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
           <span className="hidden sm:inline">Install App</span>
           <span className="sm:hidden">Install</span>
         </button>

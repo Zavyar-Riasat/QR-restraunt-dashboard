@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DineHQ • Offline</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background-color: #FFFDF9;
+      color: #2B2118;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      user-select: none;
+    }
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #F0E4D7;
+      border-radius: 28px;
+      box-shadow: 0 20px 40px -15px rgba(242, 107, 29, 0.08), 0 0 1px rgba(0,0,0,0.1);
+      max-width: 480px;
+      width: 100%;
+      padding: 40px 32px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .icon-container {
+      width: 72px;
+      height: 72px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #FFF1E6 0%, #FFE5D3 100%);
+      border: 1px solid #FCD8BF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      color: #F26B1D;
+      box-shadow: 0 8px 16px -4px rgba(242, 107, 29, 0.15);
+    }
+    .icon-container svg {
+      width: 36px;
+      height: 36px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: #FEE2E2;
+      border: 1px solid #FECACA;
+      color: #DC2626;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 16px;
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #DC2626;
+      border-radius: 50%;
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1E1712;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+    p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #7A6A5C;
+      margin-bottom: 28px;
+    }
+    .retry-btn {
+      background: linear-gradient(135deg, #F26B1D 0%, #E55B0D 100%);
+      color: #FFFFFF;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 20px -5px rgba(242, 107, 29, 0.35);
+      transition: all 0.2s ease;
+      outline: none;
+    }
+    .retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 24px -5px rgba(242, 107, 29, 0.45);
+    }
+    .retry-btn:active {
+      transform: translateY(0);
+    }
+    .retry-btn.loading {
+      opacity: 0.75;
+      pointer-events: none;
+    }
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #FFFFFF;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .loading .spinner {
+      display: inline-block;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .footer-info {
+      margin-top: 24px;
+      font-size: 12px;
+      color: #A89A8E;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .target-url {
+      word-break: break-all;
+      color: #92400E;
+      font-family: monospace;
+      font-size: 11px;
+      background: #FEF3C7;
+      padding: 4px 8px;
+      border-radius: 6px;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-container">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+      </svg>
+    </div>
+
+    <div class="badge">
+      <span class="badge-dot"></span>
+      No Internet Connection
+    </div>
+
+    <h1>Unable to Reach DineHQ</h1>
+    <p>
+      The dashboard could not connect to your restaurant server. Please check your Wi-Fi, Ethernet cable, or router connection.
+    </p>
+
+    <button id="retryBtn" class="retry-btn" onclick="retryConnection()">
+      <span class="spinner"></span>
+      <span id="btnText">Retry Connection</span>
+    </button>
+
+    <div id="targetUrlBox" class="target-url" style="display: none;"></div>
+
+    <div class="footer-info">
+      <span>Auto-reconnecting every 5 seconds...</span>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetUrl = urlParams.get('url');
+    if (targetUrl) {
+      const box = document.getElementById('targetUrlBox');
+      box.textContent = targetUrl;
+      box.style.display = 'block';
+    }
+
+    function retryConnection() {
+      const btn = document.getElementById('retryBtn');
+      const text = document.getElementById('btnText');
+      btn.classList.add('loading');
+      text.textContent = 'Connecting...';
+
+      if (window.dinehqDesktop && typeof window.dinehqDesktop.retryConnection === 'function') {
+        window.dinehqDesktop.retryConnection();
+      } else if (targetUrl) {
+        window.location.href = targetUrl;
+      } else {
+        window.location.reload();
+      }
+
+      setTimeout(() => {
+        btn.classList.remove('loading');
+        text.textContent = 'Retry Connection';
+      }, 3000);
+    }
+
+    // Auto-retry polling every 5 seconds
+    setInterval(() => {
+      if (navigator.onLine) {
+        retryConnection();
+      }
+    }, 5000);
+
+    // Listen for online event
+    window.addEventListener('online', () => {
+      retryConnection();
+    });
+  </script>
+</body>
+</html>

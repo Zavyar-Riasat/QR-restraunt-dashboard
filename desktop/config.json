@@ -1,0 +1,15 @@
+{
+  "dashboardUrl": "https://dinehq.app/dashboard",
+  "devDashboardUrl": "http://localhost:5173/dashboard",
+  "useDevInDevelopment": true,
+  "startWithWindows": true,
+  "soundAlerts": true,
+  "autoUpdate": true,
+  "updateFeedUrl": "https://github.com/Zavyar-Riasat/QR-restraunt-dashboard/releases/latest/download",
+  "allowedOrigins": [
+    "https://dinehq.app",
+    "https://*.dinehq.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+  ]
+}

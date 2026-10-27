@@ -277,32 +277,6 @@ export default function PrintersSection({ categories = [] }) {
                     <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold border border-slate-200">
                       {printer.copies || 1} {(printer.copies || 1) === 1 ? 'copy' : 'copies'}
                     </span>
-
-                    {/* Auto-print status */}
-                    <span
-                      className={`px-2 py-0.5 rounded-md font-bold border ${
-                        printer.autoPrint
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-slate-100 text-slate-500 border-slate-200'
-                      }`}
-                    >
-                      Auto-Print: {printer.autoPrint ? 'ON' : 'OFF'}
-                    </span>
-
-                    {/* Cash drawer */}
-                    {printer.openCashDrawer && (
-                      <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
-                        Cash Drawer: ON
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Categories handled */}
-                  <div className="text-[11px] text-[#7A6A5C] flex items-center gap-1.5 pt-0.5">
-                    <span className="font-bold text-[#2B2118]">Categories:</span>
-                    <span className="truncate max-w-[260px] font-medium">
-                      {getCategoryNames(printer.categories)}
-                    </span>
                   </div>
 
                   {/* Connection Details Subtext (if IP or device) */}

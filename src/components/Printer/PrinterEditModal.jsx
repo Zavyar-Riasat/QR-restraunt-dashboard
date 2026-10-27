@@ -243,49 +243,6 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
             </div>
           </div>
 
-          {/* Which categories this printer handles */}
-          <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
-                Categories Handled
-              </label>
-              <span className="text-[11px] text-[#7A6A5C]">Filters items for this printer</span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <button
-                type="button"
-                onClick={() => handleToggleCategory('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                  formData.categories?.includes('all')
-                    ? 'bg-[#F26B1D] text-white border-[#F26B1D] shadow-xs'
-                    : 'bg-white text-[#7A6A5C] border-[#F0E4D7] hover:border-[#F26B1D]'
-                }`}
-              >
-                ⭐ All Categories
-              </button>
-
-              {categories.map((cat) => {
-                const isChecked =
-                  formData.categories?.includes(cat.id) || formData.categories?.includes(cat.name);
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => handleToggleCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                      isChecked && !formData.categories?.includes('all')
-                        ? 'bg-[#F26B1D] text-white border-[#F26B1D] shadow-xs'
-                        : 'bg-white text-[#7A6A5C] border-[#F0E4D7] hover:border-[#F26B1D]'
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Copies & Toggles */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Number of copies */}
@@ -329,34 +286,6 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
                 type="checkbox"
                 checked={formData.isDefault}
                 onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
-                className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
-              />
-            </div>
-
-            {/* Auto-print new orders */}
-            <div className="p-4 rounded-2xl bg-[#FFF9F2]/60 border border-[#F0E4D7] flex items-center justify-between">
-              <div>
-                <label className="text-xs font-bold text-[#2B2118]">Auto-print New Orders</label>
-                <p className="text-[10px] text-[#7A6A5C]">Print automatically on live order</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={formData.autoPrint}
-                onChange={(e) => setFormData({ ...formData, autoPrint: e.target.checked })}
-                className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
-              />
-            </div>
-
-            {/* Open cash drawer */}
-            <div className="p-4 rounded-2xl bg-[#FFF9F2]/60 border border-[#F0E4D7] flex items-center justify-between">
-              <div>
-                <label className="text-xs font-bold text-[#2B2118]">Open Cash Drawer</label>
-                <p className="text-[10px] text-[#7A6A5C]">Sends pulse after bill</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={formData.openCashDrawer}
-                onChange={(e) => setFormData({ ...formData, openCashDrawer: e.target.checked })}
                 className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
               />
             </div>

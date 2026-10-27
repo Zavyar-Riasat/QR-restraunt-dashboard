@@ -584,35 +584,11 @@ export default function PrinterSettingsModal({ isOpen, onClose }) {
             <label className="block text-xs font-bold text-[#7A6A5C] uppercase tracking-wider">
               3. Ticket Options
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {/* Cash Drawer Kick */}
-              <div
-                onClick={() => handleToggle('kickCashDrawer')}
-                className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer transition ${
-                  config.kickCashDrawer
-                    ? 'bg-[#FFF1E6] border-[#F26B1D]'
-                    : 'bg-white border-[#F0E4D7] hover:border-[#F26B1D]/40'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <DollarSign className="w-4 h-4 text-[#F26B1D]" />
-                  <div>
-                    <div className="text-xs font-bold text-[#2B2118]">Cash Drawer</div>
-                    <div className="text-[10px] text-[#7A6A5C]">Kick drawer open</div>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.kickCashDrawer || false}
-                  onChange={() => {}}
-                  className="rounded text-[#F26B1D] focus:ring-[#F26B1D]"
-                />
-              </div>
-
+            <div>
               {/* Auto Paper Cut */}
               <div
                 onClick={() => handleToggle('cutPaper')}
-                className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer transition ${
+                className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer transition max-w-sm ${
                   config.cutPaper !== false
                     ? 'bg-[#FFF1E6] border-[#F26B1D]'
                     : 'bg-white border-[#F0E4D7] hover:border-[#F26B1D]/40'
@@ -621,37 +597,13 @@ export default function PrinterSettingsModal({ isOpen, onClose }) {
                 <div className="flex items-center gap-2.5">
                   <Scissors className="w-4 h-4 text-[#F26B1D]" />
                   <div>
-                    <div className="text-xs font-bold text-[#2B2118]">Auto Cut</div>
-                    <div className="text-[10px] text-[#7A6A5C]">Cut after ticket</div>
+                    <div className="text-xs font-bold text-[#2B2118]">Auto Cut Paper</div>
+                    <div className="text-[10px] text-[#7A6A5C]">Cut after ticket prints</div>
                   </div>
                 </div>
                 <input
                   type="checkbox"
                   checked={config.cutPaper !== false}
-                  onChange={() => {}}
-                  className="rounded text-[#F26B1D] focus:ring-[#F26B1D]"
-                />
-              </div>
-
-              {/* Auto-print incoming orders */}
-              <div
-                onClick={() => handleToggle('autoPrintNewOrders')}
-                className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer transition ${
-                  config.autoPrintNewOrders
-                    ? 'bg-[#FFF1E6] border-[#F26B1D]'
-                    : 'bg-white border-[#F0E4D7] hover:border-[#F26B1D]/40'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Zap className="w-4 h-4 text-[#F26B1D]" />
-                  <div>
-                    <div className="text-xs font-bold text-[#2B2118]">Auto-Print</div>
-                    <div className="text-[10px] text-[#7A6A5C]">On incoming order</div>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.autoPrintNewOrders || false}
                   onChange={() => {}}
                   className="rounded text-[#F26B1D] focus:ring-[#F26B1D]"
                 />

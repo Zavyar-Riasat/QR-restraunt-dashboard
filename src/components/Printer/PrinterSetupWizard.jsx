@@ -1039,7 +1039,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                   Per-Printer Settings & Routing
                 </h3>
                 <p className="text-xs text-[#7A6A5C] mt-0.5">
-                  Configure what orders and categories "{name}" will print.
+                  Configure what "{name || 'Printer'}" will print and default copies.
                 </p>
               </div>
 
@@ -1071,52 +1071,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                 </div>
               </div>
 
-              {/* 2. Which categories this printer handles */}
-              <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
-                    Categories Handled
-                  </label>
-                  <span className="text-[11px] text-[#7A6A5C]">
-                    e.g. Kitchen = Burgers & BBQ, Bar = Drinks
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => toggleCategory('all')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                      selectedCategories.includes('all')
-                        ? 'bg-[#F26B1D] text-white border-[#F26B1D] shadow-xs'
-                        : 'bg-white text-[#7A6A5C] border-[#F0E4D7] hover:border-[#F26B1D]'
-                    }`}
-                  >
-                    ⭐ All Categories (Everything)
-                  </button>
-
-                  {categories.map((cat) => {
-                    const isChecked =
-                      selectedCategories.includes(cat.id) || selectedCategories.includes(cat.name);
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => toggleCategory(cat.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                          isChecked && !selectedCategories.includes('all')
-                            ? 'bg-[#F26B1D] text-white border-[#F26B1D] shadow-xs'
-                            : 'bg-white text-[#7A6A5C] border-[#F0E4D7] hover:border-[#F26B1D]'
-                        }`}
-                      >
-                        {cat.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3. Copies & Toggles */}
+              {/* 2. Copies & Default Printer */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Number of copies */}
                 <div className="p-4 rounded-2xl bg-white border border-[#F0E4D7] flex items-center justify-between">
@@ -1155,34 +1110,6 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                     type="checkbox"
                     checked={isDefault}
                     onChange={(e) => setIsDefault(e.target.checked)}
-                    className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
-                  />
-                </div>
-
-                {/* Auto-print new orders */}
-                <div className="p-4 rounded-2xl bg-white border border-[#F0E4D7] flex items-center justify-between">
-                  <div>
-                    <label className="text-xs font-bold text-[#2B2118]">Auto-print New Orders</label>
-                    <p className="text-[10px] text-[#7A6A5C]">Print immediately when order arrives</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={autoPrint}
-                    onChange={(e) => setAutoPrint(e.target.checked)}
-                    className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
-                  />
-                </div>
-
-                {/* Open cash drawer */}
-                <div className="p-4 rounded-2xl bg-white border border-[#F0E4D7] flex items-center justify-between">
-                  <div>
-                    <label className="text-xs font-bold text-[#2B2118]">Open Cash Drawer</label>
-                    <p className="text-[10px] text-[#7A6A5C]">Sends pulse after bill print</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={openCashDrawer}
-                    onChange={(e) => setOpenCashDrawer(e.target.checked)}
                     className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
                   />
                 </div>

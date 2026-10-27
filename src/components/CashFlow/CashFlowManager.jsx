@@ -187,7 +187,7 @@ export default function CashFlowManager({
             +{formatPKR(summary.totalCashIn)}
           </div>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">
-            Owner capital, float & receipts ({inCount})
+            Owner capital & cash receipts ({inCount})
           </p>
         </div>
 

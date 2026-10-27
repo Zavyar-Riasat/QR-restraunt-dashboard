@@ -160,7 +160,7 @@ export default function RecordCashFlowModal({
               </h2>
               <p className="text-xs opacity-75 font-medium">
                 {isCashIn
-                  ? 'Record money put into business, opening cash float, or capital'
+                  ? 'Record money put into business, capital investment, or sales revenue'
                   : 'Record payments for groceries, utilities, wages, or expenses'}
               </p>
             </div>

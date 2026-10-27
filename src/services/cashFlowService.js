@@ -4,10 +4,8 @@ const STORAGE_PREFIX = 'dinehq_cashflow_';
 
 export const CASH_IN_CATEGORIES = [
   { id: 'capital', label: 'Owner Capital / Investment', description: 'Funds injected by the owner into the business' },
-  { id: 'float', label: 'Opening Till / Cash Float', description: 'Cash put in register drawer for change' },
   { id: 'sales_cash', label: 'Counter Cash / Direct Sales', description: 'Offline register cash addition' },
   { id: 'refund', label: 'Supplier / Vendor Refund', description: 'Returned money from vendor or utility' },
-  { id: 'deposit', label: 'Customer Advance / Deposit', description: 'Event deposit or catering advance' },
   { id: 'other_in', label: 'Other Cash Inflow', description: 'Miscellaneous income or receipts' },
 ];
 
@@ -51,13 +49,13 @@ const DEFAULT_STARTER_ENTRIES = [
     type: 'in',
     amount: 10000,
     amount_paisa: 1000000,
-    category: 'float',
-    category_label: 'Opening Till / Cash Float',
-    source_recipient: 'Register Till Drawer',
-    description: 'Morning till change for customer register',
+    category: 'capital',
+    category_label: 'Owner Capital / Investment',
+    source_recipient: 'Owner (Capital)',
+    description: 'Working capital addition for operational expenses',
     payment_method: 'cash',
-    reference_no: 'FLT-102',
-    recorded_by: 'Cashier',
+    reference_no: 'CAP-002',
+    recorded_by: 'Owner',
     date: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
     created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
   },
@@ -132,8 +130,25 @@ export const cashFlowService = {
     try {
       const stored = localStorage.getItem(key);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        let parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          let migrated = false;
+          parsed = parsed.map((e) => {
+            if (e.category === 'float') {
+              migrated = true;
+              return { ...e, category: 'capital', category_label: 'Owner Capital / Investment' };
+            }
+            if (e.category === 'deposit') {
+              migrated = true;
+              return { ...e, category: 'sales_cash', category_label: 'Counter Cash / Direct Sales' };
+            }
+            return e;
+          });
+          if (migrated) {
+            try {
+              localStorage.setItem(key, JSON.stringify(parsed));
+            } catch (err) {}
+          }
           return parsed.sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
         }
       }

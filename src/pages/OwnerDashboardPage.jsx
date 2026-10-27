@@ -659,18 +659,18 @@ export default function OwnerDashboardPage() {
         </section>
 
         {/* Tab Navigation */}
-        <div className="no-print flex items-center gap-1.5 border-b border-[#F0E4D7] pb-2 sm:pb-3 overflow-x-auto no-scrollbar scrollbar-none -mx-3 px-3 sm:-mx-0 sm:px-0">
+        <div className="no-print flex items-center gap-1 sm:gap-1.5 border-b border-[#F0E4D7] pb-2 sm:pb-2.5 overflow-x-auto no-scrollbar scrollbar-none -mx-3 px-3 sm:-mx-0 sm:px-0">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'orders'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'orders'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <Bell className="w-4 h-4 text-amber-300" />
+            <Bell className="w-3.5 h-3.5 text-amber-300" />
             <span>Orders</span>
             {activeOrdersCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse">
+              <span className="px-1.5 py-0.2 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse">
                 {activeOrdersCount}
               </span>
             )}
@@ -678,15 +678,16 @@ export default function OwnerDashboardPage() {
 
           <button
             onClick={() => setActiveTab('completed')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'completed'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'completed'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <CheckCircle2 className={`w-4 h-4 ${activeTab === 'completed' ? 'text-white' : 'text-emerald-500'}`} />
-            <span>Completed Orders</span>
+            <CheckCircle2 className={`w-3.5 h-3.5 ${activeTab === 'completed' ? 'text-white' : 'text-emerald-500'}`} />
+            <span className="inline xl:hidden">Completed</span>
+            <span className="hidden xl:inline">Completed Orders</span>
             {completedOrdersCount > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono ${
                 activeTab === 'completed' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
               }`}>
                 {completedOrdersCount}
@@ -699,78 +700,79 @@ export default function OwnerDashboardPage() {
               setActiveTab('customers');
               setKhataFilter('all');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'customers'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'customers'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-3.5 h-3.5" />
             <span>Customers</span>
           </button>
 
           <button
             onClick={() => setActiveTab('cashflow')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'cashflow'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'cashflow'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <Wallet className="w-4 h-4" />
+            <Wallet className="w-3.5 h-3.5" />
             <span>Cash In / Out</span>
           </button>
 
           <button
             onClick={() => setActiveTab('items')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'items'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'items'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <Utensils className="w-4 h-4" />
-            <span>Menu Items ({menuItems.length})</span>
+            <Utensils className="w-3.5 h-3.5" />
+            <span className="inline xl:hidden">Menu ({menuItems.length})</span>
+            <span className="hidden xl:inline">Menu Items ({menuItems.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('categories')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'categories'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'categories'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <Layers className="w-4 h-4" />
+            <Layers className="w-3.5 h-3.5" />
             <span>Categories ({categories.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('tables')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'tables'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'tables'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <LayoutGrid className="w-4 h-4" />
+            <LayoutGrid className="w-3.5 h-3.5" />
             <span>Tables</span>
           </button>
 
           <button
             onClick={() => setActiveTab('qr')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'qr'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'qr'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="w-3.5 h-3.5" />
             <span>Print QR</span>
           </button>
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'settings'
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'settings'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
               }`}
           >
-            <Store className="w-4 h-4" />
+            <Store className="w-3.5 h-3.5" />
             <span>Settings</span>
           </button>
         </div>

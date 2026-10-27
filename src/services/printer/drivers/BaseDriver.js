@@ -19,7 +19,7 @@ export class BaseDriver {
   }
 
   isConnected() {
-    return true;
+    return false;
   }
 
   async connect(_options = {}) {

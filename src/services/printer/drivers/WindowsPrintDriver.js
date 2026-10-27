@@ -18,8 +18,8 @@ export class WindowsPrintDriver extends BaseDriver {
     return true; // Always supported (via Electron silent spooler or browser print bridge)
   }
 
-  isConnected() {
-    return true;
+  isConnected(config = {}) {
+    return Boolean(config?.verifiedConnected || config?.lastPrintSuccess);
   }
 
   /**
@@ -63,13 +63,25 @@ export class WindowsPrintDriver extends BaseDriver {
     }
 
     // 2. Browser PWA environment
+    const isVerified = Boolean(config?.verifiedConnected || config?.lastPrintSuccess);
+    if (isVerified) {
+      return {
+        connected: true,
+        latencyMs: 1,
+        message: deviceName
+          ? `Configured and verified for Windows printer '${deviceName}'.`
+          : 'Windows printer driver configured and verified.',
+        device: deviceName || 'Windows Default Printer',
+      };
+    }
+
     return {
-      connected: true,
+      connected: false,
       latencyMs: 1,
       message: deviceName
-        ? `Configured for Windows printer '${deviceName}'. Windows spooler will route tickets automatically.`
-        : 'Windows printer driver configured. Ready for print spooling.',
-      device: deviceName || 'Windows Default Printer',
+        ? `Windows printer '${deviceName}' not yet verified on this computer.`
+        : 'Windows printer not yet verified on this computer.',
+      fixTip: 'Connect and install your printer in Windows, then click "Test Print" to verify.',
     };
   }
 

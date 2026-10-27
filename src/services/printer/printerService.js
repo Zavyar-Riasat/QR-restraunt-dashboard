@@ -100,15 +100,21 @@ class PrinterService {
               this.setPrinterStatus(printer.id, 'connected');
             } else if (res.requiresUserGesture) {
               this.setPrinterStatus(printer.id, 'reconnecting');
+            } else {
+              this.setPrinterStatus(printer.id, 'disconnected');
             }
+          } else {
+            this.setPrinterStatus(printer.id, 'disconnected');
           }
         } catch (e) {
           console.warn(`Auto-reconnect notice for ${printer.name}:`, e);
+          this.setPrinterStatus(printer.id, 'disconnected');
         }
-      } else if (printer.type === DRIVER_IDS.WINDOWS || printer.type === DRIVER_IDS.BROWSER) {
-        this.setPrinterStatus(printer.id, 'connected');
       }
     }
+
+    // Live-check connection status for all other configured printers
+    await this.checkAllPrintersLiveStatus();
   }
 
   /**
@@ -146,7 +152,24 @@ class PrinterService {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Validate and sanitize live connection status:
+          // Unverified printers with no physical hardware must not falsely display 'connected'
+          let hasStaleConnected = false;
+          const sanitized = parsed.map((p) => {
+            const driver = this.drivers[p.type] || this.drivers[DRIVER_IDS.BROWSER];
+            const isPhysicallyConn = driver?.isConnected ? driver.isConnected(p) : false;
+            if (p.status === 'connected' && !isPhysicallyConn) {
+              hasStaleConnected = true;
+              return { ...p, status: 'disconnected' };
+            }
+            return p;
+          });
+          if (hasStaleConnected) {
+            try {
+              localStorage.setItem(PRINTERS_LIST_KEY, JSON.stringify(sanitized));
+            } catch (_) {}
+          }
+          return sanitized;
         }
       }
 
@@ -167,7 +190,8 @@ class PrinterService {
               ? 'WiFi / Network Printer'
               : 'Normal Printer (A4)',
           paperSize: legacyCfg.paperSize || PAPER_SIZES.SIZE_80MM,
-          status: 'connected',
+          status: 'disconnected',
+          verifiedConnected: false,
           printTarget: PRINT_TARGETS.BOTH,
           categories: ['all'],
           copies: 1,
@@ -199,7 +223,8 @@ class PrinterService {
       type: DRIVER_IDS.BROWSER,
       typeName: 'Normal Printer (A4)',
       paperSize: PAPER_SIZES.SIZE_80MM,
-      status: 'connected',
+      status: 'disconnected',
+      verifiedConnected: false,
       printTarget: PRINT_TARGETS.BOTH,
       categories: ['all'],
       copies: 1,
@@ -324,6 +349,76 @@ class PrinterService {
       }, 300);
     }
 
+    return list;
+  }
+
+  /**
+   * Run live connectivity checks for all printers and update UI/storage
+   */
+  async checkAllPrintersLiveStatus() {
+    const printers = this.getPrinters();
+    const updated = [];
+    let hasChanges = false;
+
+    for (const printer of printers) {
+      const driver = this.getDriver(printer.type);
+      let isConn = false;
+
+      try {
+        if (driver && typeof driver.testConnection === 'function') {
+          const res = await driver.testConnection({
+            ...printer,
+            ...(printer.connection || {}),
+            verifiedConnected: printer.verifiedConnected,
+            lastPrintSuccess: printer.lastPrintSuccess,
+          });
+          isConn = Boolean(res && res.connected);
+        } else if (driver && typeof driver.isConnected === 'function') {
+          isConn = Boolean(driver.isConnected(printer));
+        }
+      } catch (e) {
+        isConn = false;
+      }
+
+      const expectedStatus = isConn ? 'connected' : 'disconnected';
+      if (printer.status !== expectedStatus) {
+        hasChanges = true;
+        updated.push({ ...printer, status: expectedStatus });
+      } else {
+        updated.push(printer);
+      }
+    }
+
+    if (hasChanges) {
+      try {
+        localStorage.setItem(PRINTERS_LIST_KEY, JSON.stringify(updated));
+      } catch (_) {}
+      this.notifyListeners({ printers: updated });
+    }
+
+    return updated;
+  }
+
+  /**
+   * Set user-verified status for a printer (e.g. after successful test print confirmation)
+   */
+  setPrinterVerified(printerId, verified = true) {
+    const list = this.getPrinters().map((p) => {
+      if (p.id === printerId) {
+        return {
+          ...p,
+          verifiedConnected: Boolean(verified),
+          status: verified ? 'connected' : 'disconnected',
+          lastTestedAt: new Date().toISOString(),
+        };
+      }
+      return p;
+    });
+
+    try {
+      localStorage.setItem(PRINTERS_LIST_KEY, JSON.stringify(list));
+    } catch (_) {}
+    this.notifyListeners({ printers: list });
     return list;
   }
 
@@ -1359,7 +1454,12 @@ class PrinterService {
     };
 
     try {
-      const connRes = await driver.testConnection(printer.connection || {});
+      const connRes = await driver.testConnection({
+        ...printer,
+        ...(printer.connection || {}),
+        verifiedConnected: printer.verifiedConnected,
+        lastPrintSuccess: printer.lastPrintSuccess,
+      });
       step1.latencyMs = connRes.latencyMs || 10;
       if (connRes.connected) {
         step1.status = 'pass';
@@ -1424,24 +1524,30 @@ class PrinterService {
       fixTip: '',
     };
 
-    const printStart = performance.now();
-    try {
-      const printRes = await this.printTestPageForPrinter(printer, { isHealthCheck: true, skipDialog: true });
-      step3.latencyMs = Math.max(1, Math.round(performance.now() - printStart));
-
-      if (printRes && printRes.usedFallback) {
-        step3.status = 'pass';
-        step3.message = `Dispatched successfully via Browser Print fallback in ${step3.latencyMs}ms.`;
-        step3.details = printRes.message || 'Used standard print fallback.';
-      } else {
-        step3.status = 'pass';
-        step3.message = `Test ticket printed successfully in ${step3.latencyMs}ms!`;
-      }
-    } catch (err) {
-      step3.latencyMs = Math.max(1, Math.round(performance.now() - printStart));
+    if (step1.status === 'fail') {
       step3.status = 'fail';
-      step3.message = `Print execution failed: ${err.message}`;
-      step3.fixTip = 'Verify paper roll is loaded correctly, lid is snapped shut, and paper is not jammed.';
+      step3.message = 'Test print skipped because printer is not connected.';
+      step3.fixTip = 'Connect printer hardware first, then re-run test print.';
+    } else {
+      const printStart = performance.now();
+      try {
+        const printRes = await this.printTestPageForPrinter(printer, { isHealthCheck: true, skipDialog: true });
+        step3.latencyMs = Math.max(1, Math.round(performance.now() - printStart));
+
+        if (printRes && printRes.usedFallback) {
+          step3.status = 'pass';
+          step3.message = `Dispatched successfully via Browser Print fallback in ${step3.latencyMs}ms.`;
+          step3.details = printRes.message || 'Used standard print fallback.';
+        } else {
+          step3.status = 'pass';
+          step3.message = `Test ticket printed successfully in ${step3.latencyMs}ms!`;
+        }
+      } catch (err) {
+        step3.latencyMs = Math.max(1, Math.round(performance.now() - printStart));
+        step3.status = 'fail';
+        step3.message = `Print execution failed: ${err.message}`;
+        step3.fixTip = 'Verify paper roll is loaded correctly, lid is snapped shut, and paper is not jammed.';
+      }
     }
 
     const steps = [step1, step2, step3];

@@ -145,7 +145,8 @@ export const createDefaultPrinter = (overrides = {}) => ({
   type: DRIVER_IDS.BROWSER,
   typeName: 'Normal Printer (A4)',
   paperSize: PAPER_SIZES.SIZE_80MM,
-  status: 'connected', // 'connected' | 'reconnecting' | 'disconnected' / 'not_found'
+  status: 'disconnected', // 'connected' | 'reconnecting' | 'disconnected' / 'not_found'
+  verifiedConnected: false,
   printTarget: PRINT_TARGETS.BOTH, // 'kot' | 'bill' | 'both'
   categories: ['all'], // ['all'] or array of category IDs
   copies: 1,

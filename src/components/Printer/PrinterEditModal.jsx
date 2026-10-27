@@ -110,18 +110,38 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
       setTestStatus(null);
       await printerService.printTestPageForPrinter(formData);
       setTestStatus({
-        type: 'success',
-        text: `Test page printed on "${formData.name}" successfully!`,
+        type: 'confirm',
+        text: `Test ticket dispatched to "${formData.name}". Did it print?`,
       });
-      setTimeout(() => setTestStatus(null), 4000);
     } catch (err) {
       setTestStatus({
         type: 'error',
         text: `Print error: ${err.message}`,
       });
+      setTimeout(() => setTestStatus(null), 5000);
     } finally {
       setIsTesting(false);
     }
+  };
+
+  const handleConfirmModalTestPrint = (didPrint) => {
+    setFormData((prev) => ({
+      ...prev,
+      status: didPrint ? 'connected' : 'disconnected',
+      verifiedConnected: Boolean(didPrint),
+    }));
+    if (didPrint) {
+      setTestStatus({
+        type: 'success',
+        text: `"${formData.name}" confirmed connected!`,
+      });
+    } else {
+      setTestStatus({
+        type: 'error',
+        text: `"${formData.name}" set to not connected.`,
+      });
+    }
+    setTimeout(() => setTestStatus(null), 4000);
   };
 
   const handleSave = (e) => {
@@ -168,20 +188,78 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
           {/* Test Status Banner */}
           {testStatus && (
             <div
-              className={`p-3.5 rounded-2xl text-xs font-semibold flex items-center gap-2.5 ${
+              className={`p-3.5 rounded-2xl text-xs font-semibold flex items-center justify-between gap-2.5 ${
                 testStatus.type === 'success'
                   ? 'bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55]'
+                  : testStatus.type === 'confirm'
+                  ? 'bg-[#FFF9F2] border border-[#FCD8BF] text-[#2B2118]'
                   : 'bg-[#FDECEC] border border-[#F9C3C5] text-[#D92D20]'
               }`}
             >
-              {testStatus.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-[#1F9D55]" />
-              ) : (
-                <AlertCircle className="w-4 h-4 shrink-0 text-[#D92D20]" />
+              <div className="flex items-center gap-2.5">
+                {testStatus.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[#1F9D55]" />
+                ) : testStatus.type === 'confirm' ? (
+                  <Printer className="w-4 h-4 shrink-0 text-[#F26B1D]" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-[#D92D20]" />
+                )}
+                <span>{testStatus.text}</span>
+              </div>
+              {testStatus.type === 'confirm' && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmModalTestPrint(true)}
+                    className="px-2.5 py-1 rounded-lg bg-[#1F9D55] text-white text-[11px] font-bold hover:bg-[#188044] transition cursor-pointer"
+                  >
+                    Yes, printed!
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmModalTestPrint(false)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold hover:bg-slate-200 transition cursor-pointer"
+                  >
+                    No
+                  </button>
+                </div>
               )}
-              <span>{testStatus.text}</span>
             </div>
           )}
+
+          {/* Connection Status Row */}
+          <div className="p-3.5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-between gap-3">
+            <div>
+              <label className="text-xs font-bold text-[#2B2118] block">Connection Status</label>
+              <p className="text-[10px] text-[#7A6A5C]">Hardware status on this computer</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {formData.status === 'connected' ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-[#1F9D55]" />
+                  <span>Connected</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDECEC] border border-[#F9C3C5] text-[#D92D20] text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-[#D92D20] animate-pulse" />
+                  <span>Not connected</span>
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    status: prev.status === 'connected' ? 'disconnected' : 'connected',
+                    verifiedConnected: prev.status !== 'connected',
+                  }))
+                }
+                className="px-2.5 py-1 rounded-lg bg-white border border-[#F0E4D7] hover:bg-slate-50 text-[11px] font-bold text-[#7A6A5C] transition cursor-pointer shadow-2xs"
+              >
+                {formData.status === 'connected' ? 'Mark Disconnected' : 'Mark Connected'}
+              </button>
+            </div>
+          </div>
 
           {/* Name & Paper Size */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

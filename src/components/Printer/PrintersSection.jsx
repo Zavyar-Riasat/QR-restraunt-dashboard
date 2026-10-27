@@ -34,6 +34,9 @@ export default function PrintersSection({ categories = [] }) {
   const [healthCheckPrinterId, setHealthCheckPrinterId] = useState(null);
 
   useEffect(() => {
+    // Run live status check on mount so UI immediately reflects physical connection reality
+    printerService.checkAllPrintersLiveStatus().catch(() => {});
+
     return printerService.subscribe((data) => {
       if (data && data.printers) {
         setPrinters(data.printers);
@@ -48,20 +51,13 @@ export default function PrintersSection({ categories = [] }) {
       setTestingId(printer.id);
       setTestNotification(null);
       const res = await printerService.printTestPageForPrinter(printer);
-      if (res.usedFallback) {
-        setTestNotification({
-          type: 'warning',
-          printerId: printer.id,
-          text: `Opened via Browser Print fallback (${res.message || 'Thermal driver unavailable'})`,
-        });
-      } else {
-        setTestNotification({
-          type: 'success',
-          printerId: printer.id,
-          text: `Test page sent to "${printer.name}" successfully!`,
-        });
-      }
-      setTimeout(() => setTestNotification(null), 5000);
+      setTestNotification({
+        type: 'confirm',
+        printerId: printer.id,
+        printerName: printer.name,
+        text: `Test ticket sent to "${printer.name}". Did your printer actually print it?`,
+        usedFallback: Boolean(res?.usedFallback),
+      });
     } catch (err) {
       setTestNotification({
         type: 'error',
@@ -72,6 +68,26 @@ export default function PrintersSection({ categories = [] }) {
     } finally {
       setTestingId(null);
     }
+  };
+
+  const handleConfirmTestPrint = (printerId, didPrint) => {
+    printerService.setPrinterVerified(printerId, didPrint);
+    const p = printers.find((item) => item.id === printerId);
+    const pName = p ? p.name : 'Printer';
+    if (didPrint) {
+      setTestNotification({
+        type: 'success',
+        printerId,
+        text: `"${pName}" verified and connected!`,
+      });
+    } else {
+      setTestNotification({
+        type: 'warning',
+        printerId,
+        text: `"${pName}" marked as not connected. Please check power, cable, and paper roll.`,
+      });
+    }
+    setTimeout(() => setTestNotification(null), 5000);
   };
 
   const handleDelete = (printerId) => {
@@ -168,20 +184,45 @@ export default function PrintersSection({ categories = [] }) {
       {/* Global Notification Banner */}
       {testNotification && (
         <div
-          className={`p-3.5 rounded-2xl text-xs font-semibold flex items-center gap-2.5 animate-fadeIn ${
+          className={`p-3.5 rounded-2xl text-xs font-semibold flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn ${
             testNotification.type === 'success'
               ? 'bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55]'
+              : testNotification.type === 'confirm'
+              ? 'bg-[#FFF9F2] border border-[#FCD8BF] text-[#2B2118]'
               : testNotification.type === 'warning'
               ? 'bg-[#FEF3D9] border border-[#FCE1A8] text-[#F5A623]'
               : 'bg-[#FDECEC] border border-[#F9C3C5] text-[#D92D20]'
           }`}
         >
-          {testNotification.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-[#1F9D55]" />
-          ) : (
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="flex items-center gap-2.5">
+            {testNotification.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#1F9D55]" />
+            ) : testNotification.type === 'confirm' ? (
+              <Printer className="w-4 h-4 shrink-0 text-[#F26B1D]" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{testNotification.text}</span>
+          </div>
+
+          {testNotification.type === 'confirm' && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleConfirmTestPrint(testNotification.printerId, true)}
+                className="px-3 py-1.5 rounded-xl bg-[#1F9D55] hover:bg-[#188044] text-white font-bold text-xs transition cursor-pointer shadow-xs flex items-center gap-1"
+              >
+                <span>Yes, it printed!</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmTestPrint(testNotification.printerId, false)}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+              >
+                <span>No, not connected</span>
+              </button>
+            </div>
           )}
-          <span>{testNotification.text}</span>
         </div>
       )}
 

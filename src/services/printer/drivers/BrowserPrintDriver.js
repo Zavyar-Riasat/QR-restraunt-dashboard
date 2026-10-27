@@ -19,8 +19,9 @@ export class BrowserPrintDriver extends BaseDriver {
     return typeof window !== 'undefined' && typeof window.print === 'function';
   }
 
-  isConnected() {
-    return true;
+  isConnected(config = {}) {
+    // Only return connected if physically verified or confirmed on this workstation
+    return Boolean(config?.verifiedConnected || config?.lastPrintSuccess);
   }
 
   /**
@@ -30,14 +31,49 @@ export class BrowserPrintDriver extends BaseDriver {
     const start = performance.now();
     const isAvail = this.isSupported();
     const paperSize = config.paperSize || PAPER_SIZES.SIZE_80MM;
+    const isVerified = Boolean(config?.verifiedConnected || config?.lastPrintSuccess);
+
+    // If running in Electron, verify against actual installed system printers
+    if (typeof window !== 'undefined' && (window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron)) {
+      const electron = window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron;
+      try {
+        if (typeof electron.getSystemPrinters === 'function') {
+          const sysPrinters = await electron.getSystemPrinters();
+          if (Array.isArray(sysPrinters) && sysPrinters.length > 0) {
+            return {
+              connected: true,
+              latencyMs: Math.max(1, Math.round(performance.now() - start)),
+              message: `System printer active: ${sysPrinters[0]?.name || 'Default Printer'}. Ready for ${paperSize}.`,
+              device: sysPrinters[0]?.name || 'Windows Default Printer',
+            };
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!isAvail) {
+      return {
+        connected: false,
+        latencyMs: 0,
+        message: 'Browser printing is not supported in this runtime environment.',
+        fixTip: 'Open Dineflow in Google Chrome, Microsoft Edge, or a modern browser.',
+      };
+    }
+
+    if (isVerified) {
+      return {
+        connected: true,
+        latencyMs: Math.max(1, Math.round(performance.now() - start)),
+        message: `Browser printer verified and active for ${paperSize === PAPER_SIZES.SIZE_A4 ? 'A4 regular printer' : `${paperSize} receipt printer`}.`,
+        details: 'Hardware link verified via test print on this workstation.',
+      };
+    }
 
     return {
-      connected: isAvail,
+      connected: false,
       latencyMs: Math.max(1, Math.round(performance.now() - start)),
-      message: isAvail
-        ? `Browser print engine active and ready for ${paperSize === PAPER_SIZES.SIZE_A4 ? 'A4 regular printer' : `${paperSize} receipt printer`}.`
-        : 'Browser printing is not supported in this runtime environment.',
-      details: 'Universal driver: works on Windows, macOS, Android, and iPhone Safari without external drivers.',
+      message: 'No physical printer has been connected or verified on this computer yet.',
+      fixTip: 'Connect your printer to this PC, ensure power is ON, and run "Test Print" to verify output.',
     };
   }
 

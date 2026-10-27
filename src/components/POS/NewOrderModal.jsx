@@ -15,6 +15,7 @@ import {
   Percent,
   Coins,
   Check,
+  CheckCircle2,
   CreditCard,
   Banknote,
   Smartphone,

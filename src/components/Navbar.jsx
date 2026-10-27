@@ -154,8 +154,8 @@ export default function Navbar({
               title="Open In-Store POS to place a new Dine-in, Takeaway, or Delivery order"
             >
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3] shrink-0" />
-              <span className="hidden xs:inline sm:inline">New Order</span>
-              <span className="xs:hidden">Order</span>
+              <span className="hidden sm:inline">New Order</span>
+              <span className="sm:hidden">Order</span>
             </button>
           )}
 

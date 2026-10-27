@@ -111,11 +111,8 @@ export default function NewOrderModal({
   const [discountType, setDiscountType] = useState('fixed'); // 'fixed' | 'percent'
   const [discountValue, setDiscountValue] = useState('');
 
-  // Payment & Customer Khata (Udhaar)
-  const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'card' | 'jazzcash' | 'easypaisa' | 'unpaid'
-  const [amountReceived, setAmountReceived] = useState('');
-  const [amountReceivedNow, setAmountReceivedNow] = useState('');
-  const [addRemainingToCustomerAccount, setAddRemainingToCustomerAccount] = useState(false);
+  // Payment Method
+  const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'card' | 'jazzcash' | 'easypaisa'
 
   // Item customization modal
   const [customizingItem, setCustomizingItem] = useState(null);
@@ -346,11 +343,7 @@ export default function NewOrderModal({
 
   const grandTotal = newItemsGrandTotal + existingTabTotal;
 
-  const changeDue = useMemo(() => {
-    if (paymentMethod !== 'cash' || !amountReceived) return 0;
-    const received = Number(amountReceived) || 0;
-    return Math.max(0, received - grandTotal);
-  }, [paymentMethod, amountReceived, grandTotal]);
+  const changeDue = 0;
 
   // Handle table selection click
   const handleSelectTable = (tbl) => {
@@ -395,9 +388,6 @@ export default function NewOrderModal({
     });
     setOrderNotes('');
     setDiscountValue('');
-    setAmountReceived('');
-    setAmountReceivedNow('');
-    setAddRemainingToCustomerAccount(false);
     setAppendToExistingOrderId(null);
     setSelectedTable(null);
     setShowTablePicker(true);
@@ -516,15 +506,7 @@ export default function NewOrderModal({
 
       // 2. Creating a brand new in-store order
       const initialStatus = actionType === 'hold' ? 'held' : 'new';
-      const effectiveAmountReceived = amountReceivedNow !== ''
-        ? Number(amountReceivedNow)
-        : grandTotal;
-
-      if (effectiveAmountReceived < grandTotal) {
-        setErrorMsg(`Full payment of ${formatPKR(grandTotal)} is required. There is no option for partial or half amount.`);
-        return;
-      }
-
+      const effectiveAmountReceived = grandTotal;
       const calculatedPaymentStatus = 'paid';
 
       const isDeliveryOrder = orderType === 'delivery' || (orderType === 'phone' && phoneOrderMode === 'delivery');
@@ -1478,79 +1460,7 @@ export default function NewOrderModal({
                 </div>
               </div>
 
-              {/* Payment Section: Amount Received (Full Payment) */}
-              <div className="p-3 bg-[#FFF9F2] rounded-2xl border border-[#F0E4D7] space-y-2.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#2B2118]">Amount received (Full):</span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] font-bold text-slate-400 font-mono">Rs.</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={amountReceivedNow}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAmountReceivedNow(val);
-                        setAmountReceived(val);
-                      }}
-                      placeholder={String(grandTotal)}
-                      className="w-28 px-2.5 py-1 rounded-xl bg-white border border-[#F0E4D7] text-xs font-mono font-bold text-right focus:outline-none focus:ring-2 focus:ring-[#F26B1D]"
-                    />
-                  </div>
-                </div>
 
-                {/* Quick Shortcuts */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAmountReceivedNow(String(grandTotal));
-                      setAmountReceived(String(grandTotal));
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-white text-[11px] font-bold text-slate-800 border border-slate-200 hover:bg-slate-50 cursor-pointer shadow-2xs"
-                  >
-                    Exact (Full)
-                  </button>
-                  {paymentMethod === 'cash' && [500, 1000, 5000].map((noteVal) => (
-                    <button
-                      key={noteVal}
-                      type="button"
-                      onClick={() => {
-                        setAmountReceivedNow(String(noteVal));
-                        setAmountReceived(String(noteVal));
-                      }}
-                      className="px-2 py-1 rounded-lg bg-white text-[10px] font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer"
-                    >
-                      Rs. {noteVal.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Validation / Change status */}
-                {amountReceivedNow !== '' && Number(amountReceivedNow) < grandTotal && (
-                  <div className="p-2 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-bold flex items-center justify-between">
-                    <span>Underpaid:</span>
-                    <span>Rs. {grandTotal - Number(amountReceivedNow)} still required (Must pay in full)</span>
-                  </div>
-                )}
-
-                {/* Change to Return if cash overpayment */}
-                {amountReceivedNow && Number(amountReceivedNow) > grandTotal && (
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-[#F0E4D7]">
-                    <span className="font-bold text-emerald-900">Change to Return:</span>
-                    <span className="font-mono font-black text-sm text-emerald-700">
-                      {formatPKR(Math.max(0, Number(amountReceivedNow) - grandTotal))}
-                    </span>
-                  </div>
-                )}
-
-                {(!amountReceivedNow || Number(amountReceivedNow) === grandTotal) && (
-                  <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold pt-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Order paid in full ({formatPKR(grandTotal)})</span>
-                  </div>
-                )}
-              </div>
 
             </div>
 
@@ -1596,16 +1506,6 @@ export default function NewOrderModal({
                     <span className="font-heading font-black text-xs sm:text-sm text-[#2B2118] uppercase tracking-tight">
                       {appendToExistingOrderId ? 'CONSOLIDATED TOTAL:' : 'TOTAL PAYABLE:'}
                     </span>
-                    {amountReceivedNow !== '' && Number(amountReceivedNow) < grandTotal && (
-                      <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-md">
-                        Bal: {formatPKR(Math.max(0, grandTotal - (Number(amountReceivedNow) || 0)))}
-                      </span>
-                    )}
-                    {amountReceivedNow && Number(amountReceivedNow) > grandTotal && paymentMethod === 'cash' && (
-                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
-                        Change: {formatPKR(Math.max(0, Number(amountReceivedNow) - grandTotal))}
-                      </span>
-                    )}
                   </div>
                   <span className="font-mono font-black text-base sm:text-lg text-[#F26B1D] shrink-0">
                     {formatPKR(grandTotal)}

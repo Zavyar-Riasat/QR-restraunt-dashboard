@@ -695,9 +695,6 @@ export default function TableManager({
                 <div className="text-xs font-black text-[#F26B1D] uppercase tracking-wider">
                   Scan to Order
                 </div>
-                <div className="text-xs font-bold text-slate-800" dir="rtl">
-                  آرڈر کے لیے اسکین کریں
-                </div>
                 <div className="text-[10px] text-slate-500 font-medium">
                   {qrModalTable.name} • {qrModalTable.section} • Seats {qrModalTable.capacity || 4}
                 </div>

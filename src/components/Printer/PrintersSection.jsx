@@ -178,7 +178,7 @@ export default function PrintersSection({ categories = [] }) {
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}
             className="px-4 py-3 rounded-2xl bg-white hover:bg-[#FFF1E6] active:scale-[0.98] border border-[#FCD8BF] text-[#F26B1D] text-xs sm:text-sm font-extrabold shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
-            title="Configure Receipt Logo, Header, Language, and Footer"
+            title="Configure Receipt Logo, Header, and Footer"
           >
             <Receipt className="w-4 h-4 text-[#F26B1D]" />
             <span>Bill & Logo Settings</span>

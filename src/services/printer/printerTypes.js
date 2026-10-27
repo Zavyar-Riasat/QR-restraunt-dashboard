@@ -187,7 +187,7 @@ export const DEFAULT_TEMPLATE_SETTINGS = {
   showLogo: false, // Default is NO (owner can toggle ON anytime)
   footerMessage: 'Thank you for ordering with us! Visit again soon.',
   showPhone: true,
-  language: 'both', // 'en' | 'ur' | 'both'
+  language: 'en', // 'en' (100% English dashboard)
   fontSize: 'normal', // 'normal' | 'large'
 };
 
@@ -214,7 +214,7 @@ export const SAMPLE_PREVIEW_ORDER = {
       choices: ['Size: Double Patty', 'Extra Cheddar Melt', 'Sauce: Truffle Aioli'],
     },
     {
-      title: 'چکن تِکّہ کڑاہی (Special Desi Tikka)',
+      title: 'Chicken Tikka Karahi (Special Desi Tikka)',
       quantity: 1,
       unitPrice: 1200,
       choices: ['Medium Spicy', '2x Roghani Naan'],

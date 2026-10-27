@@ -1812,7 +1812,7 @@ export default function PrintMaterialTemplate({
   backPanelImage = null,
   panelOverlayOpacity = 0.35,
   // Fold Line & Bottom Panel (Side 2) Customizable Texts:
-  foldText = 'FOLD HERE • یہاں سے موڑیں',
+  foldText = 'FOLD HERE',
   showFoldLine = true,
   side2Header = 'Quick Re-Order & Assistance',
   side2Headline = 'Need Extra Drinks or Dessert?',
@@ -1904,9 +1904,8 @@ export default function PrintMaterialTemplate({
     return Math.round(Math.max(65, Math.min(320, defaultSize * qrScale)));
   };
 
-  const urduHeadline =
-    format.headlines?.ur?.[0] || 'مینو دیکھنے اور آرڈر کے لیے اسکین کریں';
-  const urduCta = format.ctaText?.ur || 'آرڈر کے لیے اسکین کریں';
+  const urduHeadline = '';
+  const urduCta = '';
   const englishCta = format.ctaText?.en || 'Scan to Order';
 
   const previewType = format.previewType || 'poster';
@@ -2590,7 +2589,7 @@ export default function PrintMaterialTemplate({
       {isFoldTextFreelyMoved && (
         <DraggableTextBox
           id="foldText"
-          text={foldText || 'FOLD HERE • یہاں سے موڑیں'}
+          text={foldText || 'FOLD HERE'}
           fontSize={foldTextConfig?.fontSize || 9}
           isBold={foldTextConfig?.isBold ?? true}
           color={foldTextConfig?.color || '#ffffff'}
@@ -2770,11 +2769,7 @@ export default function PrintMaterialTemplate({
                   <InteractiveTemplateText
                     id="foldText"
                     text={foldText}
-                    defaultText={
-                      language === 'ur'
-                        ? 'یہاں سے موڑیں • FOLD HERE'
-                        : 'FOLD HERE • یہاں سے موڑیں'
-                    }
+                    defaultText="FOLD HERE"
                     config={foldTextConfig}
                     isFreelyMoved={isFoldTextFreelyMoved}
                     selectedElementId={selectedElementId}
@@ -2813,7 +2808,7 @@ export default function PrintMaterialTemplate({
               <InteractiveTemplateText
                 id="side2Header"
                 text={side2Header}
-                defaultText={language === 'ur' ? 'فوری آرڈر اور دوبارہ طلب' : 'Quick Re-Order & Assistance'}
+                defaultText="Quick Re-Order & Assistance"
                 config={side2HeaderConfig}
                 isFreelyMoved={isSide2HeaderFreelyMoved}
                 selectedElementId={selectedElementId}
@@ -2838,7 +2833,7 @@ export default function PrintMaterialTemplate({
                   <InteractiveTemplateText
                     id="side2Headline"
                     text={side2Headline}
-                    defaultText={language === 'ur' ? 'کھانا ختم ہو گیا؟ اور منگوائیں!' : 'Need Extra Drinks or Dessert?'}
+                    defaultText="Need Extra Drinks or Dessert?"
                     config={side2HeadlineConfig}
                     isFreelyMoved={isSide2HeadlineFreelyMoved}
                     selectedElementId={selectedElementId}
@@ -3594,11 +3589,7 @@ export default function PrintMaterialTemplate({
                     className="text-xs font-black uppercase tracking-wider"
                     style={{ color: palette.primary }}
                   >
-                    <DualLangText
-                      englishText="Direct Kitchen Ordering"
-                      urduText="براہ راست کچن آرڈر"
-                      language={language}
-                    />
+                    Direct Kitchen Ordering
                   </div>
                   <div className="flex items-center justify-center">
                     {renderPhoneNumber(textColor, 'text-xs font-mono font-bold')}

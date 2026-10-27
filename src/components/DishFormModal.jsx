@@ -412,9 +412,6 @@ export default function DishFormModal({
           <div>
             <h2 className="text-lg sm:text-xl font-heading font-extrabold text-[#2B2118] leading-snug">
               {itemToEdit ? 'Edit Dish' : 'Add Dish'}
-              <span className="text-sm font-normal text-[#9E8E81] ml-2">
-                | {itemToEdit ? 'ڈش میں ترمیم کریں' : 'نئی ڈش شامل کریں'}
-              </span>
             </h2>
             <p className="text-xs text-[#7A6A5C] mt-0.5">
               Quick & simple • Ready in under 30 seconds
@@ -466,9 +463,6 @@ export default function DishFormModal({
               className="block text-base font-bold text-slate-800 mb-1.5"
             >
               Category
-              <span className="text-xs font-normal text-slate-500 ml-2">
-                کیٹیگری
-              </span>
               <span className="text-rose-500 ml-1">*</span>
             </label>
             <select
@@ -502,9 +496,6 @@ export default function DishFormModal({
               className="block text-base font-bold text-slate-800 mb-1.5"
             >
               Dish Name
-              <span className="text-xs font-normal text-slate-500 ml-2">
-                ڈش کا نام
-              </span>
               <span className="text-rose-500 ml-1">*</span>
             </label>
             <input
@@ -546,9 +537,6 @@ export default function DishFormModal({
                 className="block text-sm font-bold text-slate-800 mb-1.5"
               >
                 Selling / Discounted Price
-                <span className="text-xs font-normal text-slate-500 ml-1.5">
-                  فروخت کی قیمت
-                </span>
                 <span className="text-rose-500 ml-1">*</span>
               </label>
               <div className="relative flex items-center">
@@ -583,9 +571,6 @@ export default function DishFormModal({
                 className="block text-sm font-bold text-slate-800 mb-1.5"
               >
                 Original Price (Optional)
-                <span className="text-xs font-normal text-slate-500 ml-1.5">
-                  اصل قیمت (رعایت سے پہلے)
-                </span>
               </label>
               <div className="relative flex items-center">
                 <div className="absolute left-3.5 px-2.5 py-1 rounded-xl bg-slate-200/80 text-slate-800 font-bold text-xs select-none">
@@ -633,9 +618,6 @@ export default function DishFormModal({
           <div>
             <label className="block text-base font-bold text-slate-800 mb-1.5">
               Dish Photo (Optional)
-              <span className="text-xs font-normal text-slate-500 ml-2">
-                تصویر شامل کریں
-              </span>
             </label>
 
             <input
@@ -718,9 +700,6 @@ export default function DishFormModal({
             >
               <div className="flex items-center gap-2">
                 <span className="text-base font-bold">More options</span>
-                <span className="text-xs text-slate-400 font-normal">
-                  | مزید اختیارات (تفصیل اور کسٹمر کے اختیارات)
-                </span>
               </div>
               {moreOptionsOpen ? (
                 <ChevronUp className="w-5 h-5 text-slate-500" />
@@ -735,9 +714,6 @@ export default function DishFormModal({
                 <div>
                   <label className="block text-sm font-bold text-slate-800 mb-1.5">
                     Dish Description
-                    <span className="text-xs font-normal text-slate-500 ml-2">
-                      ڈش کی تفصیل
-                    </span>
                   </label>
                   <textarea
                     rows={3}
@@ -753,9 +729,6 @@ export default function DishFormModal({
                   <div>
                     <label className="block text-sm font-bold text-slate-800">
                       Customer Choices (optional)
-                      <span className="text-xs font-normal text-slate-500 ml-2">
-                        کسٹمر کے اختیارات
-                      </span>
                     </label>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Let customers choose sizes, spice levels, or extra toppings
@@ -915,8 +888,8 @@ export default function DishFormModal({
               {isSubmitting
                 ? 'Saving Dish...'
                 : itemToEdit
-                ? 'Update Dish • ڈش محفوظ کریں'
-                : 'Save Dish • ڈش محفوظ کریں'}
+                ? 'Update Dish'
+                : 'Save Dish'}
             </span>
           </button>
         </div>

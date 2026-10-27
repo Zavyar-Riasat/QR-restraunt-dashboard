@@ -273,7 +273,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
   const backPanelInputRef = useRef(null);
 
   // Fold Line & Bottom Panel (Side 2) Customizable Texts (Owner Control)
-  const [foldText, setFoldText] = useState('FOLD HERE • یہاں سے موڑیں');
+  const [foldText, setFoldText] = useState('FOLD HERE');
   const [showFoldLine, setShowFoldLine] = useState(true);
   const [side2Header, setSide2Header] = useState('Quick Re-Order & Assistance');
   const [side2Headline, setSide2Headline] = useState('Need Extra Drinks or Dessert?');
@@ -2545,48 +2545,6 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                 ))}
               </select>
             </div>
-
-            <div>
-              <span className="block text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-emerald-600" />
-                Call-To-Action Language:
-              </span>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLanguage('en')}
-                  className={`py-1.5 px-2 rounded-xl text-xs font-bold transition border cursor-pointer text-center ${
-                    language === 'en'
-                      ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  English
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLanguage('ur')}
-                  className={`py-1.5 px-2 rounded-xl text-xs font-bold transition border cursor-pointer text-center ${
-                    language === 'ur'
-                      ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  اردو (Urdu)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLanguage('both')}
-                  className={`py-1.5 px-2 rounded-xl text-xs font-bold transition border cursor-pointer text-center ${
-                    language === 'both'
-                      ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  Both (دو زبانیں)
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Module 2: Background Photo & Atmosphere */}
@@ -2929,7 +2887,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                 <button
                   type="button"
                   onClick={() => {
-                    setFoldText('FOLD HERE • یہاں سے موڑیں');
+                    setFoldText('FOLD HERE');
                     setShowFoldLine(true);
                     setSide2Header('Quick Re-Order & Assistance');
                     setSide2Headline('Need Extra Drinks or Dessert?');
@@ -2972,7 +2930,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                       type="text"
                       value={foldText}
                       onChange={(e) => setFoldText(e.target.value)}
-                      placeholder="FOLD HERE • یہاں سے موڑیں"
+                      placeholder="FOLD HERE"
                       className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-slate-900"
                     />
                   </div>

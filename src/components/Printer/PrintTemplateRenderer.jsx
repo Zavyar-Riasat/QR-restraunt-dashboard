@@ -17,15 +17,15 @@ export default function PrintTemplateRenderer({
     showLogo = false, // Default is NO as requested by owner
     showPhone = true,
     footerMessage = 'Thank you for ordering with us! Visit again soon.',
-    language = 'both', // 'en' | 'ur' | 'both'
+    language = 'en', // 'en'
     fontSize = 'normal', // 'normal' | 'large'
   } = settings;
 
   const is58mm = paperSize === PAPER_SIZES.SIZE_58MM;
   const isA4 = paperSize === PAPER_SIZES.SIZE_A4;
   const isLargeFont = fontSize === 'large';
-  const showUrdu = language === 'ur' || language === 'both';
-  const showEnglish = language === 'en' || language === 'both';
+  const showUrdu = false;
+  const showEnglish = true;
 
   const dateInfo = format12HourTime(order?.created_at);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -93,9 +93,7 @@ export default function PrintTemplateRenderer({
               {restaurant?.name || 'KITCHEN ORDER TICKET'}
             </h2>
             <div className="flex items-center justify-center gap-1 font-bold text-[10px] text-slate-800">
-              {showEnglish && <span>KOT</span>}
-              {showUrdu && showEnglish && <span>•</span>}
-              {showUrdu && <span className="font-sans">رسید برائے کچن</span>}
+              <span>KOT</span>
             </div>
           </div>
 
@@ -124,7 +122,7 @@ export default function PrintTemplateRenderer({
           {order?.customer_notes && (
             <div className="p-1 px-1.5 rounded-xs border border-black bg-amber-50 text-black font-bold text-[11px] leading-tight">
               <span className="text-[9px] uppercase tracking-wider text-amber-900 font-black mr-1">
-                NOTES{showUrdu && <span className="font-sans"> (ہدایت)</span>}:
+                NOTES:
               </span>
               <span className="break-words font-sans">{order.customer_notes}</span>
             </div>
@@ -213,9 +211,7 @@ export default function PrintTemplateRenderer({
             )}
 
             <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight">
-              {showEnglish && <span>Official Tax Invoice / Receipt</span>}
-              {showUrdu && showEnglish && <span> • </span>}
-              {showUrdu && <span className="font-sans">کسٹمر بل</span>}
+              <span>Official Tax Invoice / Receipt</span>
             </div>
           </div>
 
@@ -315,11 +311,6 @@ export default function PrintTemplateRenderer({
               <p className="text-[10px] font-bold text-slate-800 break-words">
                 {footerMessage}
               </p>
-              {showUrdu && (
-                <p className="text-[9px] font-sans font-bold text-slate-700 mt-0.5">
-                  تشریف آوری کا بہت شکریہ!
-                </p>
-              )}
             </div>
           )}
 
@@ -334,7 +325,7 @@ export default function PrintTemplateRenderer({
               />
             </div>
             <div className="text-[8px] font-bold uppercase tracking-wider text-slate-700">
-              Scan to Order • آرڈر کے لیے اسکین کریں
+              Scan to Order
             </div>
           </div>
         </div>
@@ -363,9 +354,7 @@ export default function PrintTemplateRenderer({
               </div>
             )}
             <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wider leading-tight">
-              {showEnglish && <span>DELIVERY INVOICE & DISPATCH SLIP</span>}
-              {showUrdu && showEnglish && <span> • </span>}
-              {showUrdu && <span className="font-sans">ڈلیوری بل و رسید</span>}
+              <span>DELIVERY INVOICE & DISPATCH SLIP</span>
             </div>
           </div>
 
@@ -505,11 +494,6 @@ export default function PrintTemplateRenderer({
               <p className="text-[10px] font-bold text-slate-800 break-words">
                 {footerMessage}
               </p>
-              {showUrdu && (
-                <p className="text-[9px] font-sans font-bold text-slate-700 mt-0.5">
-                  تشریف آوری کا بہت شکریہ!
-                </p>
-              )}
             </div>
           )}
 
@@ -558,11 +542,6 @@ export default function PrintTemplateRenderer({
             <div className="inline-block bg-black text-white text-[10px] font-black px-1.5 py-0.2 rounded-xs uppercase tracking-wider mt-0.5">
               TODAY'S SALES SUMMARY
             </div>
-            {showUrdu && (
-              <div className="text-[9px] font-sans font-bold text-slate-700 mt-0.5">
-                روزانہ سیلز و ریونیو رپورٹ
-              </div>
-            )}
           </div>
 
           {/* Meta Info */}

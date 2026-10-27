@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   RefreshCw,
   Save,
-  Languages,
   Type,
   Phone,
   Image as ImageIcon,
@@ -28,7 +27,7 @@ import PrintTemplateRenderer from './PrintTemplateRenderer';
 const FOOTER_PRESETS = [
   'Thank you for ordering with us! Visit again soon.',
   'Freshly prepared with love. Rate us on Google!',
-  'تشریف آوری کا بہت شکریہ! دوبارہ ضرور آئیے گا۔',
+  'We appreciate your business! Please visit us again.',
   'For party orders & catering, call our restaurant phone.',
 ];
 
@@ -317,38 +316,6 @@ export default function PrintTemplatesSection({ restaurant }) {
               />
             </div>
 
-            {/* Language Selector: English / Urdu / Both */}
-            <div className="space-y-1.5 p-3 rounded-xl bg-white border border-[#F0E4D7]">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-[#2B2118] flex items-center gap-1.5">
-                  <Languages className="w-3.5 h-3.5 text-[#F26B1D]" />
-                  <span>Language</span>
-                </label>
-                <span className="text-[10px] font-bold text-[#F26B1D] uppercase">
-                  {settings.language}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5 pt-1">
-                {[
-                  { id: 'en', label: 'English' },
-                  { id: 'ur', label: 'اردو (Urdu)' },
-                  { id: 'both', label: 'English + اردو' },
-                ].map((l) => (
-                  <button
-                    key={l.id}
-                    type="button"
-                    onClick={() => handleChangeSetting('language', l.id)}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                      settings.language === l.id
-                        ? 'bg-[#F26B1D] text-white border-[#F26B1D] shadow-2xs'
-                        : 'bg-slate-50 text-[#7A6A5C] border-slate-200 hover:border-[#F26B1D]'
-                    }`}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Font Size: Normal / Large */}
             <div className="space-y-1.5 p-3 rounded-xl bg-white border border-[#F0E4D7]">

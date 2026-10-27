@@ -22,15 +22,15 @@ export function generateReceiptHtml({
     showLogo = false, // Default is NO as requested by owner
     showPhone = true,
     footerMessage = 'Thank you for ordering with us! Visit again soon.',
-    language = 'both', // 'en' | 'ur' | 'both'
+    language = 'en', // 'en'
     fontSize = 'normal', // 'normal' | 'large'
   } = settings;
 
   const is58mm = paperSize === PAPER_SIZES.SIZE_58MM;
   const isA4 = paperSize === PAPER_SIZES.SIZE_A4;
   const isLarge = fontSize === 'large';
-  const showUrdu = language === 'ur' || language === 'both';
-  const showEnglish = language === 'en' || language === 'both';
+  const showUrdu = false;
+  const showEnglish = true;
 
   const dateInfo = format12HourTime(order?.created_at);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -57,9 +57,7 @@ export function generateReceiptHtml({
             ${restaurant?.name || 'KITCHEN TICKET'}
           </h2>
           <div style="font-size: 9px; font-weight: bold; margin-top: 1px;">
-            ${showEnglish ? 'KOT' : ''}
-            ${showUrdu && showEnglish ? ' • ' : ''}
-            ${showUrdu ? '<span style="font-family: sans-serif;">رسید برائے کچن</span>' : ''}
+            KOT
           </div>
         </div>
 
@@ -83,7 +81,7 @@ export function generateReceiptHtml({
         ${order?.customer_notes ? `
           <div style="background: #fff8e1; border: 1px solid #000; padding: 3px 5px; margin-bottom: 4px; font-weight: bold; font-size: 10px; border-radius: 2px; word-break: break-word;">
             <span style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b78103;">
-              NOTES${showUrdu ? ' (ہدایت)' : ''}:
+              NOTES:
             </span>
             <span>${order.customer_notes}</span>
           </div>
@@ -148,9 +146,7 @@ export function generateReceiptHtml({
             <div style="font-size: 10px; font-weight: bold; margin-top: 1px;">Ph: +${restaurant?.phone || restaurant?.whatsapp_number}</div>
           ` : ''}
           <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #555; margin-top: 1px;">
-            ${showEnglish ? 'Tax Invoice / Receipt' : ''}
-            ${showUrdu && showEnglish ? ' • ' : ''}
-            ${showUrdu ? '<span style="font-family: sans-serif;">کسٹمر بل</span>' : ''}
+            Tax Invoice / Receipt
           </div>
         </div>
 
@@ -237,7 +233,6 @@ export function generateReceiptHtml({
         ${footerMessage ? `
           <div style="text-align: center; border-top: 1px dashed #000; padding-top: 3px; margin-top: 3px; font-size: 9px; font-weight: bold; word-break: break-word;">
             <div>${footerMessage}</div>
-            ${showUrdu ? '<div style="font-family: sans-serif; font-size: 8px; margin-top: 1px;">تشریف آوری کا بہت شکریہ!</div>' : ''}
           </div>
         ` : ''}
 
@@ -245,7 +240,7 @@ export function generateReceiptHtml({
         ${qrDataUrl ? `
           <div style="text-align: center; border-top: 1px dashed #ccc; padding-top: 3px; margin-top: 3px;">
             <img src="${qrDataUrl}" style="margin: 0 auto; display: block; max-width: ${is58mm ? '52px' : '68px'};" alt="Restaurant Menu QR" />
-            <div style="font-size: 8px; font-weight: bold; margin-top: 1px; text-transform: uppercase;">Scan to Order • آرڈر کے لیے اسکین کریں</div>
+            <div style="font-size: 8px; font-weight: bold; margin-top: 1px; text-transform: uppercase;">Scan to Order</div>
             ${order?.id ? `
               <div style="font-size: 7px; color: #555; word-break: break-all; margin-top: 1px;">
                 /${restaurant?.slug || 'menu'}?order=${order.id}${order?.table ? `&table=${order.table}` : ''}
@@ -270,9 +265,7 @@ export function generateReceiptHtml({
             DELIVERY DISPATCH SLIP
           </h1>
           <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #555; margin-top: 1px;">
-            ${showEnglish ? 'Rider Manifest' : ''}
-            ${showUrdu && showEnglish ? ' • ' : ''}
-            ${showUrdu ? '<span style="font-family: sans-serif;">ڈلیوری سلپ</span>' : ''}
+            Rider Manifest
           </div>
         </div>
 
@@ -380,7 +373,6 @@ export function generateReceiptHtml({
         ${footerMessage ? `
           <div style="text-align: center; border-top: 1px dashed #000; padding-top: 3px; margin-top: 3px; font-size: 9px; font-weight: bold; word-break: break-word;">
             <div>${footerMessage}</div>
-            ${showUrdu ? '<div style="font-family: sans-serif; font-size: 8px; margin-top: 1px;">تشریف آوری کا بہت شکریہ!</div>' : ''}
           </div>
         ` : ''}
 
@@ -423,11 +415,6 @@ export function generateReceiptHtml({
           <div style="display: inline-block; background: #000; color: #fff; font-size: 10px; font-weight: 900; padding: 1px 6px; border-radius: 2px; margin-top: 2px; text-transform: uppercase;">
             TODAY'S SALES SUMMARY
           </div>
-          ${showUrdu ? `
-            <div style="font-family: sans-serif; font-size: 9px; font-weight: bold; margin-top: 1px;">
-              روزانہ سیلز رپورٹ
-            </div>
-          ` : ''}
         </div>
 
         <!-- Meta: Date & Shift Time -->

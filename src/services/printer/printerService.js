@@ -129,11 +129,15 @@ class PrinterService {
         if (!parsed.logoPreferenceSet && parsed.showLogo === true) {
           parsed.showLogo = false;
           parsed.logoPreferenceSet = true;
-          try {
-            localStorage.setItem(STORAGE_TEMPLATE_KEY, JSON.stringify(parsed));
-          } catch (_) {}
         }
-        return { ...DEFAULT_TEMPLATE_SETTINGS, ...parsed };
+        // Ensure language is always English across dashboard
+        if (parsed.language === 'ur' || parsed.language === 'both') {
+          parsed.language = 'en';
+        }
+        try {
+          localStorage.setItem(STORAGE_TEMPLATE_KEY, JSON.stringify(parsed));
+        } catch (_) {}
+        return { ...DEFAULT_TEMPLATE_SETTINGS, ...parsed, language: 'en' };
       }
     } catch (e) {
       console.warn('Error reading template settings:', e);
@@ -579,7 +583,7 @@ class PrinterService {
         customer_name: `Test Ticket - ${printer.name || 'Printer'}`,
         customer_phone: '923001234567',
         customer_address: `Hardware: ${printer.typeName || printer.type} (${printer.paperSize})`,
-        customer_notes: 'خوش آمدید - ٹیسٹ پرنٹ کامیاب (Urdu Test OK)',
+        customer_notes: 'Welcome - Test Print Successful (OK)',
         created_at: new Date().toISOString(),
         items: [
           {
@@ -588,7 +592,7 @@ class PrinterService {
             unitPrice: 850,
           },
           {
-            title: 'چکن کڑاہی (Urdu Test Dish)',
+            title: 'Chicken Karahi (Test Dish)',
             quantity: 1,
             unitPrice: 1400,
             choices: ['Medium Spicy', 'With Garlic Naan'],

@@ -132,7 +132,7 @@ export async function downloadAllTableQrsPdf({ restaurant, tables, origin: custo
               </div>
             </div>
             <div style="display: inline-block; background: #ea580c; color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 14px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px;">
-              Table Self-Ordering • میز سے آرڈر
+              Table Self-Ordering
             </div>
           </div>
 
@@ -157,9 +157,6 @@ export async function downloadAllTableQrsPdf({ restaurant, tables, origin: custo
           <div style="width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 12px 16px; box-sizing: border-box;">
             <div style="font-size: 18px; font-weight: 900; color: #ea580c; text-transform: uppercase; letter-spacing: 0.5px;">
               Scan to Order
-            </div>
-            <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 2px; font-family: 'Noto Nastaliq Urdu', system-ui, sans-serif;" dir="rtl">
-              آرڈر کے لیے اسکین کریں
             </div>
             <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 600;">
               Aim your phone camera at the QR code above to browse the full live menu & order.

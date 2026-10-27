@@ -490,21 +490,9 @@ export default function DealFlowModal({
               </div>
 
               <h2 className="text-lg sm:text-xl font-heading font-extrabold text-slate-900 mt-0.5 leading-snug">
-                {step === 1 && (
-                  <span>
-                    Deal Name & Price <span className="text-sm font-normal text-slate-400">| ڈیل کا نام اور قیمت</span>
-                  </span>
-                )}
-                {step === 2 && (
-                  <span>
-                    Pick Items in this Deal <span className="text-sm font-normal text-slate-400">| آئٹمز منتخب کریں</span>
-                  </span>
-                )}
-                {step === 3 && (
-                  <span>
-                    Review & Save Deal <span className="text-sm font-normal text-slate-400">| جائزہ اور محفوظ کریں</span>
-                  </span>
-                )}
+                {step === 1 && <span>Deal Name & Price</span>}
+                {step === 2 && <span>Pick Items in this Deal</span>}
+                {step === 3 && <span>Review & Save Deal</span>}
               </h2>
             </div>
           </div>
@@ -557,9 +545,6 @@ export default function DealFlowModal({
                 className="block text-base font-bold text-slate-800 mb-1.5"
               >
                 Deal Name
-                <span className="text-xs font-normal text-slate-500 ml-2">
-                  ڈیل کا نام
-                </span>
                 <span className="text-rose-500 ml-1">*</span>
               </label>
               <input
@@ -586,9 +571,6 @@ export default function DealFlowModal({
                 className="block text-base font-bold text-slate-800 mb-1.5"
               >
                 Deal Price
-                <span className="text-xs font-normal text-slate-500 ml-2">
-                  ڈیل کی قیمت (روپے)
-                </span>
                 <span className="text-rose-500 ml-1">*</span>
               </label>
 
@@ -621,9 +603,6 @@ export default function DealFlowModal({
             <div>
               <label className="block text-base font-bold text-slate-800 mb-1.5">
                 Deal Photo (Optional)
-                <span className="text-xs font-normal text-slate-500 ml-2">
-                  تصویر شامل کریں
-                </span>
               </label>
 
               <input
@@ -919,7 +898,7 @@ export default function DealFlowModal({
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
             <div>
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                Customer View Preview • گاہک کا منظر
+                Customer View Preview
               </span>
 
               {/* Realistic Customer Deal Card Preview */}
@@ -1026,9 +1005,6 @@ export default function DealFlowModal({
                 <div className="flex items-center gap-2">
                   <Tag className="w-4 h-4 text-[#F26B1D]" />
                   <span className="text-base font-bold">More options</span>
-                  <span className="text-xs text-[#7A6A5C] font-normal">
-                    | مزید اختیارات (پروموشنل ٹیگ اور کسٹمر کے اختیارات)
-                  </span>
                 </div>
                 {moreOptionsOpen ? (
                   <ChevronUp className="w-5 h-5 text-[#7A6A5C]" />
@@ -1043,9 +1019,6 @@ export default function DealFlowModal({
                   <div>
                     <label className="block text-sm font-bold text-[#2B2118] mb-2">
                       Promotional Tag
-                      <span className="text-xs text-[#7A6A5C] font-normal ml-2">
-                        پروموشنل ٹیگ
-                      </span>
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {PROMO_TAG_OPTIONS.map((tag) => (
@@ -1222,8 +1195,8 @@ export default function DealFlowModal({
                 {isSubmitting
                   ? 'Saving Deal...'
                   : itemToEdit
-                  ? 'Update Deal • ڈیل محفوظ کریں'
-                  : 'Save Deal • ڈیل محفوظ کریں'}
+                  ? 'Update Deal'
+                  : 'Save Deal'}
               </span>
             </button>
           )}

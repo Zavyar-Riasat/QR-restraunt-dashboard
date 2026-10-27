@@ -1,7 +1,7 @@
 /**
  * Format Definitions for the 15 Print Material Templates
  * Each format includes print dimensions, aspect ratio, supported sizes,
- * page size rules for @page CSS, category, and multi-language headline options.
+ * page size rules for @page CSS, category, and headline options.
  */
 
 export const FORMAT_CATEGORIES = [
@@ -34,15 +34,9 @@ export const PRINT_FORMATS = [
         'Hungry? Order Direct Online In 3 Easy Steps',
         'Craving Something Special? Browse Our Fresh Menu',
       ],
-      ur: [
-        'اپنی میز سے مینو دیکھنے اور آرڈر کے لیے اسکین کریں',
-        'بھوک لگی ہے؟ آن لائن 3 آسان مراحل میں آرڈر کریں',
-        'ہمارا لائیو مینو دیکھیں اور تازہ کھانا منگوائیں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -67,15 +61,9 @@ export const PRINT_FORMATS = [
         'VIEW FULL DIGITAL MENU',
         'ORDER DIRECT ONLINE',
       ],
-      ur: [
-        'آرڈر کے لیے اسکین کریں',
-        'مکمل ڈیجیٹل مینو دیکھیں',
-        'براہ راست آن لائن آرڈر کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -101,15 +89,9 @@ export const PRINT_FORMATS = [
         'SKIP THIRD-PARTY FEES • ORDER DIRECT ONLINE',
         'TASTE THE DIFFERENCE — VIEW FULL LIVE MENU',
       ],
-      ur: [
-        'ہمارے کچن سے تازہ کھانا — براہ راست آرڈر کریں اور بچت پائیں',
-        'اضافی فیس سے بچیں • براہ راست آن لائن آرڈر کریں',
-        'ہمارا لائیو مینو دیکھیں اور تازہ ترین ڈیلز سے لطف اندوز ہوں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -133,15 +115,9 @@ export const PRINT_FORMATS = [
         'FAST DELIVERY • FRESH KITCHEN PREPARATION',
         'SCAN HERE FOR LIVE MENU & INSTANT ONLINE ORDER',
       ],
-      ur: [
-        'خوش آمدید! ہمارے کچن سے براہ راست آن لائن آرڈر کریں',
-        'تیز ترین ترسیل • تازہ کچن کھانا',
-        'لائیو مینو اور فوری آرڈر کے لیے یہاں اسکین کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -166,15 +142,9 @@ export const PRINT_FORMATS = [
         'Craving Delicious Food? Order Direct in 30 Seconds',
         'Special Direct Ordering Perks & Fresh Kitchen Dispatch',
       ],
-      ur: [
-        'اب کچن سے براہ راست آن لائن آرڈر کی سہولت دستیاب ہے!',
-        'لذیذ کھانے کی طلب ہے؟ صرف 30 سیکنڈ میں آرڈر کریں',
-        'براہ راست آرڈر کریں اور خصوصی ڈیلز حاصل کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -198,15 +168,9 @@ export const PRINT_FORMATS = [
         'ARTISAN FLAVORS • FRESH PREPARATION • FAST DELIVERY',
         'EXPERIENCE OUR COMPLETE DIGITAL MENU & ONLINE ORDERING',
       ],
-      ur: [
-        'ہمارا مکمل مینو اور براہ راست کچن آرڈر گائیڈ',
-        'اعلیٰ ذائقہ • تازہ تیاری • تیز ترین ڈیلیوری',
-        'ہمارا مکمل ڈیجیٹل مینو اور آن لائن آرڈر دریافت کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -231,15 +195,9 @@ export const PRINT_FORMATS = [
         'Thank You For Ordering! Enjoy Direct Kitchen Perks Next Time',
         'Freshly Sealed & Delivered! Keep This For Your Next Order',
       ],
-      ur: [
-        'کھانا پسند آیا؟ اگلی بار براہ راست آن لائن آرڈر کریں!',
-        'آرڈر کرنے کا شکریہ! اگلی بار کچن سے براہ راست آرڈر کریں',
-        'تازہ پیک اور ڈیلیور شدہ! اگلے آرڈر کے لیے یہ پاس رکھیں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -263,15 +221,9 @@ export const PRINT_FORMATS = [
         'VIP DIRECT ORDERING CARD',
         'SCAN REVERSE TO VIEW MENU & ORDER',
       ],
-      ur: [
-        'کچن ہاٹ لائن اور ڈیجیٹل مینو',
-        'وی آئی پی براہ راست آرڈر کارڈ',
-        'مینو دیکھنے کے لیے پچھلا حصہ اسکین کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -295,15 +247,9 @@ export const PRINT_FORMATS = [
         'LOVED YOUR ORDER? RE-ORDER DIRECT ONLINE',
         'KEEP THIS RECEIPT • SCAN TO RE-ORDER',
       ],
-      ur: [
-        'ہمارے ساتھ کھانے کا بہت شکریہ!',
-        'کھانا پسند آیا؟ آن لائن دوبارہ آرڈر کریں',
-        'یہ رسید محفوظ رکھیں • دوبارہ آرڈر کے لیے اسکین کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -328,15 +274,9 @@ export const PRINT_FORMATS = [
         'BROWSE OUR MENU BEFORE YOU ENTER',
         'TAKEAWAY & DELIVERY • SCAN TO ORDER DIRECT',
       ],
-      ur: [
-        'ہم کھلے ہیں! باہر سے مکمل مینو دیکھنے کے لیے اسکین کریں',
-        'اندر آنے سے پہلے ہمارا تازہ مینو چیک کریں',
-        'ٹیک اوے اور ڈیلیوری • براہ راست آرڈر کے لیے اسکین کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -361,15 +301,9 @@ export const PRINT_FORMATS = [
         'Want to See Photos of Every Dish? Scan Our Digital Menu',
         'Explore Today’s Kitchen Specials & Order Directly Online',
       ],
-      ur: [
-        'کھانوں کی تصاویر دیکھیں، اپنی مرضی کے لوازمات منتخب کریں اور آرڈر کریں',
-        'ہر کھانے کی تصویر دیکھنا چاہتے ہیں؟ ڈیجیٹل مینو اسکین کریں',
-        'آج کی خصوصی ڈشز دیکھیں اور آن لائن فوری آرڈر کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -393,15 +327,9 @@ export const PRINT_FORMATS = [
         'TAKE A SEAT — SCAN HERE TO ORDER FROM YOUR PHONE',
         'FAST EXPRESS PICKUP • SCAN TO BROWSE & ORDER',
       ],
-      ur: [
-        'لائن سے بچیں! آن لائن فوری آرڈر کریں',
-        'آرام سے بیٹھیں — اپنے فون سے آرڈر کے لیے اسکین کریں',
-        'فوری ایکسپریس پک اپ • مینو دیکھنے کے لیے اسکین کریں',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -426,15 +354,9 @@ export const PRINT_FORMATS = [
         'SEALED WITH CARE • SCAN TO RE-ORDER',
         'DIRECT KITCHEN QUALITY GUARANTEED',
       ],
-      ur: [
-        'ہمارے کچن سے تازہ اور گرم کھانا',
-        'محفوظ پیکنگ • دوبارہ آرڈر کے لیے اسکین کریں',
-        'اعلیٰ معیار کی ضمانت',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -459,15 +381,9 @@ export const PRINT_FORMATS = [
         'Scan Our QR Code to Browse & Order Direct',
         'Fresh Deliveries Straight From Kitchen to Your Doorstep',
       ],
-      ur: [
-        'براہ راست آن لائن آرڈر کریں اور ہر کھانے پر بچت کریں!',
-        'براہ راست آرڈر کے لیے ہمارا کیو آر اسکین کریں',
-        'تازہ ترین پکوان براہ راست آپ کی دہلیز تک',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 
@@ -491,15 +407,9 @@ export const PRINT_FORMATS = [
         'AUTHENTIC TASTE • SCAN TO EXPLORE OUR KITCHEN',
         'FROM OUR KITCHEN TO YOUR TABLE • ORDER DIRECT',
       ],
-      ur: [
-        'محبت سے تیار شدہ • آسانی کے ساتھ آرڈر کریں',
-        'خالص ذائقہ • ہمارا کچن دریافت کرنے کے لیے اسکین کریں',
-        'کچن سے براہ راست آپ کی میز تک',
-      ],
     },
     ctaText: {
       en: 'Scan to Order',
-      ur: 'آرڈر کے لیے اسکین کریں',
     },
   },
 ];

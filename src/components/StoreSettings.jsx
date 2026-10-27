@@ -37,7 +37,6 @@ import { printerService } from '../services/printer/printerService';
 import { DRIVER_IDS, PAPER_SIZE_SPECS } from '../services/printer/printerTypes';
 import PrintersSection from './Printer/PrintersSection';
 import PrintTemplatesSection from './Printer/PrintTemplatesSection';
-import TableManager from './TableManagement/TableManager';
 import LocationDeliverySection from './LocationDeliverySection';
 
 const BRAND_PRESET_COLORS = [
@@ -402,12 +401,6 @@ export default function StoreSettings({
           className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
         >
           Store Identity
-        </a>
-        <a
-          href="#tables-section"
-          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
-        >
-          Tables & Seating
         </a>
         <a
           href="#printers-section"
@@ -936,17 +929,7 @@ export default function StoreSettings({
         </form>
       </div>
 
-      {/* 2. Dining Tables & Seating Management Section */}
-      <div id="tables-section">
-        <TableManager
-          restaurant={restaurant}
-          orders={orders}
-          currentUser={user}
-          onOpenPosForTable={onOpenPosForTable}
-        />
-      </div>
-
-      {/* 3. Printers Management Section */}
+      {/* 2. Printers Management Section */}
       <PrintersSection categories={categories} />
 
       {/* 3. Print Templates & Live Preview Customization */}

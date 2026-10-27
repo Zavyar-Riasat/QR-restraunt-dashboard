@@ -739,7 +739,7 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
               3. Marketplace Presentation & Operating Hours
             </h3>
             <p className="text-xs text-[#7A6A5C]">
-              Visuals, cuisine tags, and opening hours for marketplace diners.
+              Visuals and opening hours for marketplace diners.
             </p>
           </div>
 
@@ -773,33 +773,6 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
                   className="w-full px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2]/50 text-xs font-mono"
                 />
               </div>
-            </div>
-          </div>
-
-          {/* Cuisine Chips */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
-              Cuisine Tags (Select all that apply)
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {CUISINE_OPTIONS.map((c) => {
-                const selected = formData.cuisines.includes(c);
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => toggleCuisine(c)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      selected
-                        ? 'bg-[#F26B1D] text-white shadow-2xs'
-                        : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                    }`}
-                  >
-                    {selected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                    <span>{c}</span>
-                  </button>
-                );
-              })}
             </div>
           </div>
 

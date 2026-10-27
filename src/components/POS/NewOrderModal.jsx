@@ -458,10 +458,7 @@ export default function NewOrderModal({
       }
     }
 
-    if (addRemainingToCustomerAccount && !customerPhone.trim()) {
-      setErrorMsg('Customer phone number is required to add remaining balance to their customer account (Udhaar / Khata).');
-      return;
-    }
+
 
     setErrorMsg(null);
     setSubmitting(true);
@@ -520,16 +517,14 @@ export default function NewOrderModal({
       const initialStatus = actionType === 'hold' ? 'held' : 'new';
       const effectiveAmountReceived = amountReceivedNow !== ''
         ? Number(amountReceivedNow)
-        : (paymentMethod === 'unpaid' ? 0 : grandTotal);
+        : grandTotal;
 
-      let calculatedPaymentStatus = 'unpaid';
-      if (paymentMethod === 'unpaid' || effectiveAmountReceived === 0) {
-        calculatedPaymentStatus = 'unpaid';
-      } else if (effectiveAmountReceived >= grandTotal) {
-        calculatedPaymentStatus = 'paid';
-      } else {
-        calculatedPaymentStatus = 'partial';
+      if (effectiveAmountReceived < grandTotal) {
+        setErrorMsg(`Full payment of ${formatPKR(grandTotal)} is required. There is no option for partial or half amount.`);
+        return;
       }
+
+      const calculatedPaymentStatus = 'paid';
 
       const isDeliveryOrder = orderType === 'delivery' || (orderType === 'phone' && phoneOrderMode === 'delivery');
       const resolvedOrderType = orderType === 'phone'
@@ -572,7 +567,7 @@ export default function NewOrderModal({
           discount: discountAmount,
           discount_type: discountType,
           amount_received: effectiveAmountReceived,
-          add_remaining_to_khata: addRemainingToCustomerAccount,
+          add_remaining_to_khata: false,
           change_due: changeDue,
           status: initialStatus,
         },
@@ -1455,13 +1450,12 @@ export default function NewOrderModal({
                   <span>Payment Method:</span>
                   <span className="uppercase text-[#2B2118] font-mono">{paymentMethod}</span>
                 </div>
-                <div className="grid grid-cols-5 gap-1">
+                <div className="grid grid-cols-4 gap-1">
                   {[
                     { id: 'cash', label: 'Cash', icon: Banknote },
                     { id: 'card', label: 'Card', icon: CreditCard },
                     { id: 'jazzcash', label: 'JazzCash', icon: Smartphone },
                     { id: 'easypaisa', label: 'Easypaisa', icon: Smartphone },
-                    { id: 'unpaid', label: 'Unpaid', icon: Clock },
                   ].map((m) => {
                     const Icon = m.icon;
                     return (
@@ -1483,10 +1477,10 @@ export default function NewOrderModal({
                 </div>
               </div>
 
-              {/* Payment Section: Amount Received Now & Udhaar/Khata Option */}
+              {/* Payment Section: Amount Received (Full Payment) */}
               <div className="p-3 bg-[#FFF9F2] rounded-2xl border border-[#F0E4D7] space-y-2.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#2B2118]">Amount received now:</span>
+                  <span className="font-bold text-[#2B2118]">Amount received (Full):</span>
                   <div className="flex items-center gap-1">
                     <span className="text-[11px] font-bold text-slate-400 font-mono">Rs.</span>
                     <input
@@ -1497,13 +1491,8 @@ export default function NewOrderModal({
                         const val = e.target.value;
                         setAmountReceivedNow(val);
                         setAmountReceived(val);
-                        if (val !== '' && Number(val) < grandTotal) {
-                          setAddRemainingToCustomerAccount(true);
-                        } else {
-                          setAddRemainingToCustomerAccount(false);
-                        }
                       }}
-                      placeholder={paymentMethod === 'unpaid' ? '0' : String(grandTotal)}
+                      placeholder={String(grandTotal)}
                       className="w-28 px-2.5 py-1 rounded-xl bg-white border border-[#F0E4D7] text-xs font-mono font-bold text-right focus:outline-none focus:ring-2 focus:ring-[#F26B1D]"
                     />
                   </div>
@@ -1516,76 +1505,48 @@ export default function NewOrderModal({
                     onClick={() => {
                       setAmountReceivedNow(String(grandTotal));
                       setAmountReceived(String(grandTotal));
-                      setAddRemainingToCustomerAccount(false);
-                      if (paymentMethod === 'unpaid') setPaymentMethod('cash');
                     }}
-                    className="px-2 py-0.5 rounded-lg bg-white text-[10px] font-bold text-slate-700 border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-white text-[11px] font-bold text-slate-800 border border-slate-200 hover:bg-slate-50 cursor-pointer shadow-2xs"
                   >
                     Exact (Full)
                   </button>
-                  {grandTotal > 0 && (
+                  {paymentMethod === 'cash' && [500, 1000, 5000].map((noteVal) => (
                     <button
+                      key={noteVal}
                       type="button"
                       onClick={() => {
-                        const half = Math.round(grandTotal / 2);
-                        setAmountReceivedNow(String(half));
-                        setAmountReceived(String(half));
-                        setAddRemainingToCustomerAccount(true);
-                        if (paymentMethod === 'unpaid') setPaymentMethod('cash');
+                        setAmountReceivedNow(String(noteVal));
+                        setAmountReceived(String(noteVal));
                       }}
-                      className="px-2 py-0.5 rounded-lg bg-white text-[10px] font-bold text-amber-700 border border-amber-200 hover:bg-amber-50 cursor-pointer"
+                      className="px-2 py-1 rounded-lg bg-white text-[10px] font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer"
                     >
-                      50% Partial
+                      Rs. {noteVal.toLocaleString()}
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAmountReceivedNow('0');
-                      setAmountReceived('0');
-                      setPaymentMethod('unpaid');
-                      setAddRemainingToCustomerAccount(true);
-                    }}
-                    className="px-2 py-0.5 rounded-lg bg-white text-[10px] font-bold text-red-700 border border-red-200 hover:bg-red-50 cursor-pointer"
-                  >
-                    Rs. 0 (Full Khata)
-                  </button>
+                  ))}
                 </div>
 
-                {/* Remaining Balance & Khata Checkbox */}
-                {((amountReceivedNow !== '' && Number(amountReceivedNow) < grandTotal) || paymentMethod === 'unpaid') && (
-                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 space-y-1.5 text-xs text-amber-950">
-                    <div className="flex items-center justify-between font-bold">
-                      <span>Remaining Balance:</span>
-                      <span className="font-mono text-red-700 text-sm">
-                        {formatPKR(Math.max(0, grandTotal - (Number(amountReceivedNow) || 0)))}
-                      </span>
-                    </div>
-
-                    <label className="flex items-center gap-2 pt-0.5 cursor-pointer font-bold text-[11px] text-[#2B2118]">
-                      <input
-                        type="checkbox"
-                        checked={addRemainingToCustomerAccount}
-                        onChange={(e) => setAddRemainingToCustomerAccount(e.target.checked)}
-                        className="w-4 h-4 text-[#F26B1D] rounded border-amber-400 focus:ring-[#F26B1D]"
-                      />
-                      <span>Add remaining to customer account (Udhaar / Khata)</span>
-                    </label>
-                    {addRemainingToCustomerAccount && !customerPhone.trim() && (
-                      <p className="text-[10px] text-red-600 font-semibold pl-6">
-                        * Enter customer phone number above to link balance.
-                      </p>
-                    )}
+                {/* Validation / Change status */}
+                {amountReceivedNow !== '' && Number(amountReceivedNow) < grandTotal && (
+                  <div className="p-2 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-bold flex items-center justify-between">
+                    <span>Underpaid:</span>
+                    <span>Rs. {grandTotal - Number(amountReceivedNow)} still required (Must pay in full)</span>
                   </div>
                 )}
 
                 {/* Change to Return if cash overpayment */}
-                {amountReceivedNow && Number(amountReceivedNow) > grandTotal && paymentMethod === 'cash' && (
+                {amountReceivedNow && Number(amountReceivedNow) > grandTotal && (
                   <div className="flex items-center justify-between text-xs pt-1 border-t border-[#F0E4D7]">
                     <span className="font-bold text-emerald-900">Change to Return:</span>
                     <span className="font-mono font-black text-sm text-emerald-700">
                       {formatPKR(Math.max(0, Number(amountReceivedNow) - grandTotal))}
                     </span>
+                  </div>
+                )}
+
+                {(!amountReceivedNow || Number(amountReceivedNow) === grandTotal) && (
+                  <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold pt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Order paid in full ({formatPKR(grandTotal)})</span>
                   </div>
                 )}
               </div>

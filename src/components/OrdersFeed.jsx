@@ -53,7 +53,6 @@ import PrintTemplateRenderer from './Printer/PrintTemplateRenderer';
 import EditOrderItemsModal from './Orders/EditOrderItemsModal';
 import SendToRiderMenu from './Orders/SendToRiderMenu';
 import OrderDetailsModal from './Orders/OrderDetailsModal';
-import RecordPaymentModal from './Orders/RecordPaymentModal';
 import ErrorBoundary from './ErrorBoundary';
 
 export default function OrdersFeed({
@@ -95,7 +94,6 @@ export default function OrdersFeed({
   const [retryQueue, setRetryQueue] = useState(() => printerService.getRetryQueue());
   const [printedOrdersMap, setPrintedOrdersMap] = useState(() => printerService.getPrintedOrdersMap());
   const [isRetryingQueue, setIsRetryingQueue] = useState(false);
-  const [selectedPaymentOrder, setSelectedPaymentOrder] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('dinehq_orders_view_mode') || 'cards';
@@ -1036,16 +1034,8 @@ export default function OrdersFeed({
 
                         {/* Payment */}
                         <td className="py-3 px-2 text-center whitespace-nowrap">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              isPaid
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : isPartial
-                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                : 'bg-red-100 text-red-800 border border-red-300'
-                            }`}
-                          >
-                            {isPaid ? 'PAID' : isPartial ? 'PARTIAL' : 'UNPAID'}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            PAID
                           </span>
                         </td>
 
@@ -1097,18 +1087,6 @@ export default function OrdersFeed({
                             >
                               <Printer className="w-3.5 h-3.5 text-[#F26B1D]" />
                             </button>
-
-                            {/* Record Payment (if unpaid/partial) */}
-                            {!isPaid && (
-                              <button
-                                type="button"
-                                onClick={() => setSelectedPaymentOrder(order)}
-                                className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold transition cursor-pointer"
-                                title="Record payment"
-                              >
-                                Pay
-                              </button>
-                            )}
 
                             {/* Edit Items (if not completed/cancelled) */}
                             {order.status !== 'completed' && order.status !== 'cancelled' && (
@@ -1241,31 +1219,10 @@ export default function OrdersFeed({
                             </span>
                           )}
 
-                          {/* Payment Status Badge: Paid (green), Partial (amber), Unpaid (red) */}
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${paymentState.paymentStatus === 'paid'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : paymentState.paymentStatus === 'partial'
-                                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                  : 'bg-red-100 text-red-800 border border-red-300'
-                              }`}
-                          >
-                            {paymentState.paymentStatus === 'paid' ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                <span>Paid</span>
-                              </>
-                            ) : paymentState.paymentStatus === 'partial' ? (
-                              <>
-                                <Clock className="w-3 h-3 text-amber-600" />
-                                <span>Partial</span>
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="w-3 h-3 text-red-600" />
-                                <span>Unpaid</span>
-                              </>
-                            )}
+                          {/* Payment Status Badge: Paid in Full */}
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Paid</span>
                           </span>
                         </div>
                       </div>
@@ -1520,71 +1477,26 @@ export default function OrdersFeed({
                       </div>
                     </div>
 
-                    {/* Per-Order Payment Section: Total, Amount Paid, Remaining, Add Payment */}
-                    <div className="p-3 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
-                      <div className="flex items-center justify-between flex-wrap gap-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold text-[#7A6A5C] uppercase tracking-wider">
-                            Payment:
+                    {/* Payment Status: Paid in Full */}
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-xs">
+                      <div className="flex items-center gap-1.5 text-[#7A6A5C]">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="font-bold text-[#2B2118]">Paid in Full</span>
+                        {order.payment_method && (
+                          <span className="text-[10px] uppercase font-mono text-slate-500">
+                            • {order.payment_method === 'jazzcash'
+                              ? 'JazzCash'
+                              : order.payment_method === 'easypaisa'
+                                ? 'Easypaisa'
+                                : order.payment_method === 'cash_counter'
+                                  ? 'Cash'
+                                  : 'COD'}
                           </span>
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${paymentState.paymentStatus === 'paid'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : paymentState.paymentStatus === 'partial'
-                                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                  : 'bg-red-100 text-red-800 border border-red-300'
-                              }`}
-                          >
-                            {paymentState.paymentStatus === 'paid' ? 'Paid' : paymentState.paymentStatus === 'partial' ? 'Partial' : 'Unpaid'}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPaymentOrder(order)}
-                          className="px-2.5 py-1 rounded-xl bg-white hover:bg-orange-50 border border-[#F26B1D]/40 text-[#F26B1D] text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
-                          title="Add or manage payments for this order"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Add Payment</span>
-                        </button>
+                        )}
                       </div>
-
-                      {/* 3 Stats: Total, Paid, Remaining */}
-                      <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
-                        <div className="p-1.5 rounded-xl bg-white border border-[#F0E4D7]">
-                          <span className="text-[9px] text-[#7A6A5C] uppercase font-semibold block">Total</span>
-                          <span className="font-mono font-bold text-[#2B2118] text-xs">
-                            {formatPKR(paymentState.totalPayable)}
-                          </span>
-                        </div>
-                        <div className="p-1.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                          <span className="text-[9px] text-emerald-700 uppercase font-semibold block">Paid</span>
-                          <span className="font-mono font-bold text-emerald-800 text-xs">
-                            {formatPKR(paymentState.amountPaid)}
-                          </span>
-                        </div>
-                        <div
-                          className={`p-1.5 rounded-xl border ${paymentState.remainingBalancePaisa > 0
-                              ? 'bg-red-50 border-red-200 text-red-900'
-                              : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                            }`}
-                        >
-                          <span className="text-[9px] uppercase font-semibold block opacity-80">Remaining</span>
-                          <span className="font-mono font-bold text-xs">
-                            {formatPKR(paymentState.remainingBalance)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {paymentState.activePayments.length > 0 && (
-                        <div className="flex items-center justify-between text-[10px] text-[#7A6A5C] pt-0.5">
-                          <span>{paymentState.activePayments.length} payment(s)</span>
-                          <span className="font-mono font-semibold">
-                            Latest: {paymentState.activePayments[paymentState.activePayments.length - 1]?.method?.toUpperCase()}
-                          </span>
-                        </div>
-                      )}
+                      <span className="font-mono font-black text-sm text-[#2B2118]">
+                        {formatPKR(order.total_payable || 0)}
+                      </span>
                     </div>
 
                     {/* Workflow Dominant Button + "..." Secondary Actions Menu */}
@@ -2112,18 +2024,7 @@ export default function OrdersFeed({
         />
       )}
 
-      {/* Record Payment Modal */}
-      {selectedPaymentOrder && (
-        <RecordPaymentModal
-          order={selectedPaymentOrder}
-          isOpen={Boolean(selectedPaymentOrder)}
-          onClose={() => setSelectedPaymentOrder(null)}
-          restaurant={restaurant}
-          onPaymentRecorded={(updated) => {
-            setSelectedPaymentOrder(null);
-          }}
-        />
-      )}
+
 
       {/* Floating Status / Completion Toast */}
       {orderStatusToast && (

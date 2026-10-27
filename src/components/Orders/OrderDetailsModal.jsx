@@ -22,7 +22,6 @@ import { formatPKR, computeOrderPaymentState, formatPaisa } from '../../utils/cu
 import { format12HourTime } from '../../utils/dateUtils';
 import { buildGoogleMapsNavUrl, buildOsmNavUrl } from '../../config/mapConfig';
 import SendToRiderMenu from './SendToRiderMenu';
-import RecordPaymentModal from './RecordPaymentModal';
 import { TEMPLATE_TYPES } from '../../services/printer/printerTypes';
 
 import LeafletMap from '../Map/LeafletMap.jsx';
@@ -38,7 +37,6 @@ export default function OrderDetailsModal({
   onOrderUpdated,
 }) {
   const [activeOrder, setActiveOrder] = useState(order);
-  const [isRecordPaymentOpen, setIsRecordPaymentOpen] = useState(false);
 
   // Sync activeOrder if order prop changes
   React.useEffect(() => {
@@ -335,67 +333,16 @@ export default function OrderDetailsModal({
                 <span className="font-bold text-xs text-[#2B2118] uppercase tracking-wider">
                   Payment Status
                 </span>
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
-                    paymentState.paymentStatus === 'paid'
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      : paymentState.paymentStatus === 'partial'
-                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                      : 'bg-red-100 text-red-800 border border-red-300'
-                  }`}
-                >
-                  {paymentState.paymentStatus === 'paid' ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Paid</span>
-                    </>
-                  ) : paymentState.paymentStatus === 'partial' ? (
-                    <>
-                      <Clock className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Partial</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                      <span>Unpaid</span>
-                    </>
-                  )}
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Paid in Full</span>
                 </span>
               </div>
 
-              {/* Add Payment Button */}
-              <button
-                type="button"
-                onClick={() => setIsRecordPaymentOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Payment</span>
-              </button>
-            </div>
-
-            {/* 3-Stat Financial Breakdown */}
-            <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-              <div className="p-2.5 rounded-xl bg-white border border-[#F0E4D7]">
-                <span className="text-[10px] text-[#7A6A5C] font-semibold block uppercase">Total</span>
-                <span className="font-mono text-xs sm:text-sm font-black text-[#2B2118]">
-                  {formatPKR(paymentState.totalPayable)}
-                </span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                <span className="text-[10px] text-emerald-700 font-semibold block uppercase">Paid</span>
-                <span className="font-mono text-xs sm:text-sm font-black text-emerald-800">
-                  {formatPKR(paymentState.amountPaid)}
-                </span>
-              </div>
-              <div className={`p-2.5 rounded-xl border ${
-                paymentState.remainingBalancePaisa > 0
-                  ? 'bg-red-50 border-red-200 text-red-900'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              }`}>
-                <span className="text-[10px] font-semibold block uppercase opacity-80">Remaining</span>
-                <span className="font-mono text-xs sm:text-sm font-black">
-                  {formatPKR(paymentState.remainingBalance)}
+              <div className="text-right">
+                <span className="text-[10px] text-[#7A6A5C] font-semibold block uppercase">Total Amount</span>
+                <span className="font-mono text-base font-black text-emerald-800">
+                  {formatPKR(currentOrder.total_payable || 0)}
                 </span>
               </div>
             </div>
@@ -413,46 +360,12 @@ export default function OrderDetailsModal({
                 </div>
               )}
               <div className="flex justify-between pt-0.5">
-                <span>Default / Primary Method:</span>
+                <span>Payment Method:</span>
                 <span className="font-bold uppercase text-[#2B2118]">
                   {currentOrder.payment_method || 'Cash on Delivery'}
                 </span>
               </div>
             </div>
-
-            {/* List of Payments */}
-            {paymentState.activePayments.length > 0 && (
-              <div className="pt-2 border-t border-[#F0E4D7]/70 space-y-1.5">
-                <span className="text-[10px] font-bold text-[#7A6A5C] uppercase tracking-wider block">
-                  Recorded Payments ({paymentState.activePayments.length})
-                </span>
-                <div className="space-y-1">
-                  {paymentState.activePayments.map((p) => (
-                    <div
-                      key={p.id}
-                      className="px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] flex items-center justify-between text-[11px]"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-[#2B2118]">
-                          {formatPaisa(p.amount_paisa || toPaisa(p.amount))}
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-bold uppercase font-mono">
-                          {p.method}
-                        </span>
-                        {p.note && (
-                          <span className="text-slate-500 italic max-w-[180px] truncate">
-                            ({p.note})
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {new Date(p.date || p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -537,22 +450,7 @@ export default function OrderDetailsModal({
         </div>
       </div>
 
-      {/* Record / Manage Payment Modal */}
-      {isRecordPaymentOpen && (
-        <RecordPaymentModal
-          order={currentOrder}
-          isOpen={isRecordPaymentOpen}
-          onClose={() => setIsRecordPaymentOpen(false)}
-          restaurant={restaurant}
-          currentUser={currentUser}
-          onPaymentRecorded={(updatedOrder) => {
-            setActiveOrder(updatedOrder);
-            if (onOrderUpdated) {
-              onOrderUpdated(updatedOrder);
-            }
-          }}
-        />
-      )}
+
     </div>
   );
 }

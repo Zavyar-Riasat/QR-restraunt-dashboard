@@ -16,7 +16,6 @@ import { printerService } from '../services/printer/printerService';
 import NewOrderModal from '../components/POS/NewOrderModal';
 import TableManager from '../components/TableManagement/TableManager';
 import CustomerManager from '../components/Customers/CustomerManager';
-import ReceiveCustomerPaymentModal from '../components/Customers/ReceiveCustomerPaymentModal';
 import { customerKhataService } from '../services/customerKhataService';
 import PrinterReconnectBanner from '../components/Printer/PrinterReconnectBanner';
 import OfflineBanner from '../components/PWA/OfflineBanner';
@@ -74,7 +73,7 @@ export default function OwnerDashboardPage() {
 
   // Khata & Customers state
   const [khataFilter, setKhataFilter] = useState('all');
-  const [receivePaymentCustomer, setReceivePaymentCustomer] = useState(null);
+
   const [khataSummary, setKhataSummary] = useState({
     totalCustomers: 0,
     customersWithBalanceCount: 0,
@@ -653,11 +652,8 @@ export default function OwnerDashboardPage() {
             restaurant={restaurant}
             menuItems={menuItems}
             orderStats={orderStats}
-            totalReceivablePaisa={khataSummary.totalReceivablePaisa}
-            customersWithBalanceCount={khataSummary.customersWithBalanceCount}
-            topOverdueCustomers={khataSummary.topOverdueCustomers}
+            totalCustomers={khataSummary.totalCustomers}
             onNavigateToKhata={handleNavigateToKhata}
-            onReceivePayment={(customer) => setReceivePaymentCustomer(customer)}
           />
         </section>
 
@@ -709,11 +705,6 @@ export default function OwnerDashboardPage() {
           >
             <Users className="w-4 h-4" />
             <span>Customers</span>
-            {khataSummary.customersWithBalanceCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono">
-                {khataSummary.customersWithBalanceCount}
-              </span>
-            )}
           </button>
 
           <button
@@ -914,25 +905,7 @@ export default function OwnerDashboardPage() {
         }}
       />
 
-      {/* Quick Receive Payment Modal (e.g. from Executive Top Overdue Widget) */}
-      {receivePaymentCustomer && (
-        <ReceiveCustomerPaymentModal
-          customer={receivePaymentCustomer}
-          isOpen={Boolean(receivePaymentCustomer)}
-          onClose={() => setReceivePaymentCustomer(null)}
-          restaurant={restaurant}
-          currentUser={user}
-          onPaymentCompleted={() => {
-            setReceivePaymentCustomer(null);
-            if (restaurant?.id) {
-              const refreshed = orderService.getOrders(restaurant.id);
-              setOrders(refreshed);
-              setOrderStats(orderService.getOrderStats(restaurant.id));
-            }
-            refreshKhataSummary();
-          }}
-        />
-      )}
+
 
       {/* Printer Setup Wizard Modal */}
       <PrinterSetupWizard

@@ -141,8 +141,8 @@ export const customerKhataService = {
 
         c.total_orders_count += 1;
         c.total_spent_paisa += paymentState.totalPayablePaisa;
-        c.total_paid_paisa += paymentState.amountPaidPaisa;
-        c.balance_due_paisa += paymentState.remainingBalancePaisa;
+        c.total_paid_paisa += paymentState.totalPayablePaisa;
+        c.balance_due_paisa = 0;
 
         c.orders.push({
           ...order,
@@ -178,12 +178,13 @@ export const customerKhataService = {
 
       return {
         ...c,
-        is_overdue: isOverdue,
-        is_credit_limit_exceeded: isCreditLimitExceeded,
-        balance_due: toRupees(c.balance_due_paisa),
+        balance_due_paisa: 0,
+        is_overdue: false,
+        is_credit_limit_exceeded: false,
+        balance_due: 0,
         total_spent: toRupees(c.total_spent_paisa),
-        total_paid: toRupees(c.total_paid_paisa),
-        credit_limit: toRupees(c.credit_limit_paisa),
+        total_paid: toRupees(c.total_spent_paisa),
+        credit_limit: 0,
       };
     });
 
@@ -855,17 +856,11 @@ export const customerKhataService = {
    */
   getKhataSummary(restaurantId) {
     const all = this.getAllCustomers(restaurantId);
-    const withBalance = all.filter((c) => c.balance_due_paisa > 0);
-    const totalReceivablePaisa = withBalance.reduce((sum, c) => sum + c.balance_due_paisa, 0);
-    const overdue = all
-      .filter((c) => c.is_overdue)
-      .sort((a, b) => b.balance_due_paisa - a.balance_due_paisa);
-
     return {
       totalCustomers: all.length,
-      customersWithBalanceCount: withBalance.length,
-      totalReceivablePaisa,
-      topOverdueCustomers: overdue.slice(0, 5),
+      customersWithBalanceCount: 0,
+      totalReceivablePaisa: 0,
+      topOverdueCustomers: [],
     };
   },
 

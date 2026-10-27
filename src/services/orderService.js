@@ -157,16 +157,16 @@ const getStarterOrders = (restaurantId, restaurantName) => [
     total_payable_paisa: 233000,
     order_type: 'delivery',
     status: 'preparing', // new, preparing, out_for_delivery, completed, cancelled
-    payment_status: 'partial', // Partial payment of Rs. 1,000, remaining Rs. 1,330
+    payment_status: 'paid', // Paid in full
     payments: [
       {
         id: 'PAY-8421-1',
         order_id: 'DB-8421',
-        amount_paisa: 100000,
-        amount: 1000,
+        amount_paisa: 233000,
+        amount: 2330,
         method: 'cash',
         date: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
-        note: 'Partial payment received in advance',
+        note: 'Paid in full on delivery',
         recorded_by: 'Cashier Ali',
         is_void: false,
         created_at: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
@@ -199,8 +199,22 @@ const getStarterOrders = (restaurantId, restaurantName) => [
     total_payable_paisa: 173000,
     order_type: 'delivery',
     status: 'new',
-    payment_status: 'unpaid', // Unpaid Rs. 1,730
-    payments: [],
+    payment_status: 'paid', // Paid in full
+    payments: [
+      {
+        id: 'PAY-7319-1',
+        order_id: 'DB-7319',
+        amount_paisa: 173000,
+        amount: 1730,
+        method: 'cash',
+        date: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        note: 'Paid in full',
+        recorded_by: 'Online POS',
+        is_void: false,
+        created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        edit_history: [],
+      },
+    ],
     rider_token: 'rtk_demo_7319',
     assigned_rider: null,
     items: [
@@ -1016,11 +1030,20 @@ export const orderService = {
             if (copy.total_payable_paisa == null && copy.total_payable != null) {
               copy.total_payable_paisa = toPaisa(copy.total_payable);
             }
-            if (!Array.isArray(copy.payments)) {
-              copy.payments = [];
+            if (!Array.isArray(copy.payments) || copy.payments.length === 0) {
+              copy.payments = [{
+                id: `PAY-${copy.id || 'auto'}`,
+                order_id: copy.id,
+                amount_paisa: copy.total_payable_paisa || toPaisa(copy.total_payable),
+                amount: copy.total_payable,
+                method: copy.payment_method || 'cash',
+                date: copy.created_at || new Date().toISOString(),
+                is_void: false,
+              }];
             }
-            const pState = computeOrderPaymentState(copy);
-            copy.payment_status = pState.paymentStatus;
+            // All orders are paid in full - no partial amounts or balance due
+            copy.payment_status = 'paid';
+            copy.amount_received = copy.total_payable;
             return copy;
           });
 

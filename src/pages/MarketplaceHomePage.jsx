@@ -783,11 +783,7 @@ export default function MarketplaceHomePage() {
             {/* Center: Search Box (Desktop) - Placeholder changes with mode */}
             <div className="flex-1 max-w-lg hidden md:block">
               <div className="relative">
-                <Search
-                  className={`w-4 h-4 text-[#7A6A5C] absolute top-1/2 -translate-y-1/2 pointer-events-none ${
-                    isRTL ? 'right-3' : 'left-3'
-                  }`}
-                />
+                <Search className="w-4 h-4 text-[#7A6A5C] absolute top-1/2 -translate-y-1/2 pointer-events-none left-3" />
                 <input
                   id="marketplace-search-input"
                   ref={searchInputRef}
@@ -795,17 +791,13 @@ export default function MarketplaceHomePage() {
                   placeholder={currentSearchPlaceholder}
                   value={searchInput}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className={`w-full py-2 min-h-[42px] rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-medium text-[#2B2118] dark:text-[#FFF9F2] placeholder-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] transition ${
-                    isRTL ? 'pr-9 pl-8' : 'pl-9 pr-8'
-                  }`}
+                  className="w-full py-2 min-h-[42px] rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-medium text-[#2B2118] dark:text-[#FFF9F2] placeholder-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] transition pl-9 pr-8"
                 />
                 {searchInput && (
                   <button
                     type="button"
                     onClick={() => handleSearchChange('')}
-                    className={`absolute top-1/2 -translate-y-1/2 text-[#9E8E81] hover:text-[#2B2118] dark:hover:text-white p-1 cursor-pointer ${
-                      isRTL ? 'left-2' : 'right-2'
-                    }`}
+                    className="absolute top-1/2 -translate-y-1/2 text-[#9E8E81] hover:text-[#2B2118] dark:hover:text-white p-1 cursor-pointer right-2"
                     title="Clear search"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -902,27 +894,19 @@ export default function MarketplaceHomePage() {
           {/* Mobile Search Row */}
           <div className="pb-3 md:hidden">
             <div className="relative">
-              <Search
-                className={`w-4 h-4 text-[#7A6A5C] absolute top-1/2 -translate-y-1/2 pointer-events-none ${
-                  isRTL ? 'right-3' : 'left-3'
-                }`}
-              />
+              <Search className="w-4 h-4 text-[#7A6A5C] absolute top-1/2 -translate-y-1/2 pointer-events-none left-3" />
               <input
                 type="text"
                 placeholder={currentSearchPlaceholder}
                 value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className={`w-full py-2 min-h-[42px] rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-medium text-[#2B2118] dark:text-[#FFF9F2] placeholder-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] ${
-                  isRTL ? 'pr-9 pl-8' : 'pl-9 pr-8'
-                }`}
+                className="w-full py-2 min-h-[42px] rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-medium text-[#2B2118] dark:text-[#FFF9F2] placeholder-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] pl-9 pr-8"
               />
               {searchInput && (
                 <button
                   type="button"
                   onClick={() => handleSearchChange('')}
-                  className={`absolute top-1/2 -translate-y-1/2 text-[#9E8E81] p-1 ${
-                    isRTL ? 'left-2' : 'right-2'
-                  }`}
+                  className="absolute top-1/2 -translate-y-1/2 text-[#9E8E81] p-1 right-2"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

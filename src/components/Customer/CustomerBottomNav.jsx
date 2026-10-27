@@ -15,7 +15,7 @@ export default function CustomerBottomNav({ onSearchClick }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { customer, favorites, isCustomerAuthenticated } = useCustomerAuth();
-  const { t, isRTL } = useLanguage();
+  const { t } = useLanguage();
 
   const searchParams = new URLSearchParams(location.search);
   const currentTab = searchParams.get('tab');

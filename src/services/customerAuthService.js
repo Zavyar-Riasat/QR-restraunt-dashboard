@@ -25,10 +25,26 @@ export const customerAuthService = {
   },
 
   /**
+   * Check if running on localhost / local development environment
+   */
+  isLocalhost() {
+    if (typeof window === 'undefined') return false;
+    const hostname = window.location.hostname;
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname.endsWith('.localhost') ||
+      hostname.endsWith('.local')
+    );
+  },
+
+  /**
    * Check if running in development / test OTP mode
+   * Strictly limited to localhost / local development environment
    */
   isTestMode() {
-    return SMS_PROVIDER === 'test' || Boolean(env.DEV);
+    return this.isLocalhost() && (SMS_PROVIDER === 'test' || Boolean(env.DEV));
   },
 
   /**

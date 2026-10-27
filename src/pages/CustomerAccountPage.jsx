@@ -294,6 +294,7 @@ export default function CustomerAccountPage() {
       >
         <CustomerAuthModal
           isOpen={true}
+          onClose={() => navigate('/')}
           onSuccess={() => {}}
           title={t('signInToAccount')}
           subtitle={t('saveFavoritesPromptSubtitle')}

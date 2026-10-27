@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Phone,
   ArrowRight,
@@ -22,6 +23,7 @@ export default function CustomerAuthModal({
   title = 'Sign In to DineHQ',
   subtitle = 'Track live orders, manage saved addresses, and view restaurant khata ledgers.',
 }) {
+  const navigate = useNavigate();
   const { loginCustomer } = useCustomerAuth();
 
   const [step, setStep] = useState('phone'); // 'phone' | 'otp'
@@ -32,8 +34,29 @@ export default function CustomerAuthModal({
   const [errorMsg, setErrorMsg] = useState('');
   const [testCodeHint, setTestCodeHint] = useState('');
 
+  const isLocalhost = customerAuthService.isLocalhost();
   const isTestMode = customerAuthService.isTestMode();
   const testOtp = customerAuthService.getTestOtpCode();
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      navigate('/');
+    }
+  };
+
+  // Close on Escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
   // Reset states on open
   useEffect(() => {
@@ -142,18 +165,24 @@ export default function CustomerAuthModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-3xl border border-[#F0E4D7] shadow-2xl max-w-md w-full overflow-hidden transition-all">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-xs animate-fadeIn"
+    >
+      <div className="bg-white rounded-3xl border border-[#F0E4D7] shadow-2xl max-w-md w-full overflow-hidden transition-all relative">
         {/* Modal Header */}
         <div className="p-6 text-center border-b border-[#F0E4D7] relative bg-gradient-to-b from-[#FFF9F2] to-white">
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 p-1.5 rounded-xl text-[#9E8E81] hover:text-[#2B2118] hover:bg-white transition cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleClose}
+            className="absolute top-4 right-4 p-2 rounded-xl text-[#9E8E81] hover:text-[#2B2118] hover:bg-black/5 active:scale-95 transition-all cursor-pointer z-20"
+            aria-label="Close"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] flex items-center justify-center text-white shadow-md shadow-[#F26B1D]/25 mx-auto mb-3">
             <UtensilsCrossed className="w-6 h-6" />
@@ -177,8 +206,8 @@ export default function CustomerAuthModal({
             </div>
           )}
 
-          {/* Test Mode Notification Banner */}
-          {isTestMode && (
+          {/* Test Mode Notification Banner (Localhost Only) */}
+          {isLocalhost && isTestMode && (
             <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -275,17 +304,19 @@ export default function CustomerAuthModal({
                 <span>Continue with Google</span>
               </button>
 
-              {/* 1-Click Demo Shortcut */}
-              <div className="pt-2 text-center">
-                <button
-                  type="button"
-                  onClick={handleDemoLogin}
-                  className="text-[11px] font-bold text-[#F26B1D] hover:underline cursor-pointer inline-flex items-center gap-1"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Quick Demo: 1-Click Sign In as Ahmed Khan</span>
-                </button>
-              </div>
+              {/* 1-Click Demo Shortcut (Localhost Only) */}
+              {isLocalhost && (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={handleDemoLogin}
+                    className="text-[11px] font-bold text-[#F26B1D] hover:underline cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Quick Demo: 1-Click Sign In as Ahmed Khan</span>
+                  </button>
+                </div>
+              )}
             </form>
           )}
 
@@ -325,8 +356,8 @@ export default function CustomerAuthModal({
                 </div>
               </div>
 
-              {/* Test Code Paste Shortcut */}
-              {isTestMode && testCodeHint && (
+              {/* Test Code Paste Shortcut (Localhost Only) */}
+              {isLocalhost && isTestMode && testCodeHint && (
                 <div className="flex items-center justify-between bg-amber-50 p-2 rounded-xl text-xs">
                   <span className="text-amber-900 font-medium">
                     Test Code: <strong>{testCodeHint}</strong>

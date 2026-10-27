@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DineHQ • Offline</title>
+  <title>Dineflow • Offline</title>
   <style>
     * {
       box-sizing: border-box;
@@ -170,7 +170,7 @@
       No Internet Connection
     </div>
 
-    <h1>Unable to Reach DineHQ</h1>
+    <h1>Unable to Reach Dineflow</h1>
     <p>
       The dashboard could not connect to your restaurant server. Please check your Wi-Fi, Ethernet cable, or router connection.
     </p>
@@ -202,8 +202,9 @@
       btn.classList.add('loading');
       text.textContent = 'Connecting...';
 
-      if (window.dinehqDesktop && typeof window.dinehqDesktop.retryConnection === 'function') {
-        window.dinehqDesktop.retryConnection();
+      const desktopApi = window.dineflowDesktop || window.dinehqDesktop;
+      if (desktopApi && typeof desktopApi.retryConnection === 'function') {
+        desktopApi.retryConnection();
       } else if (targetUrl) {
         window.location.href = targetUrl;
       } else {

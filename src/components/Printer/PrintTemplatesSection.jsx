@@ -8,7 +8,6 @@ import {
   Check,
   CheckCircle2,
   RefreshCw,
-  Sparkles,
   Save,
   Languages,
   Type,
@@ -81,7 +80,7 @@ export default function PrintTemplatesSection({ restaurant }) {
       const sampleJob = {
         order: SAMPLE_PREVIEW_ORDER,
         restaurant: restaurant || {
-          name: 'DineHQ Kitchen & Grill',
+          name: 'Dineflow Kitchen & Grill',
           slug: 'burgersmoke',
           phone: '923001234567',
           whatsapp_number: '923001234567',
@@ -436,7 +435,7 @@ export default function PrintTemplatesSection({ restaurant }) {
                 order={SAMPLE_PREVIEW_ORDER}
                 restaurant={
                   restaurant || {
-                    name: 'DineHQ Kitchen & Grill',
+                    name: 'Dineflow Kitchen & Grill',
                     slug: 'burgersmoke',
                     phone: '923001234567',
                     whatsapp_number: '923001234567',

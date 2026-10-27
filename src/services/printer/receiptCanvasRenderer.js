@@ -7,7 +7,6 @@
 import QRCode from 'qrcode';
 import { PAPER_SIZES, TEMPLATE_TYPES } from './printerTypes.js';
 import { formatPKR } from '../../utils/currencyUtils.js';
-import { buildGoogleMapsNavUrl } from '../../config/mapConfig.js';
 
 /**
  * Check if text contains Arabic / Urdu Unicode script characters
@@ -367,11 +366,9 @@ export async function renderReceiptToCanvas(job) {
   drawDashedRule(y);
   y += 12;
 
-  // 6. Direct Reorder QR Code or Delivery Google Maps Navigation QR Code
+  // 6. Direct Restaurant Reorder / Menu QR Code (Restaurant QR only)
   let qrUrl = '';
-  if (isDelivery) {
-    qrUrl = buildGoogleMapsNavUrl(order);
-  } else if (reorderQrUrl) {
+  if (reorderQrUrl) {
     qrUrl = reorderQrUrl;
   } else {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -382,12 +379,12 @@ export async function renderReceiptToCanvas(job) {
     const qs = params.toString();
     qrUrl = `${origin}/${restaurant?.slug || ''}${qs ? `?${qs}` : ''}`;
   }
-  const qrLabel = isDelivery ? 'SCAN FOR GOOGLE MAPS NAVIGATION' : 'SCAN TO REORDER DIRECTLY';
+  const qrLabel = 'SCAN TO REORDER / MENU';
   if (qrUrl) {
     try {
       const qrDataUrl = await QRCode.toDataURL(qrUrl, {
         margin: 1,
-        width: is58mm ? 130 : 170,
+        width: is58mm ? 90 : 120,
         errorCorrectionLevel: 'M',
       });
 
@@ -400,16 +397,12 @@ export async function renderReceiptToCanvas(job) {
 
       const qrX = (width - qrImg.width) / 2;
       ctx.drawImage(qrImg, qrX, y);
-      y += qrImg.height + 6;
+      y += qrImg.height + 4;
 
       ctx.textAlign = 'center';
-      ctx.font = is58mm ? 'bold 10px "Poppins", sans-serif' : 'bold 12px "Poppins", sans-serif';
+      ctx.font = is58mm ? 'bold 9px "Poppins", sans-serif' : 'bold 11px "Poppins", sans-serif';
       ctx.fillText(qrLabel, width / 2, y);
-      y += is58mm ? 14 : 18;
-
-      ctx.font = is58mm ? '9px "Poppins", monospace' : '11px "Poppins", monospace';
-      ctx.fillText(qrUrl, width / 2, y);
-      y += is58mm ? 16 : 20;
+      y += is58mm ? 12 : 15;
     } catch (e) {
       console.warn('QR code generation for canvas receipt skipped:', e);
     }
@@ -422,7 +415,7 @@ export async function renderReceiptToCanvas(job) {
   y += is58mm ? 14 : 18;
 
   ctx.font = is58mm ? '9px "Poppins", sans-serif' : '11px "Poppins", sans-serif';
-  ctx.fillText('DineHQ Direct Online Kitchen', width / 2, y);
+  ctx.fillText('Dineflow Direct Online Kitchen', width / 2, y);
   y += 24;
 
   // Crop final canvas to exact height used

@@ -1,5 +1,5 @@
 /**
- * Rider Management Service for DineHQ
+ * Rider Management Service for Dineflow
  * Manages restaurant delivery riders, fleet list, and order assignment.
  */
 

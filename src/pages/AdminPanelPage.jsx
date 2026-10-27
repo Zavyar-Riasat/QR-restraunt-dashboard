@@ -18,22 +18,47 @@ import {
   LogOut,
   ArrowRight,
   Phone,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   Pencil,
   X,
   Key,
+  MapPin,
 } from 'lucide-react';
+import AdminListingsTab from '../components/Admin/AdminListingsTab';
 
 export default function AdminPanelPage() {
   const navigate = useNavigate();
-  const { user, logout, registerUser, getRegisteredUsers, deleteUser, updateUserCredentials } = useAuth();
+  const {
+    user,
+    logout,
+    registerUser,
+    getRegisteredUsers,
+    fetchRegisteredUsers,
+    deleteUser,
+    updateUserCredentials,
+    viewPassword,
+    resetPassword,
+    getAuditLogs,
+  } = useAuth();
 
   // Directory state
   const [usersList, setUsersList] = useState(() => getRegisteredUsers());
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [adminSection, setAdminSection] = useState('listings'); // 'listings' | 'users' | 'audit'
+
+  // AES-256-GCM Password Reveal & Auto-hide states
+  const [revealedPasswords, setRevealedPasswords] = useState({});
+  const [passwordCountdowns, setPasswordCountdowns] = useState({});
+  const [passwordLoadingId, setPasswordLoadingId] = useState(null);
+  const [passwordCopiedId, setPasswordCopiedId] = useState(null);
+  const [passwordError, setPasswordError] = useState({});
+  const timerRefs = React.useRef({});
+
+  // Audit Logs state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   // Reset Password modal state
   const [resetPasswordAccount, setResetPasswordAccount] = useState(null);
@@ -76,8 +101,113 @@ export default function AdminPanelPage() {
   const [lastCreated, setLastCreated] = useState(null);
   const [copiedKey, setCopiedKey] = useState(null);
 
-  const toggleRevealPassword = (id) => {
-    setRevealedPasswords((prev) => ({ ...prev, [id]: !prev[id] }));
+  // Fetch fresh remote users and handle password auto-hide cleanup
+  React.useEffect(() => {
+    async function loadData() {
+      try {
+        const remoteUsers = await fetchRegisteredUsers();
+        if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
+          setUsersList(remoteUsers);
+        }
+      } catch (_) {}
+    }
+    loadData();
+
+    return () => {
+      Object.values(timerRefs.current).forEach((t) => clearInterval(t));
+    };
+  }, []);
+
+  // Fetch security audit logs when audit tab selected
+  const handleLoadAuditLogs = async () => {
+    try {
+      setAuditLoading(true);
+      const logs = await getAuditLogs();
+      setAuditLogs(logs);
+    } catch (e) {
+      console.warn('Failed to load audit logs:', e);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (adminSection === 'audit') {
+      handleLoadAuditLogs();
+    }
+  }, [adminSection]);
+
+  const handleRevealPassword = async (account) => {
+    if (revealedPasswords[account.id]) {
+      handleHidePassword(account.id);
+      return;
+    }
+
+    try {
+      setPasswordLoadingId(account.id);
+      setPasswordError((prev) => ({ ...prev, [account.id]: '' }));
+      const result = await viewPassword(account.id);
+      const plainPassword = result.password;
+      const hideSeconds = result.autoHideSeconds || 15;
+
+      setRevealedPasswords((prev) => ({ ...prev, [account.id]: plainPassword }));
+      setPasswordCountdowns((prev) => ({ ...prev, [account.id]: hideSeconds }));
+
+      if (timerRefs.current[account.id]) {
+        clearInterval(timerRefs.current[account.id]);
+      }
+
+      let remaining = hideSeconds;
+      timerRefs.current[account.id] = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(timerRefs.current[account.id]);
+          delete timerRefs.current[account.id];
+          setRevealedPasswords((prev) => {
+            const copy = { ...prev };
+            delete copy[account.id];
+            return copy;
+          });
+          setPasswordCountdowns((prev) => {
+            const copy = { ...prev };
+            delete copy[account.id];
+            return copy;
+          });
+        } else {
+          setPasswordCountdowns((prev) => ({ ...prev, [account.id]: remaining }));
+        }
+      }, 1000);
+    } catch (err) {
+      setPasswordError((prev) => ({
+        ...prev,
+        [account.id]: err.message || 'Failed to decrypt password.',
+      }));
+    } finally {
+      setPasswordLoadingId(null);
+    }
+  };
+
+  const handleHidePassword = (accountId) => {
+    if (timerRefs.current[accountId]) {
+      clearInterval(timerRefs.current[accountId]);
+      delete timerRefs.current[accountId];
+    }
+    setRevealedPasswords((prev) => {
+      const copy = { ...prev };
+      delete copy[accountId];
+      return copy;
+    });
+    setPasswordCountdowns((prev) => {
+      const copy = { ...prev };
+      delete copy[accountId];
+      return copy;
+    });
+  };
+
+  const handleCopyRevealedPassword = (accountId, pwd) => {
+    navigator.clipboard.writeText(pwd);
+    setPasswordCopiedId(accountId);
+    setTimeout(() => setPasswordCopiedId(null), 2000);
   };
 
   const handleStartEdit = (account) => {
@@ -116,7 +246,7 @@ export default function AdminPanelPage() {
         name: `${editForm.restaurant_name} Manager`,
       });
 
-      const refreshed = getRegisteredUsers();
+      const refreshed = await fetchRegisteredUsers();
       setUsersList(refreshed);
       setEditSuccessMsg('Credentials and store details updated successfully!');
       setTimeout(() => {
@@ -131,15 +261,15 @@ export default function AdminPanelPage() {
 
   const handleOpenResetPassword = (account) => {
     setResetPasswordAccount(account);
-    setNewResetPassword('');
+    handleGenerateResetPassword();
     setResetSuccessMsg('');
     setResetErrorMsg('');
   };
 
   const handleGenerateResetPassword = () => {
-    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
     let pwd = '';
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 14; i++) {
       pwd += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setNewResetPassword(pwd);
@@ -148,25 +278,17 @@ export default function AdminPanelPage() {
   const handleSaveResetPassword = async (e) => {
     e.preventDefault();
     if (!resetPasswordAccount) return;
-    if (!newResetPassword || newResetPassword.length < 4) {
-      setResetErrorMsg('New password must be at least 4 characters long.');
-      return;
-    }
 
     try {
       setResetSubmitting(true);
       setResetErrorMsg('');
-      await updateUserCredentials(resetPasswordAccount.id, {
-        currentEmail: resetPasswordAccount.email,
-        password: newResetPassword.trim(),
-      });
+      const res = await resetPassword(resetPasswordAccount.id, newResetPassword.trim() || null);
+      const generated = res.generatedPassword || newResetPassword.trim();
+      setNewResetPassword(generated);
+      setResetSuccessMsg(`Password successfully reset! Store manager must change it on their next login.`);
 
-      const refreshed = getRegisteredUsers();
+      const refreshed = await fetchRegisteredUsers();
       setUsersList(refreshed);
-      setResetSuccessMsg(`Password for ${resetPasswordAccount.email} has been reset successfully!`);
-      setTimeout(() => {
-        setResetPasswordAccount(null);
-      }, 1500);
     } catch (err) {
       setResetErrorMsg(err.message || 'Failed to reset password.');
     } finally {
@@ -290,7 +412,7 @@ export default function AdminPanelPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-heading font-extrabold text-[#2B2118] text-lg tracking-tight">
-                  DineHQ Admin
+                  Dineflow Admin
                 </span>
                 <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF]">
                   Master Console
@@ -328,9 +450,64 @@ export default function AdminPanelPage() {
       </header>
 
       {/* Main Admin Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-        {/* Metric Cards */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        {/* Top Console Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-[#F0E4D7] pb-3">
+          <button
+            type="button"
+            onClick={() => setAdminSection('listings')}
+            className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer ${
+              adminSection === 'listings'
+                ? 'bg-[#2B2118] text-white shadow-xs'
+                : 'bg-white text-[#7A6A5C] hover:bg-[#FFF1E6] hover:text-[#2B2118] border border-[#F0E4D7]'
+            }`}
+          >
+            <MapPin className="w-4 h-4 text-[#F26B1D]" />
+            <span>Marketplace Listings</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminSection('users')}
+            className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer ${
+              adminSection === 'users'
+                ? 'bg-[#2B2118] text-white shadow-xs'
+                : 'bg-white text-[#7A6A5C] hover:bg-[#FFF1E6] hover:text-[#2B2118] border border-[#F0E4D7]'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Accounts & Provisioning</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                adminSection === 'users' ? 'bg-white/20 text-white' : 'bg-[#FFF1E6] text-[#F26B1D]'
+              }`}
+            >
+              {usersList.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAdminSection('audit')}
+            className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer ${
+              adminSection === 'audit'
+                ? 'bg-[#2B2118] text-white shadow-xs'
+                : 'bg-white text-[#7A6A5C] hover:bg-[#FFF1E6] hover:text-[#2B2118] border border-[#F0E4D7]'
+            }`}
+          >
+            <Shield className="w-4 h-4 text-[#F26B1D]" />
+            <span>Security Audit Trail</span>
+          </button>
+        </div>
+
+        {/* SECTION 1: Marketplace Listings Tab */}
+        {adminSection === 'listings' && <AdminListingsTab />}
+
+        {/* SECTION 2: Accounts & Provisioning Tab */}
+        {adminSection === 'users' && (
+          <div className="space-y-8">
+            {/* Metric Cards */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-5 rounded-2xl bg-white border border-[#F0E4D7] shadow-xs flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center shrink-0">
               <Store className="w-6 h-6" />
@@ -446,7 +623,7 @@ export default function AdminPanelPage() {
                   onClick={handleGeneratePassword}
                   className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition cursor-pointer"
                 >
-                  <Sparkles className="w-3 h-3 text-emerald-600" />
+                  <Key className="w-3 h-3 text-emerald-600" />
                   <span>Generate Strong</span>
                 </button>
               </div>
@@ -586,7 +763,7 @@ export default function AdminPanelPage() {
               <button
                 onClick={() =>
                   copyToClipboard(
-                    `DineHQ Restaurant Portal Credentials\nRestaurant: ${lastCreated.restaurant_name}\nEmail: ${lastCreated.email}\nPassword: ${lastCreated.password}\nLogin Portal: ${lastCreated.loginUrl}\nCustomer Menu: ${lastCreated.menuUrl}`,
+                    `Dineflow Restaurant Portal Credentials\nRestaurant: ${lastCreated.restaurant_name}\nEmail: ${lastCreated.email}\nPassword: ${lastCreated.password}\nLogin Portal: ${lastCreated.loginUrl}\nCustomer Menu: ${lastCreated.menuUrl}`,
                     'creds'
                   )
                 }
@@ -654,6 +831,7 @@ export default function AdminPanelPage() {
                 <tr>
                   <th className="px-6 py-3.5">Restaurant / Tenant</th>
                   <th className="px-6 py-3.5">Manager Account</th>
+                  <th className="px-6 py-3.5">Password</th>
                   <th className="px-6 py-3.5">Contact Phone</th>
                   <th className="px-6 py-3.5">Role</th>
                   <th className="px-6 py-3.5">Status</th>
@@ -663,7 +841,7 @@ export default function AdminPanelPage() {
               <tbody className="divide-y divide-[#F0E4D7] font-medium">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                    <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
                       No accounts found matching your query.
                     </td>
                   </tr>
@@ -671,7 +849,7 @@ export default function AdminPanelPage() {
                   filteredUsers.map((account) => {
                     const slug = account.restaurant_slug || 'burgersmoke';
                     const menuLink = `${window.location.origin}/${slug}`;
-                    const isProtectedMaster = account.email === 'admin@dinehq.pk';
+                    const isProtectedMaster = account.email === 'admin@dineflow.pk' || account.email === 'admin@dinehq.pk';
 
                     return (
                       <tr key={account.id} className="hover:bg-slate-50/60 transition">
@@ -698,7 +876,7 @@ export default function AdminPanelPage() {
                           </div>
                         </td>
 
-                        {/* Manager Account & Email (No passwords displayed) */}
+                        {/* Manager Account & Email */}
                         <td className="px-6 py-4">
                           <div>
                             <p className="font-bold text-slate-900 text-xs sm:text-sm">
@@ -708,6 +886,65 @@ export default function AdminPanelPage() {
                               {account.email}
                             </p>
                           </div>
+                        </td>
+
+                        {/* Reversible Encrypted Password Column (Auto-hides after 15s) */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            {revealedPasswords[account.id] ? (
+                              <div className="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-xl bg-amber-50 border border-amber-300">
+                                <span className="font-mono text-xs font-extrabold text-amber-950 select-all">
+                                  {revealedPasswords[account.id]}
+                                </span>
+                                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-900 font-bold">
+                                  {passwordCountdowns[account.id]}s
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyRevealedPassword(account.id, revealedPasswords[account.id])}
+                                  className="p-1 rounded text-amber-800 hover:text-black hover:bg-amber-100 transition cursor-pointer"
+                                  title="Copy Decrypted Password"
+                                >
+                                  {passwordCopiedId === account.id ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleHidePassword(account.id)}
+                                  className="p-1 rounded text-amber-800 hover:text-black hover:bg-amber-100 transition cursor-pointer"
+                                  title="Hide Password"
+                                >
+                                  <EyeOff className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-slate-400 tracking-wider">
+                                  ••••••••••••
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevealPassword(account)}
+                                  disabled={passwordLoadingId === account.id}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-[#FFF1E6] hover:text-[#F26B1D] text-slate-600 text-[11px] font-bold transition border border-slate-200 cursor-pointer disabled:opacity-50"
+                                  title="View password (Master Admin only - audited with IP)"
+                                >
+                                  {passwordLoadingId === account.id ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin text-[#F26B1D]" />
+                                  ) : (
+                                    <Eye className="w-3 h-3" />
+                                  )}
+                                  <span>View</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          {passwordError[account.id] && (
+                            <p className="text-[10px] text-rose-600 mt-1 font-semibold">{passwordError[account.id]}</p>
+                          )}
                         </td>
 
                         {/* Contact Phone */}
@@ -800,6 +1037,99 @@ export default function AdminPanelPage() {
             </table>
           </div>
         </section>
+      </div>
+    )}
+
+        {/* SECTION 3: Security Audit Trail */}
+        {adminSection === 'audit' && (
+          <section className="bg-white rounded-3xl border border-[#F0E4D7] shadow-sm overflow-hidden space-y-4 animate-fadeIn">
+            <div className="p-6 border-b border-[#F0E4D7] flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-heading font-extrabold text-[#2B2118] flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-[#F26B1D]" />
+                  <span>Security Audit Trail</span>
+                </h2>
+                <p className="text-xs text-[#7A6A5C] mt-0.5">
+                  Immutable record of password views, password resets, logins, and key events with timestamps and IP addresses.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLoadAuditLogs}
+                  disabled={auditLoading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFF9F2] hover:bg-[#FFF1E6] text-xs font-bold text-[#F26B1D] border border-[#F0E4D7] transition cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${auditLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh Logs</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#FFF9F2] text-[#7A6A5C] uppercase tracking-wider font-bold border-b border-[#F0E4D7]">
+                  <tr>
+                    <th className="px-6 py-3.5">Timestamp</th>
+                    <th className="px-6 py-3.5">Action</th>
+                    <th className="px-6 py-3.5">Actor (Admin / User)</th>
+                    <th className="px-6 py-3.5">Target Store / User</th>
+                    <th className="px-6 py-3.5">IP Address</th>
+                    <th className="px-6 py-3.5">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0E4D7] font-medium">
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                        {auditLoading ? 'Loading audit records...' : 'No security audit events logged yet.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    auditLogs.map((log) => {
+                      const dateStr = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Just now';
+                      const actionBadge =
+                        log.action === 'VIEW_PASSWORD'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : log.action === 'RESET_PASSWORD'
+                          ? 'bg-rose-50 text-rose-800 border-rose-200'
+                          : log.action === 'CHANGE_PASSWORD'
+                          ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200';
+
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50/60 transition">
+                          <td className="px-6 py-4 font-mono text-slate-500 text-[11px] whitespace-nowrap">
+                            {dateStr}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${actionBadge}`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-mono text-slate-900 font-bold">
+                            {log.admin_email || log.user_email || 'System'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="font-bold text-slate-800">{log.restaurant_name || '-'}</p>
+                            <p className="text-[11px] font-mono text-slate-500">{log.target_email || ''}</p>
+                          </td>
+                          <td className="px-6 py-4 font-mono text-slate-600 text-[11px]">
+                            {log.ip_address || '127.0.0.1'}
+                          </td>
+                          <td className="px-6 py-4 text-slate-500 text-[11px]">
+                            {log.notes || log.details || (log.action === 'VIEW_PASSWORD' ? 'Decrypted password viewed with 15s auto-hide' : 'Completed')}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         {/* Modal: Edit Credentials & Store Details */}
         {editingAccount && (
@@ -995,63 +1325,103 @@ export default function AdminPanelPage() {
                 </div>
               )}
 
-              {resetSuccessMsg && (
-                <div className="p-3 my-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{resetSuccessMsg}</span>
-                </div>
-              )}
+              {resetSuccessMsg ? (
+                <div className="space-y-4 pt-3">
+                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-medium flex items-start gap-2.5">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">{resetSuccessMsg}</p>
+                      <p className="text-[11px] text-emerald-800 mt-1">
+                        All previous active sessions have been invalidated. The store manager will be prompted to set their permanent password upon next login (must_change_password = true).
+                      </p>
+                    </div>
+                  </div>
 
-              <form onSubmit={handleSaveResetPassword} className="space-y-4 pt-4">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      New Password
-                    </label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Temporary Generated Password
+                    </p>
+                    <div className="flex items-center justify-between gap-2 mt-1.5">
+                      <span className="font-mono font-bold text-base text-slate-900 select-all">
+                        {newResetPassword}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(newResetPassword, 'reset-copy')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-2xs cursor-pointer"
+                      >
+                        {copiedKey === 'reset-copy' ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        <span>{copiedKey === 'reset-copy' ? 'Copied!' : 'Copy Password'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
                     <button
                       type="button"
-                      onClick={handleGenerateResetPassword}
-                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                      onClick={() => setResetPasswordAccount(null)}
+                      className="px-5 py-2.5 rounded-xl bg-[#2B2118] hover:bg-black text-white text-xs font-bold transition cursor-pointer"
                     >
-                      <Sparkles className="w-3 h-3 text-indigo-500" />
-                      <span>Generate Strong</span>
+                      Done & Close
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    required
-                    value={newResetPassword}
-                    onChange={(e) => setNewResetPassword(e.target.value)}
-                    placeholder="Enter new password (min. 4 characters)"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Store manager will use this new password to sign into their command dashboard.
-                  </p>
                 </div>
+              ) : (
+                <form onSubmit={handleSaveResetPassword} className="space-y-4 pt-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        New Temporary Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleGenerateResetPassword}
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                      >
+                        <Key className="w-3 h-3 text-indigo-500" />
+                        <span>Generate Strong</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={newResetPassword}
+                      onChange={(e) => setNewResetPassword(e.target.value)}
+                      placeholder="Enter new password (min. 4 characters)"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Strong password generated. Encrypted with AES-256-GCM. Stored reversible so master admin can view it.
+                    </p>
+                  </div>
 
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setResetPasswordAccount(null)}
-                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={resetSubmitting}
-                    className="px-5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold shadow-md shadow-[#F26B1D]/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                  >
-                    {resetSubmitting ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Check className="w-3.5 h-3.5" />
-                    )}
-                    <span>{resetSubmitting ? 'Resetting...' : 'Set New Password'}</span>
-                  </button>
-                </div>
-              </form>
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setResetPasswordAccount(null)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={resetSubmitting}
+                      className="px-5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold shadow-md shadow-[#F26B1D]/20 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {resetSubmitting ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5" />
+                      )}
+                      <span>{resetSubmitting ? 'Resetting...' : 'Set New Password'}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}

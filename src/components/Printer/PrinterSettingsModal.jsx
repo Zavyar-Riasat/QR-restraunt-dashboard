@@ -665,7 +665,7 @@ export default function PrinterSettingsModal({ isOpen, onClose }) {
             <div>
               <span className="font-bold text-[#2B2118]">Zero-Worry Fallback: </span>
               <span>
-                If your USB, Bluetooth, or Network printer ever gets disconnected or runs out of paper, DineHQ automatically opens your standard browser print dialog so you never miss an order ticket.
+                If your USB, Bluetooth, or Network printer ever gets disconnected or runs out of paper, Dineflow automatically opens your standard browser print dialog so you never miss an order ticket.
               </span>
             </div>
           </div>

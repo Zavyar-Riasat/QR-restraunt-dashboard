@@ -1,40 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { isReservedSlug } from '../config/appConfig';
 import { menuService } from '../services/menuService';
+import { marketplaceService } from '../services/marketplaceService';
+import { checkRestaurantDeliveryCoverage } from '../utils/geoValidation';
 import VariantCustomizationModal from '../components/VariantCustomizationModal';
 import CustomerCartDrawer from '../components/CustomerCartDrawer';
 import CustomerOrderTracker from '../components/CustomerOrderTracker';
 import DirectOrderCheckout from '../components/DirectOrderCheckout';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { handleDirectOrderCheckout } from '../utils/checkoutUtils';
 import { formatPKR } from '../utils/currencyUtils';
 import {
   UtensilsCrossed,
   Search,
-  Sparkles,
-  Phone,
   Plus,
   Minus,
   SlidersHorizontal,
   ChevronRight,
   AlertCircle,
   ArrowLeft,
-  Share2,
   Check,
   ShoppingBag,
-  Send,
   MapPin,
-  User,
-  FileText,
-  ShieldCheck,
   Clock,
-  Percent,
-  Flame,
-  Package,
-  Gift,
   Lock,
   Truck,
-  Power,
   Globe,
   ArrowRight,
   X,
@@ -46,8 +36,8 @@ import {
   getItemAvailability,
   getItemImage,
   getItemDescription,
+  getItemPricing,
 } from '../utils/dealUtils';
-import { useAuth } from '../context/AuthContext';
 
 const UI_TRANSLATIONS = {
   en: {
@@ -123,8 +113,17 @@ const UI_TRANSLATIONS = {
 };
 
 export default function CustomerMenuPage() {
-  const { user } = useAuth();
-  const { slug } = useParams();
+  const navigate = useNavigate();
+  const { restaurantSlug, slug } = useParams();
+  const effectiveSlug = restaurantSlug || slug || 'burgersmoke';
+
+  // Guard: If slug is a reserved route keyword, redirect to home page immediately
+  useEffect(() => {
+    if (isReservedSlug(effectiveSlug)) {
+      navigate('/', { replace: true });
+    }
+  }, [effectiveSlug, navigate]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [restaurant, setRestaurant] = useState(null);
@@ -138,17 +137,56 @@ export default function CustomerMenuPage() {
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Cart & Customization State
-  const [cart, setCart] = useState([]);
+  // Cart & Customization State (Persisted per restaurant in localStorage)
+  const cartStorageKey = `dinehq_cart_${effectiveSlug}`;
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`dinehq_cart_${effectiveSlug}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Error reading saved restaurant cart:', e);
+    }
+    return [];
+  });
+
+  // Sync cart to localStorage per restaurant whenever cart changes
+  useEffect(() => {
+    try {
+      if (cart && cart.length > 0) {
+        localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+      } else {
+        localStorage.removeItem(cartStorageKey);
+      }
+    } catch (e) {
+      console.warn('Error syncing restaurant cart to localStorage:', e);
+    }
+  }, [cart, cartStorageKey]);
+
   const [selectedItemForModal, setSelectedItemForModal] = useState(null);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+
+  // Customer Saved Location & Delivery Areas
+  const [customerLocation, setCustomerLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dinehq_customer_location');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
+  const [deliveryAreas, setDeliveryAreas] = useState([]);
+  const [showLeaveConfirmModal, setShowLeaveConfirmModal] = useState(false);
 
   // Desktop Checkout & Tracker States
   const [isDesktopCheckout, setIsDesktopCheckout] = useState(false);
   const [desktopOrder, setDesktopOrder] = useState(null);
   const [activeTrackerModalOrder, setActiveTrackerModalOrder] = useState(null);
   const [persistedActiveOrderId, setPersistedActiveOrderId] = useState(null);
-  const [copied, setCopied] = useState(false);
   const [scannedTable, setScannedTable] = useState(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
@@ -157,6 +195,19 @@ export default function CustomerMenuPage() {
       return '';
     }
   });
+
+  // Table QR guard: Hide back button when arrived via table QR or has an open dine-in order
+  const hasTableQr = Boolean(scannedTable);
+  const hasOpenDineInOrder = Boolean(persistedActiveOrderId);
+  const hideHeaderBackButton = hasTableQr || hasOpenDineInOrder;
+
+  const handleBackClick = () => {
+    if (cart.length > 0) {
+      setShowLeaveConfirmModal(true);
+    } else {
+      navigate('/');
+    }
+  };
 
   // Check for active order from URL query or local storage
   useEffect(() => {
@@ -183,11 +234,13 @@ export default function CustomerMenuPage() {
 
   // Load menu data
   useEffect(() => {
+    if (isReservedSlug(effectiveSlug)) return;
+
     async function loadData() {
       try {
         setLoading(true);
         setError(null);
-        const data = await menuService.getMenuBySlug(slug || 'burgersmoke');
+        const data = await menuService.getMenuBySlug(effectiveSlug);
         setRestaurant(data.restaurant);
         setCategories(data.categories || []);
         setMenuItems(data.menuItems || []);
@@ -199,12 +252,55 @@ export default function CustomerMenuPage() {
       }
     }
     loadData();
-  }, [slug]);
+  }, [effectiveSlug]);
+
+  // Highlight dish and open customization modal if arrived via Food mode 'View' link
+  useEffect(() => {
+    if (!menuItems || menuItems.length === 0) return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const highlightId = urlParams.get('highlight');
+      if (highlightId) {
+        const found = menuItems.find(
+          (m) => String(m.id) === String(highlightId) || (m.title && m.title.toLowerCase().includes(highlightId.toLowerCase()))
+        );
+        if (found) {
+          setTimeout(() => {
+            setSelectedItemForModal(found);
+            const el = document.getElementById(`item-${found.id}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 300);
+        }
+      }
+    } catch (_) {}
+  }, [menuItems]);
+
+  // Load restaurant delivery areas
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    marketplaceService
+      .getDeliveryAreas(restaurant.id)
+      .then((areas) => setDeliveryAreas(areas || []))
+      .catch((err) => console.warn('Error loading delivery areas:', err));
+  }, [restaurant?.id]);
+
+  // Calculate delivery coverage & distance to customer
+  const deliveryCoverage = React.useMemo(() => {
+    if (!restaurant) return { deliversToUser: true, distanceKm: null };
+    return checkRestaurantDeliveryCoverage(customerLocation, restaurant, deliveryAreas);
+  }, [customerLocation, restaurant, deliveryAreas]);
 
   // Cart helper functions
   const handleOpenCustomization = (item) => {
     if (!getItemAvailability(item)) return; // blocked if sold out
-    setSelectedItemForModal(item);
+    const pricing = getItemPricing(item, restaurant);
+    setSelectedItemForModal({
+      ...item,
+      price: pricing.finalPrice,
+      original_price: pricing.originalPrice,
+    });
   };
 
   const handleAddToCart = (configuredItem) => {
@@ -252,12 +348,6 @@ export default function CustomerMenuPage() {
   const finalTotal = subtotal + deliveryFee;
   const totalItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const meetsMinOrder = !checkMinOrder || minOrder === 0 || subtotal >= minOrder;
-
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const formatCategoryName = (name) => {
     if (!name) return '';
@@ -345,20 +435,22 @@ export default function CustomerMenuPage() {
       {/* Top Storefront Web Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-[#F0E4D7] shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Show Manager Dashboard button only if authenticated manager/owner */}
-            {user && (
-              <Link
-                to="/"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFF9F2] hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] text-xs font-bold transition"
-                title="Return to Manager Dashboard"
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Back button to "/" (Nearby restaurants) - Hidden if arrived via table QR with open dine-in order */}
+            {!hideHeaderBackButton && (
+              <button
+                type="button"
+                onClick={handleBackClick}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#FFF9F2] hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] text-xs font-bold transition cursor-pointer shrink-0"
+                title="Back to Nearby Restaurants"
+                aria-label="Back to nearby restaurants"
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Manager Dashboard</span>
-              </Link>
+                <ArrowLeft className="w-4 h-4 text-[#2B2118]" />
+                <span className="hidden sm:inline">Back</span>
+              </button>
             )}
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               {restaurant.logo_url ? (
                 <img
                   src={restaurant.logo_url}
@@ -377,74 +469,89 @@ export default function CustomerMenuPage() {
                 <h1 className="font-heading font-extrabold text-[#2B2118] text-base sm:text-lg tracking-tight leading-tight">
                   {restaurant.name}
                 </h1>
-                <p className="text-[11px] text-[#7A6A5C] flex items-center gap-2">
-                  <span className={`font-bold flex items-center gap-1 ${isKitchenOpen ? 'text-[#1F9D55]' : 'text-[#E5484D]'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${isKitchenOpen ? 'bg-[#1F9D55]' : 'bg-[#E5484D]'}`}></span>
-                    {isKitchenOpen ? 'Direct In-App Ordering' : 'Kitchen Paused'}
-                  </span>
+                <div className="text-[11px] text-[#7A6A5C] flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  {!isKitchenOpen && (
+                    <span className="font-bold flex items-center gap-1 text-[#E5484D]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#E5484D]"></span>
+                      Kitchen Paused
+                    </span>
+                  )}
+
+                  {/* Distance badge */}
+                  {deliveryCoverage?.distanceKm != null && (
+                    <span className="font-bold text-slate-700 flex items-center gap-0.5">
+                      <MapPin className="w-3 h-3 text-[#F26B1D]" />
+                      <span>{deliveryCoverage.distanceKm} km</span>
+                    </span>
+                  )}
+
                   {(restaurant?.phone || restaurant?.whatsapp_number) && (
                     <>
-                      <span>•</span>
-                      <span>Ph: +{restaurant?.phone || restaurant?.whatsapp_number}</span>
+                      <span className="hidden md:inline">•</span>
+                      <span className="hidden md:inline">Ph: +{restaurant?.phone || restaurant?.whatsapp_number}</span>
                     </>
                   )}
-                </p>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Urdu / English Language Switcher */}
             <button
               type="button"
               onClick={() => setLang((l) => (l === 'en' ? 'ur' : 'en'))}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer"
+              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer"
               title={lang === 'en' ? 'اردو میں تبدیل کریں' : 'Switch to English'}
             >
               <Globe className="w-3.5 h-3.5 text-[#F26B1D]" style={{ color: primaryColor }} />
               <span>{lang === 'en' ? 'اردو' : 'English'}</span>
             </button>
 
-            {/* Mobile/Tablet Header Cart Trigger (< lg) */}
+            {/* Header Cart Button */}
             <button
+              id="menu-navbar-cart-button"
               type="button"
-              onClick={() => setIsMobileCartOpen(true)}
-              className="lg:hidden relative px-3 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition flex items-center gap-1.5 cursor-pointer"
+              onClick={() => {
+                if (window.innerWidth < 1024) {
+                  setIsMobileCartOpen(true);
+                } else {
+                  const cartSection = document.getElementById('desktop-cart-sidebar');
+                  if (cartSection) {
+                    cartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  } else {
+                    setIsMobileCartOpen(true);
+                  }
+                }
+              }}
+              className="relative px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition flex items-center gap-1.5 cursor-pointer shadow-2xs group"
+              title={totalItemCount > 0 ? `Cart (${totalItemCount} items)` : 'Your Cart'}
             >
-              <ShoppingBag className="w-4 h-4" style={{ color: primaryColor }} />
-              <span className="hidden sm:inline">{t.your_order}</span>
+              <ShoppingBag className="w-4 h-4 text-[#F26B1D] group-hover:scale-105 transition-transform" style={{ color: primaryColor }} />
+              <span className="hidden sm:inline font-bold">{t.your_order || 'Cart'}</span>
               {totalItemCount > 0 && (
                 <span
-                  className="px-1.5 py-0.2 rounded-full text-white text-[10px] font-mono font-bold"
+                  className="px-1.5 py-0.5 rounded-full text-white text-[10px] font-mono font-bold leading-none"
                   style={{ backgroundColor: primaryColor }}
                 >
                   {totalItemCount}
                 </span>
               )}
             </button>
-
-            <button
-              onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer"
-              title="Share menu link"
-            >
-              {copied ? <Check className="w-3.5 h-3.5" style={{ color: primaryColor }} /> : <Share2 className="w-3.5 h-3.5 text-[#7A6A5C]" />}
-              <span className="hidden sm:inline">{copied ? 'Link Copied' : 'Share'}</span>
-            </button>
           </div>
         </div>
 
         {/* Active Order Live Tracker Notification Banner */}
         {persistedActiveOrderId && (
-          <div className="bg-[#E7F6EC] border-t border-[#C0E9CE] py-2.5 px-4 sm:px-6">
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 font-bold text-[#1F9D55]">
-                <span className="w-2 h-2 rounded-full bg-[#1F9D55] animate-ping" />
-                <span>Active Order #{persistedActiveOrderId} is being processed by the kitchen!</span>
+          <div className="bg-[#E7F6EC] border-t border-[#C0E9CE] py-2 px-3 sm:px-6">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 font-bold text-[#1F9D55] min-w-0">
+                <span className="w-2 h-2 rounded-full bg-[#1F9D55] animate-ping shrink-0" />
+                <span className="truncate">Active Order #{persistedActiveOrderId} is being processed!</span>
               </div>
               <button
                 onClick={() => setActiveTrackerModalOrder({ id: persistedActiveOrderId })}
-                className="px-3.5 py-1.5 rounded-xl bg-[#1F9D55] text-white font-extrabold text-[11px] shadow-sm hover:brightness-95 transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                className="px-3 py-1.5 rounded-xl bg-[#1F9D55] text-white font-extrabold text-[11px] shadow-sm hover:brightness-95 transition cursor-pointer flex items-center gap-1.5 shrink-0 self-end sm:self-auto"
               >
                 <Clock className="w-3 h-3" />
                 <span>Track Live Status</span>
@@ -476,7 +583,7 @@ export default function CustomerMenuPage() {
       </header>
 
       {/* Main Responsive Storefront Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-5 sm:space-y-6">
         {/* Kitchen Paused Banner if inactive */}
         {!isKitchenOpen && (
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm font-medium flex items-center gap-3 shadow-xs animate-fadeIn">
@@ -491,10 +598,14 @@ export default function CustomerMenuPage() {
         )}
 
         {/* Full-Width Restaurant Showcase Banner */}
-        <section className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#2B2118] via-[#3E2D20] to-[#2B2118] text-white shadow-xl relative overflow-hidden border border-[#F0E4D7]/20">
+        <section className="p-5 sm:p-7 md:p-8 rounded-3xl bg-gradient-to-r from-[#2B2118] via-[#3E2D20] to-[#2B2118] text-white shadow-xl relative overflow-hidden border border-[#F0E4D7]/20 transition-all">
+          {/* Ambient Animated Glow Aurora */}
+          <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-gradient-to-br from-[#F26B1D]/30 via-amber-500/20 to-transparent blur-3xl pointer-events-none animate-aurora" />
+          <div className="absolute -bottom-10 -left-10 w-52 h-52 rounded-full bg-gradient-to-tr from-amber-600/20 via-[#F26B1D]/15 to-transparent blur-2xl pointer-events-none animate-float-slow" />
+
           <div className="relative z-10 max-w-2xl space-y-3">
             {restaurant.logo_url && (
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-xl border border-white/20 mb-1 inline-block">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-xl border border-white/20 mb-1 inline-block transition-transform duration-300 hover:scale-105 hover:rotate-1">
                 <img
                   src={restaurant.logo_url}
                   alt={restaurant.name}
@@ -502,12 +613,18 @@ export default function CustomerMenuPage() {
                 />
               </div>
             )}
-            <h2 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight leading-tight">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-heading font-extrabold tracking-tight leading-tight">
               {restaurant.name}
             </h2>
 
             {/* Dynamic Manager Configured Storefront Pills */}
-            <div className="flex flex-wrap items-center gap-4 pt-1 text-xs font-semibold text-[#FEF3D9]">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1 text-xs font-semibold text-[#FEF3D9]">
+              {deliveryCoverage?.distanceKm != null && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-xs border border-white/20 text-white font-bold hover:bg-white/15 transition-colors">
+                  <MapPin className="w-3.5 h-3.5 text-[#F5A623]" />
+                  <span>{deliveryCoverage.distanceKm} km away</span>
+                </div>
+              )}
               {restaurant?.show_prep_time !== false && (restaurant?.prep_time || '20–30 mins') && (
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-[#F5A623]" />
@@ -623,100 +740,113 @@ export default function CustomerMenuPage() {
                   const hasVariants = variantsList && variantsList.length > 0;
                   const itemImage = getItemImage(item);
                   const itemDesc = getItemDescription(item);
-                  const originalPrice = dealInfo?.original_price || 0;
-                  const savings = originalPrice > item.price ? originalPrice - item.price : 0;
-                  const savingsPercent =
-                    originalPrice > 0 && savings > 0
-                      ? Math.round((savings / originalPrice) * 100)
-                      : 0;
+                  const pricing = getItemPricing(item, restaurant);
 
                   return (
                     <div
                       key={item.id}
-                      className={`p-4 sm:p-5 rounded-2xl border transition flex flex-col justify-between ${
+                      className={`group relative p-4 sm:p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
                         isSoldOut
-                          ? 'bg-[#FFF9F2]/60 border-[#F0E4D7] opacity-60'
-                          : 'bg-white border-[#F0E4D7] hover:border-[#FCD8BF] hover:shadow-xs'
+                          ? 'bg-[#FFF9F2]/60 border-[#F0E4D7] opacity-65'
+                          : 'bg-white border-[#F0E4D7] shadow-2xs hover:border-[#F26B1D]/40 hover:shadow-md'
                       }`}
                     >
-                      <div>
-                        {/* Top Badges */}
-                        <div className="flex items-center justify-between gap-2 mb-2.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-bold text-[#D95A12] bg-[#FFF1E6] px-2 py-0.5 rounded-lg border border-[#FCD8BF]/60">
-                              {getCategoryName(item.category_id)}
-                            </span>
-
-                            {itemIsDeal && (
-                              <span className="text-[10px] font-extrabold text-[#B87000] bg-[#FEF3D9] px-2.5 py-0.5 rounded-lg border border-[#FCE1A8]">
-                                🔥 {dealInfo.badge || 'Deal'}
+                      <div className="flex flex-col flex-1">
+                        {/* 1. SEPARATE HEADING SECTION DIV */}
+                        <div className="dish-card-heading pb-2.5 mb-2.5 border-b border-[#F0E4D7]/70">
+                          {/* Badges / Meta row */}
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-bold text-[#D95A12] bg-[#FFF1E6] px-2.5 py-0.5 rounded-lg border border-[#FCD8BF]/70 tracking-wide uppercase">
+                                {getCategoryName(item.category_id)}
                               </span>
-                            )}
+
+                              {itemIsDeal && (
+                                <span className="text-[10px] font-extrabold text-[#B87000] bg-[#FEF3D9] px-2.5 py-0.5 rounded-lg border border-[#FCE1A8] flex items-center gap-1">
+                                  <span>🔥</span>
+                                  <span>{dealInfo.badge || 'Deal'}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {isSoldOut ? (
+                              <span className="text-[10px] font-bold text-[#E5484D] bg-[#FDECEC] border border-[#F9C3C5] px-2.5 py-0.5 rounded-lg shadow-2xs">
+                                {lang === 'ur' ? 'ختم ہو چکا' : 'Sold Out'}
+                              </span>
+                            ) : hasVariants ? (
+                              <span className="text-[10px] font-semibold text-[#7A6A5C] bg-[#FFF9F2] border border-[#F0E4D7] px-2.5 py-0.5 rounded-lg flex items-center gap-1 shrink-0">
+                                <SlidersHorizontal className="w-2.5 h-2.5 text-[#7A6A5C]" />
+                                <span>Customizable</span>
+                              </span>
+                            ) : null}
                           </div>
 
-                          {isSoldOut ? (
-                            <span className="text-[10px] font-bold text-[#E5484D] bg-[#FDECEC] border border-[#F9C3C5] px-2 py-0.5 rounded-md">
-                              {lang === 'ur' ? 'ختم ہو چکا' : 'Sold Out'}
-                            </span>
-                          ) : hasVariants ? (
-                            <span className="text-[10px] font-medium text-[#7A6A5C] bg-[#FFF9F2] border border-[#F0E4D7] px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                              <SlidersHorizontal className="w-2.5 h-2.5 text-[#7A6A5C]" />
-                              <span>Customizable</span>
-                            </span>
-                          ) : null}
+                          {/* Dish Title */}
+                          <h3 className="font-heading font-extrabold text-[#2B2118] text-base sm:text-[17px] leading-snug tracking-tight group-hover:text-[#F26B1D] transition-colors">
+                            {item.title}
+                          </h3>
                         </div>
 
-                        {/* Image + Title + Description */}
-                        <div className="flex gap-3.5 mb-2">
-                          {itemImage ? (
-                            <img
-                              src={itemImage}
-                              alt={item.title}
-                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-[#F0E4D7] shrink-0 shadow-2xs"
-                            />
-                          ) : (
-                            <div
-                              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#FFF1E6] border border-[#FCD8BF] flex items-center justify-center text-[#F26B1D] shrink-0 shadow-2xs"
-                              style={{ color: primaryColor }}
-                            >
-                              <UtensilsCrossed className="w-6 h-6 stroke-[1.75]" />
-                            </div>
-                          )}
-
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-heading font-extrabold text-[#2B2118] text-sm sm:text-base leading-snug">
-                              {item.title}
-                            </h3>
-
+                        {/* 2. SEPARATE DESCRIPTION SECTION DIV + PHOTO */}
+                        <div className="flex items-start gap-3.5 mb-3 flex-1">
+                          {/* Dedicated Description Section */}
+                          <div className="dish-card-description flex-1 min-w-0 flex flex-col justify-start">
                             {itemDesc ? (
-                              <p className="text-xs text-[#7A6A5C] line-clamp-2 mt-1">
+                              <p className="text-xs sm:text-[13px] text-[#6E5D4F] leading-relaxed line-clamp-3">
                                 {itemDesc}
                               </p>
                             ) : itemIsDeal && dealInfo.deal_items ? (
-                              <p className="text-xs text-[#B87000] line-clamp-2 mt-1 font-medium">
-                                📦 {dealInfo.deal_items}
+                              <div className="text-xs text-[#9E6200] bg-[#FFF8E7] border border-[#FDE6BA] px-3 py-2 rounded-xl font-medium leading-relaxed">
+                                <span className="font-bold">📦 Includes:</span> {dealInfo.deal_items}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-[#9E8E81] italic">
+                                Prepared fresh with authentic spices and fine ingredients.
                               </p>
-                            ) : null}
+                            )}
+                          </div>
+
+                          {/* Food Photo Container */}
+                          <div className="relative shrink-0">
+                            {itemImage ? (
+                              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border border-[#F0E4D7] bg-[#FFF9F2] shadow-2xs group-hover:shadow-xs transition">
+                                <img
+                                  src={itemImage}
+                                  alt={item.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : (
+                              <div
+                                className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-[#FFF1E6] border border-[#FCD8BF] flex items-center justify-center text-[#F26B1D] shadow-2xs"
+                                style={{ color: primaryColor }}
+                              >
+                                <UtensilsCrossed className="w-7 h-7 stroke-[1.75]" />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Card Pricing & Button */}
-                      <div className="flex items-center justify-between pt-3 mt-2 border-t border-[#F0E4D7]">
+                      {/* 3. SEPARATE FOOTER / PRICING & ACTION SECTION DIV */}
+                      <div className="dish-card-footer flex items-center justify-between pt-3 mt-auto border-t border-[#F0E4D7]/80">
                         <div className="flex flex-col">
-                          <div className="flex items-baseline gap-1.5">
-                            {itemIsDeal && originalPrice > item.price && (
+                          <div className="flex items-baseline gap-2">
+                            {/* 1. DISCOUNTED / SELLING PRICE FIRST */}
+                            <span className="text-base sm:text-lg font-extrabold text-[#2B2118] font-mono">
+                              {formatPKR(pricing.finalPrice)}
+                            </span>
+                            {/* 2. THEN ORIGINAL PRICE STRIKETHROUGH */}
+                            {pricing.hasDiscount && (
                               <span className="text-xs text-[#9E8E81] line-through font-mono">
-                                {formatPKR(originalPrice)}
+                                {formatPKR(pricing.originalPrice)}
                               </span>
                             )}
-                            <span className="text-base font-extrabold text-[#2B2118] font-mono">
-                              {formatPKR(item.price)}
-                            </span>
                           </div>
-                          {savings > 0 && (
-                            <span className="text-[10px] font-bold text-[#1F9D55] bg-[#E7F6EC] border border-[#C0E9CE] px-2 py-0.5 rounded mt-0.5 w-fit">
-                              {t.save} {formatPKR(savings)} ({savingsPercent}% {t.off})
+                          {pricing.hasDiscount && (
+                            <span className="text-[10px] font-bold text-[#1F9D55] bg-[#E7F6EC] border border-[#C0E9CE] px-2 py-0.5 rounded-md mt-0.5 w-fit">
+                              {t.save || 'Save'} {formatPKR(pricing.savings)} ({pricing.discountPercent}% {t.off || 'off'})
                             </span>
                           )}
                         </div>
@@ -724,7 +854,7 @@ export default function CustomerMenuPage() {
                         {isSoldOut ? (
                           <button
                             disabled
-                            className="px-3.5 py-2 rounded-xl font-bold text-xs bg-[#FFF9F2] text-[#9E8E81] cursor-not-allowed border border-[#F0E4D7]"
+                            className="px-4 py-2 rounded-xl font-bold text-xs bg-[#FFF9F2] text-[#9E8E81] cursor-not-allowed border border-[#F0E4D7]"
                           >
                             {lang === 'ur' ? 'ختم ہو چکا' : 'Sold Out'}
                           </button>
@@ -732,9 +862,9 @@ export default function CustomerMenuPage() {
                           <button
                             onClick={() => handleOpenCustomization(item)}
                             style={{ backgroundColor: primaryColor }}
-                            className="px-3.5 py-2 rounded-xl font-bold text-xs transition flex items-center gap-1.5 cursor-pointer text-white shadow-xs hover:opacity-95 active:scale-[0.98]"
+                            className="px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer text-white shadow-xs hover:shadow-md hover:opacity-95 active:scale-[0.98]"
                           >
-                            <Plus className="w-3.5 h-3.5" />
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                             <span>{itemIsDeal ? (lang === 'ur' ? 'ڈیل منتخب کریں' : 'Choose Deal') : hasVariants ? t.choose_options : t.add}</span>
                           </button>
                         )}
@@ -747,7 +877,7 @@ export default function CustomerMenuPage() {
           </div>
 
           {/* Right Column: Web Desktop Persistent Cart & Checkout Panel */}
-          <div className="hidden lg:block lg:col-span-5 xl:col-span-4 sticky top-20 lg:top-24">
+          <div id="desktop-cart-sidebar" className="hidden lg:block lg:col-span-5 xl:col-span-4 sticky top-20 lg:top-24">
             <div className="h-[calc(100vh-6.5rem)] max-h-[820px] min-h-[480px] rounded-3xl bg-white border border-slate-200/90 shadow-sm flex flex-col overflow-hidden">
               {/* Header */}
               <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white z-10">
@@ -798,11 +928,18 @@ export default function CustomerMenuPage() {
                   <DirectOrderCheckout
                     cart={cart}
                     restaurant={restaurant}
+                    isDeliverableToCustomer={deliveryCoverage?.deliversToUser}
+                    deliveryAreas={deliveryAreas}
                     onBack={() => setIsDesktopCheckout(false)}
                     onOrderPlaced={(newOrder) => {
                       setDesktopOrder(newOrder);
                       setPersistedActiveOrderId(newOrder.id);
                       setCart([]);
+                      try {
+                        localStorage.removeItem(cartStorageKey);
+                      } catch (e) {
+                        console.warn(e);
+                      }
                     }}
                   />
                 </div>
@@ -887,6 +1024,14 @@ export default function CustomerMenuPage() {
                       </div>
                     )}
 
+                    {/* Outside Delivery Area Notice */}
+                    {customerLocation && !deliveryCoverage?.deliversToUser && (
+                      <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>Outside delivery area. Pickup or Dine-in available.</span>
+                      </div>
+                    )}
+
                     {/* Pricing Breakdown */}
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between text-[#7A6A5C] font-medium">
@@ -938,24 +1083,24 @@ export default function CustomerMenuPage() {
 
       {/* Sticky Bottom Cart Bar on Mobile Viewports (< lg) */}
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#F0E4D7] shadow-xl p-3 safe-area-inset-bottom">
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#F0E4D7] shadow-xl p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="max-w-md mx-auto">
             <button
               onClick={() => setIsMobileCartOpen(true)}
               style={{ backgroundColor: primaryColor }}
-              className="w-full py-3.5 px-4 rounded-2xl text-white font-bold text-sm shadow-lg flex items-center justify-between transition cursor-pointer active:scale-[0.99] hover:brightness-95"
+              className="w-full py-3 sm:py-3.5 px-4 rounded-2xl text-white font-bold text-sm shadow-lg flex items-center justify-between transition cursor-pointer active:scale-[0.99] hover:brightness-95"
             >
-              <div className="flex items-center gap-2 font-mono font-bold tracking-tight text-white text-xs sm:text-sm">
-                <span>
+              <div className="flex items-center gap-2 sm:gap-2.5 font-bold text-xs sm:text-sm">
+                <span className="bg-black/20 px-2 py-0.5 rounded-lg text-white font-mono text-xs">
                   {totalItemCount} {totalItemCount === 1 ? t.item : t.items}
                 </span>
-                <span className="opacity-70">•</span>
-                <span>{formatPKR(finalTotal)}</span>
-                <span className="opacity-70">•</span>
-                <span className="font-heading font-bold">{t.view_order}</span>
+                <span className="font-mono text-sm sm:text-base font-extrabold text-white">
+                  {formatPKR(finalTotal)}
+                </span>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 font-heading font-extrabold text-xs sm:text-sm text-white">
+                <span>{t.view_order}</span>
                 <ChevronRight className="w-4 h-4 stroke-[3]" />
               </div>
             </button>
@@ -980,7 +1125,16 @@ export default function CustomerMenuPage() {
         onUpdateQty={handleUpdateQty}
         onRemoveItem={handleRemoveItem}
         restaurant={restaurant}
-        onCartClear={() => setCart([])}
+        isDeliverableToCustomer={deliveryCoverage?.deliversToUser}
+        deliveryAreas={deliveryAreas}
+        onCartClear={() => {
+          setCart([]);
+          try {
+            localStorage.removeItem(cartStorageKey);
+          } catch (e) {
+            console.warn(e);
+          }
+        }}
       />
 
       {/* Desktop Checkout Modal */}
@@ -996,36 +1150,98 @@ export default function CustomerMenuPage() {
             <DirectOrderCheckout
               cart={cart}
               restaurant={restaurant}
+              isDeliverableToCustomer={deliveryCoverage?.deliversToUser}
+              deliveryAreas={deliveryAreas}
               onBack={() => setIsDesktopCheckout(false)}
               onOrderPlaced={(newOrder) => {
                 setIsDesktopCheckout(false);
                 setActiveTrackerModalOrder(newOrder);
                 setCart([]);
+                try {
+                  localStorage.removeItem(cartStorageKey);
+                } catch (e) {
+                  console.warn(e);
+                }
               }}
             />
           </div>
         </div>
       )}
 
+      {/* Leave Restaurant Cart Confirmation Modal */}
+      {showLeaveConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-[#2B2118]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#F0E4D7] text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF] flex items-center justify-center mx-auto shadow-2xs">
+              <ShoppingBag className="w-6 h-6" style={{ color: primaryColor }} />
+            </div>
+            <div>
+              <h3 className="font-heading font-extrabold text-[#2B2118] text-base">
+                Leave Restaurant?
+              </h3>
+              <p className="text-xs text-[#7A6A5C] mt-2 leading-relaxed">
+                Your cart will be kept for this restaurant. Leave?
+              </p>
+              <div className="mt-3 text-[11px] font-mono font-bold text-[#F26B1D] bg-[#FFF1E6] py-1 px-3 rounded-full inline-block">
+                {totalItemCount} {totalItemCount === 1 ? 'item' : 'items'} saved ({formatPKR(subtotal)})
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirmModal(false)}
+                className="py-2.5 px-3 rounded-xl border border-[#F0E4D7] bg-white text-[#2B2118] font-bold text-xs hover:bg-[#FFF1E6] transition cursor-pointer"
+              >
+                Stay
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveConfirmModal(false);
+                  navigate('/');
+                }}
+                style={{ backgroundColor: primaryColor }}
+                className="py-2.5 px-3 rounded-xl text-white font-extrabold text-xs shadow-md hover:brightness-95 transition cursor-pointer"
+              >
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Active Order Live Tracker Modal */}
       {activeTrackerModalOrder && (
-        <div className="fixed inset-0 z-50 bg-[#2B2118]/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="relative w-full max-w-xl">
-            <button
-              onClick={() => setActiveTrackerModalOrder(null)}
-              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-white text-[#2B2118] shadow-lg border border-[#F0E4D7] flex items-center justify-center hover:bg-[#FFF1E6] transition cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+        <div className="fixed inset-0 z-50 bg-[#2B2118]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col my-auto">
             <ErrorBoundary>
               <CustomerOrderTracker
                 order={activeTrackerModalOrder.status ? activeTrackerModalOrder : null}
                 orderId={activeTrackerModalOrder.id}
                 restaurant={restaurant}
-                onClose={() => setActiveTrackerModalOrder(null)}
+                onClose={() => {
+                  setActiveTrackerModalOrder(null);
+                  try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('order');
+                    url.searchParams.delete('orderId');
+                    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+                  } catch (e) {
+                    console.warn(e);
+                  }
+                }}
                 onNewOrder={() => {
                   setActiveTrackerModalOrder(null);
                   setCart([]);
+                  try {
+                    localStorage.removeItem(cartStorageKey);
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('order');
+                    url.searchParams.delete('orderId');
+                    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+                  } catch (e) {
+                    console.warn(e);
+                  }
                 }}
               />
             </ErrorBoundary>
@@ -1055,7 +1271,19 @@ export default function CustomerMenuPage() {
             <span>• Direct Ordering Storefront</span>
           </div>
 
-          <div className="flex items-center gap-3 text-[#7A6A5C]">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-[#7A6A5C]">
+            {/* Smaller "More restaurants" link in footer */}
+            <button
+              type="button"
+              onClick={handleBackClick}
+              className="text-[#7A6A5C] hover:text-[#2B2118] font-bold transition flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0 text-xs"
+              title="Explore other restaurants"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>More restaurants</span>
+            </button>
+
+            <span className="text-[#F0E4D7]">•</span>
             <p>&copy; 2026 {restaurant.name}. Direct Online Ordering.</p>
             <span className="text-[#F0E4D7]">•</span>
             <Link

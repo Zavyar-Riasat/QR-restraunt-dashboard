@@ -101,6 +101,26 @@ export function AuthProvider({ children }) {
     return updated;
   };
 
+  const changePassword = async (currentPassword, newPassword) => {
+    return await authService.changePassword(currentPassword, newPassword);
+  };
+
+  const viewPassword = async (userId) => {
+    return await authService.viewPassword(userId);
+  };
+
+  const resetPassword = async (userId, manualPassword = null) => {
+    return await authService.resetPassword(userId, manualPassword);
+  };
+
+  const getAuditLogs = async () => {
+    return await authService.getAuditLogs();
+  };
+
+  const fetchRegisteredUsers = async () => {
+    return await authService.fetchRegisteredUsers();
+  };
+
   const value = {
     user,
     session,
@@ -111,8 +131,13 @@ export function AuthProvider({ children }) {
     logout,
     registerUser,
     getRegisteredUsers,
+    fetchRegisteredUsers,
     deleteUser,
     updateUserCredentials,
+    changePassword,
+    viewPassword,
+    resetPassword,
+    getAuditLogs,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

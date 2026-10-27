@@ -40,7 +40,7 @@ export class RawBtDriver extends BaseDriver {
     // On Android: check if RawBT local service port 40213 is responding
     let backgroundServiceActive = false;
     try {
-      const res = await fetch('http://localhost:40213/health', {
+      const res = await fetch('http://127.0.0.1:40213/health', {
         method: 'GET',
         signal: AbortSignal.timeout(600),
       });

@@ -1,5 +1,5 @@
 /**
- * Verification test suite for DineHQ Electron Desktop Wrapper
+ * Verification test suite for Dineflow Electron Desktop Wrapper
  */
 
 const fs = require('fs');
@@ -22,7 +22,7 @@ function assert(condition, message) {
 }
 
 console.log('====================================================');
-console.log('   DineHQ Electron Desktop Wrapper Verification     ');
+console.log('   Dineflow Electron Desktop Wrapper Verification     ');
 console.log('====================================================\n');
 
 // 1. Check folder separation
@@ -66,7 +66,7 @@ assert(Array.isArray(configJson.allowedOrigins), 'allowedOrigins configured for 
 // 4. Check Offline Screen
 console.log('\n📶 Test Suite 4: Offline Screen UI');
 const offlineHtml = fs.readFileSync(path.join(DESKTOP_DIR, 'src', 'offline.html'), 'utf8');
-assert(offlineHtml.includes('Unable to Reach DineHQ'), 'Offline title present');
+assert(offlineHtml.includes('Unable to Reach Dineflow'), 'Offline title present');
 assert(offlineHtml.includes('Retry Connection'), 'Retry button present');
 assert(offlineHtml.includes('retryConnection()'), 'Retry trigger function hooked');
 assert(offlineHtml.includes('No Internet Connection'), 'No Internet badge present');
@@ -74,7 +74,7 @@ assert(offlineHtml.includes('No Internet Connection'), 'No Internet badge presen
 // 5. Check Preload Security
 console.log('\n🔒 Test Suite 5: Preload Security & API Exposure');
 const preloadJs = fs.readFileSync(path.join(DESKTOP_DIR, 'src', 'preload.js'), 'utf8');
-assert(preloadJs.includes("contextBridge.exposeInMainWorld('dinehqDesktop'"), 'Exposes dinehqDesktop securely');
+assert(preloadJs.includes("contextBridge.exposeInMainWorld('dineflowDesktop'"), 'Exposes dineflowDesktop securely');
 assert(preloadJs.includes("contextBridge.exposeInMainWorld('electronAPI'"), 'Exposes electronAPI for backward compatibility');
 assert(!preloadJs.includes('require(') || !preloadJs.includes('contextBridge.exposeInMainWorld("process"'), 'Raw Node APIs not exposed');
 assert(preloadJs.includes('getSystemPrinters'), 'Exposes getSystemPrinters');
@@ -110,10 +110,10 @@ assert(alertJs.includes('setMuted'), 'Provides mute/unmute control');
 // 9. Check Tray Manager & Window Manager
 console.log('\n📌 Test Suite 9: Tray & Auto-Launch');
 const trayJs = fs.readFileSync(path.join(DESKTOP_DIR, 'src', 'trayManager.js'), 'utf8');
-assert(trayJs.includes('Open DineHQ'), 'Tray menu has Open DineHQ');
+assert(trayJs.includes('Open Dineflow'), 'Tray menu has Open Dineflow');
 assert(trayJs.includes('Mute Sound Alerts'), 'Tray menu has Mute Sound Alerts');
 assert(trayJs.includes('Start with Windows'), 'Tray menu has Start with Windows');
-assert(trayJs.includes('Quit DineHQ'), 'Tray menu has Quit');
+assert(trayJs.includes('Quit Dineflow'), 'Tray menu has Quit');
 
 const winMgrJs = fs.readFileSync(path.join(DESKTOP_DIR, 'src', 'windowManager.js'), 'utf8');
 assert(winMgrJs.includes('window-state.json'), 'Persists window size and position');

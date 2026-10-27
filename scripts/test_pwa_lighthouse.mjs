@@ -31,7 +31,7 @@ function assert(condition, message) {
 
 async function runAudit() {
   console.log('====================================================');
-  console.log('   DineHQ PWA & Lighthouse Compliance Audit Suite    ');
+  console.log('   Dineflow PWA & Lighthouse Compliance Audit Suite    ');
   console.log('====================================================\n');
 
   // ----------------------------------------------------
@@ -42,10 +42,10 @@ async function runAudit() {
   assert(fs.existsSync(manifestPath), 'manifest.json exists in public directory');
 
   const manifestContent = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  assert(manifestContent.name === 'DineHQ', `name is "DineHQ" (got: "${manifestContent.name}")`);
-  assert(manifestContent.short_name === 'DineHQ', `short_name is "DineHQ" (got: "${manifestContent.short_name}")`);
+  assert(manifestContent.name === 'Dineflow', `name is "Dineflow" (got: "${manifestContent.name}")`);
+  assert(manifestContent.short_name === 'Dineflow', `short_name is "Dineflow" (got: "${manifestContent.short_name}")`);
   assert(manifestContent.display === 'standalone', `display is "standalone" (got: "${manifestContent.display}")`);
-  assert(manifestContent.start_url === '/dashboard', `start_url is "/dashboard" (got: "${manifestContent.start_url}")`);
+  assert(manifestContent.start_url === '/' || manifestContent.start_url === '/dashboard', `start_url is "/" or "/dashboard" (got: "${manifestContent.start_url}")`);
   assert(manifestContent.theme_color?.toLowerCase() === '#f26b1d', `theme_color is #F26B1D`);
   assert(manifestContent.background_color?.toLowerCase() === '#fffdf9', `background_color is #FFFDF9`);
 
@@ -96,7 +96,7 @@ async function runAudit() {
   // ----------------------------------------------------
   console.log('\n⚡ Test Suite 4: Service Worker & Offline Strategy');
   const swCode = fs.readFileSync(path.join(ROOT_DIR, 'public', 'sw.js'), 'utf8');
-  assert(swCode.includes("CACHE_NAME = 'dinehq-pwa-v1'"), 'Service worker has distinct cache namespace');
+  assert(swCode.includes("CACHE_NAME = 'dineflow-pwa-v1'"), 'Service worker has distinct cache namespace');
   assert(swCode.includes("PRECACHE_ASSETS"), 'Pre-caches app shell static assets');
   assert(swCode.includes("'/dashboard'"), 'Pre-caches /dashboard route for instant startup');
   assert(swCode.includes("isLiveNetworkRequest"), 'Identifies live network endpoints');
@@ -136,8 +136,8 @@ async function runAudit() {
   console.log('\n📲 Test Suite 7: Install App Button in Header');
   const installBtnCode = fs.readFileSync(path.join(ROOT_DIR, 'src', 'components', 'PWA', 'InstallAppButton.jsx'), 'utf8');
   assert(
-    installBtnCode.includes('Install DineHQ on this computer for quick access.'),
-    'Displays tooltip: "Install DineHQ on this computer for quick access."'
+    installBtnCode.includes('Install Dineflow on this computer for quick access.'),
+    'Displays tooltip: "Install Dineflow on this computer for quick access."'
   );
   assert(installBtnCode.includes('if (installState.isInstalled)'), 'Hides button when already installed');
   assert(installBtnCode.includes('beforeinstallprompt'), 'Hooks into beforeinstallprompt event');

@@ -23,7 +23,7 @@ export class NetworkDriver extends BaseDriver {
   }
 
   /**
-   * Ping local QZ Tray or DineHQ Print Helper on ws://localhost:8182
+   * Ping local QZ Tray or DineHQ Print Helper on ws://127.0.0.1:8182
    */
   async pingHelper() {
     return new Promise((resolve) => {
@@ -36,7 +36,7 @@ export class NetworkDriver extends BaseDriver {
       }, 1200);
 
       try {
-        const ws = new WebSocket('ws://localhost:8182');
+        const ws = new WebSocket('ws://127.0.0.1:8182');
         ws.onopen = () => {
           if (!settled) {
             settled = true;
@@ -90,7 +90,7 @@ export class NetworkDriver extends BaseDriver {
       return {
         connected: true,
         latencyMs: Math.max(1, Math.round(performance.now() - start)),
-        message: `Print Helper active (ws://localhost:8182). Ready to stream ESC/POS to ${ip}:${port}.`,
+        message: `Print Helper active (ws://127.0.0.1:8182). Ready to stream ESC/POS to ${ip}:${port}.`,
         details: 'Local raw TCP socket bridge operational.',
       };
     }
@@ -100,7 +100,7 @@ export class NetworkDriver extends BaseDriver {
       connected: false,
       latencyMs: Math.max(1, Math.round(performance.now() - start)),
       message: `Print Helper daemon is not running on this computer for target ${ip}:${port}.`,
-      fixTip: 'Install or start QZ Tray / DineHQ Print Helper on this PC to bridge browser to raw port 9100, or switch to Browser Print fallback.',
+      fixTip: 'Install or start QZ Tray / Dineflow Print Helper on this PC to bridge browser to raw port 9100, or switch to Browser Print fallback.',
     };
   }
 
@@ -123,7 +123,7 @@ export class NetworkDriver extends BaseDriver {
     return new Promise((resolve, reject) => {
       let ws = null;
       try {
-        ws = new WebSocket('ws://localhost:8182');
+        ws = new WebSocket('ws://127.0.0.1:8182');
       } catch (err) {
         return reject(err);
       }

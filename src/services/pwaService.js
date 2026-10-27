@@ -1,5 +1,5 @@
 /**
- * DineHQ PWA Service
+ * Dineflow PWA Service
  * Handles Service Worker registration, install prompts, offline detection,
  * Web Push / Background notifications, and Screen Wake Lock API.
  */
@@ -52,7 +52,7 @@ class PWAService {
       this.deferredPrompt = null;
       this.isInstalled = true;
       this.notifyInstallListeners();
-      console.info('[DineHQ PWA] DineHQ was installed successfully.');
+      console.info('[Dineflow PWA] Dineflow was installed successfully.');
     });
 
     // 4. Online / Offline listeners
@@ -90,10 +90,10 @@ class PWAService {
         scope: '/',
       });
       this.swRegistration = registration;
-      console.info('[DineHQ PWA] Service Worker registered with scope:', registration.scope);
+      console.info('[Dineflow PWA] Service Worker registered with scope:', registration.scope);
       return registration;
     } catch (err) {
-      console.warn('[DineHQ PWA] Service Worker registration failed:', err);
+      console.warn('[Dineflow PWA] Service Worker registration failed:', err);
       return null;
     }
   }
@@ -133,7 +133,7 @@ class PWAService {
   }
 
   /**
-   * Prompt user to install DineHQ PWA
+   * Prompt user to install Dineflow PWA
    */
   async promptInstall() {
     if (!this.deferredPrompt) {
@@ -206,7 +206,7 @@ class PWAService {
       return true;
     } catch (err) {
       // AbortError or NotAllowedError (e.g. low battery)
-      console.info('[DineHQ PWA] Screen Wake Lock not available:', err.message);
+      console.info('[Dineflow PWA] Screen Wake Lock not available:', err.message);
       this.isWakeLockActive = false;
       this.notifyWakeLockListeners(false);
       return false;
@@ -300,7 +300,7 @@ class PWAService {
             body,
             icon: '/icons/icon-192.png',
             badge: '/icons/icon-192.png',
-            tag: `dinehq-order-${order.id}`,
+            tag: `dineflow-order-${order.id}`,
             renotify: true,
             data: { url: '/dashboard' },
             silent: false,
@@ -309,7 +309,7 @@ class PWAService {
           new Notification(title, {
             body,
             icon: '/icons/icon-192.png',
-            tag: `dinehq-order-${order.id}`,
+            tag: `dineflow-order-${order.id}`,
           });
         }
       } catch (err) {

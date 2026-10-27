@@ -219,3 +219,75 @@ export function getItemDescription(item) {
   return '';
 }
 
+/**
+ * Resolves discount and pricing details for any menu item (dishes and deals):
+ * Guarantees discounted selling price is primary, original price is secondary with strikethrough.
+ *
+ * @param {Object} item
+ * @param {Object} [restaurant]
+ * @returns {{
+ *   finalPrice: number,
+ *   originalPrice: number,
+ *   hasDiscount: boolean,
+ *   savings: number,
+ *   discountPercent: number
+ * }}
+ */
+export function getItemPricing(item, restaurant = null) {
+  if (!item) {
+    return { finalPrice: 0, originalPrice: 0, hasDiscount: false, savings: 0, discountPercent: 0 };
+  }
+
+  const currentPrice = Number(item.price) || 0;
+  const dealInfo = getItemDealInfo(item);
+
+  // 1. Direct item-level original price (from item.original_price, item.variants.original_price, compare_at_price, or dealInfo)
+  let rawOriginalPrice =
+    Number(item.original_price) ||
+    Number(item.variants?.original_price) ||
+    Number(item.compare_at_price) ||
+    Number(item.variants?.compare_at_price) ||
+    (dealInfo?.original_price ? Number(dealInfo.original_price) : 0);
+
+  // 2. Direct discount percentage if configured on item
+  const itemDiscountPercent =
+    Number(item.discount_percent) ||
+    Number(item.variants?.discount_percent) ||
+    Number(item.discount_percentage) ||
+    Number(item.variants?.discount_percentage) ||
+    0;
+
+  let finalPrice = currentPrice;
+  let originalPrice = rawOriginalPrice;
+
+  if (rawOriginalPrice > currentPrice) {
+    // Standard case: Original price is higher than current selling price
+    originalPrice = rawOriginalPrice;
+    finalPrice = currentPrice;
+  } else if (itemDiscountPercent > 0 && itemDiscountPercent < 100) {
+    // Item has explicit discount percentage
+    originalPrice = currentPrice;
+    finalPrice = Math.round(currentPrice * (1 - itemDiscountPercent / 100));
+  } else if (restaurant && Number(restaurant.discount_percentage) > 0 && !dealInfo) {
+    // Store-wide active discount applied on standard menu dishes
+    const restDiscount = Number(restaurant.discount_percentage);
+    if (restDiscount > 0 && restDiscount < 100) {
+      originalPrice = currentPrice;
+      finalPrice = Math.round(currentPrice * (1 - restDiscount / 100));
+    }
+  }
+
+  const hasDiscount = originalPrice > finalPrice && finalPrice > 0;
+  const savings = hasDiscount ? originalPrice - finalPrice : 0;
+  const discountPercent =
+    hasDiscount && originalPrice > 0 ? Math.round((savings / originalPrice) * 100) : 0;
+
+  return {
+    finalPrice,
+    originalPrice: hasDiscount ? originalPrice : 0,
+    hasDiscount,
+    savings,
+    discountPercent,
+  };
+}
+

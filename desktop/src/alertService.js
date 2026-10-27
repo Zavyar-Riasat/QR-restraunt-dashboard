@@ -137,7 +137,7 @@ class AlertService {
       const totalStr = order.total_payable ? `Rs. ${Number(order.total_payable).toLocaleString()}` : '';
 
       const notif = new Notification({
-        title: `🚨 DineHQ: New ${orderType} Order #${orderId}`,
+        title: `🚨 Dineflow: New ${orderType} Order #${orderId}`,
         body: `${customer} placed an order ${totalStr ? '• ' + totalStr : ''}. Tap to view & accept in kitchen.`,
         icon: path.join(__dirname, '..', 'assets', 'icon.png'),
         silent: true, // We handle our own louder repeating sound

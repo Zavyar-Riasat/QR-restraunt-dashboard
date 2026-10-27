@@ -7,11 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "test": "node scripts/test_e2e_flow.js",
+    "test": "node scripts/test_e2e_flow.js && node scripts/test_order_reports.js && node scripts/test_marketplace_food.js && node scripts/test_modes_and_food_api.js && node scripts/test_order_rating.js",
     "preview": "vite preview",
     "electron": "electron electron/main.cjs"
   },
   "dependencies": {
+    "@geoman-io/leaflet-geoman-free": "^2.20.4",
     "@supabase/supabase-js": "^2.117.3",
     "canvas-confetti": "^1.9.4",
     "html2canvas": "^1.4.1",

@@ -133,3 +133,92 @@ BEGIN
         );
     END IF;
 END $$;
+
+-- ==============================================================================
+-- 7. MARKETPLACE DATA MODEL (Nearby Restaurants, Delivery Areas, Customers)
+-- ==============================================================================
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS latitude NUMERIC(10, 7);
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS longitude NUMERIC(10, 7);
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS city VARCHAR(100) DEFAULT 'Islamabad';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS area VARCHAR(100) DEFAULT 'F-7';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS cover_image TEXT;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS logo TEXT;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS cuisines JSONB DEFAULT '["Burgers", "Fast Food"]'::jsonb;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS opening_hours JSONB DEFAULT '{
+  "monday": {"open": "11:00", "close": "02:00", "is_closed": false},
+  "tuesday": {"open": "11:00", "close": "02:00", "is_closed": false},
+  "wednesday": {"open": "11:00", "close": "02:00", "is_closed": false},
+  "thursday": {"open": "11:00", "close": "02:00", "is_closed": false},
+  "friday": {"open": "11:00", "close": "03:00", "is_closed": false},
+  "saturday": {"open": "11:00", "close": "03:00", "is_closed": false},
+  "sunday": {"open": "11:00", "close": "02:00", "is_closed": false}
+}'::jsonb;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS delivery_enabled BOOLEAN DEFAULT true;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS pickup_enabled BOOLEAN DEFAULT true;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS dinein_enabled BOOLEAN DEFAULT true;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC(10, 2) DEFAULT 150.00;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS min_order NUMERIC(10, 2) DEFAULT 500.00;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS prep_time VARCHAR(50) DEFAULT '20-30 mins';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS rating NUMERIC(3, 2) DEFAULT 4.8;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS listing_status VARCHAR(20) DEFAULT 'approved';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS listed_publicly BOOLEAN DEFAULT true;
+
+-- Delivery Areas Table
+CREATE TABLE IF NOT EXISTS delivery_areas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL DEFAULT 'radius' CHECK (type IN ('radius', 'polygon')),
+    radius_km NUMERIC(6, 2) DEFAULT 5.0,
+    polygon JSONB,
+    fee NUMERIC(10, 2) DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_delivery_areas_restaurant_id ON delivery_areas(restaurant_id);
+
+-- Customers Table
+CREATE TABLE IF NOT EXISTS customers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(25) UNIQUE,
+    email VARCHAR(255) UNIQUE,
+    avatar TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+
+-- Customer Addresses Table
+CREATE TABLE IF NOT EXISTS customer_addresses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    label VARCHAR(50) DEFAULT 'Home' CHECK (label IN ('Home', 'Work', 'Other')),
+    address TEXT NOT NULL,
+    latitude NUMERIC(10, 7),
+    longitude NUMERIC(10, 7),
+    landmark VARCHAR(255),
+    is_default BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_customer_addresses_customer_id ON customer_addresses(customer_id);
+
+-- Favorites Table
+CREATE TABLE IF NOT EXISTS favorites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_customer_restaurant_favorite UNIQUE (customer_id, restaurant_id)
+);
+CREATE INDEX IF NOT EXISTS idx_favorites_customer_id ON favorites(customer_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_restaurant_id ON favorites(restaurant_id);
+
+ALTER TABLE delivery_areas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable all access for delivery areas" ON delivery_areas FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for customers" ON customers FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for customer_addresses" ON customer_addresses FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for favorites" ON favorites FOR ALL USING (true) WITH CHECK (true);

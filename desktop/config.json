@@ -1,5 +1,5 @@
 {
-  "dashboardUrl": "https://dinehq.app/dashboard",
+  "dashboardUrl": "https://dineflow.app/dashboard",
   "devDashboardUrl": "http://localhost:5173/dashboard",
   "useDevInDevelopment": true,
   "startWithWindows": true,
@@ -7,8 +7,12 @@
   "autoUpdate": true,
   "updateFeedUrl": "https://github.com/Zavyar-Riasat/QR-restraunt-dashboard/releases/latest/download",
   "allowedOrigins": [
+    "https://dineflow.app",
+    "https://*.dineflow.app",
     "https://dinehq.app",
     "https://*.dinehq.app",
+    "https://qr-restraunt-dashboard.vercel.app",
+    "https://*.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173"
   ]

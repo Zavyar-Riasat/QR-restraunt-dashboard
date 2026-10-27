@@ -730,7 +730,7 @@ export const customerKhataService = {
   /**
    * Export customer ledger as CSV string
    */
-  exportCustomerLedgerCSV(restaurantId, customerPhone, restaurantName = 'DineHQ Restaurant') {
+  exportCustomerLedgerCSV(restaurantId, customerPhone, restaurantName = 'Dineflow Restaurant') {
     const { customer, lineItems, summary } = this.getCustomerLedger(restaurantId, customerPhone);
     if (!customer) return '';
 
@@ -868,4 +868,70 @@ export const customerKhataService = {
       topOverdueCustomers: overdue.slice(0, 5),
     };
   },
+
+  /**
+   * Get all recorded dues and ledger balances across all restaurants for a customer phone (read-only for customer dashboard)
+   */
+  getCustomerDuesAcrossRestaurants(customerPhone) {
+    if (!customerPhone) return { totalBalanceDuePaisa: 0, totalBalanceDueRupees: 0, duesByRestaurant: [] };
+    const cleanPhone = normalizePhone(customerPhone);
+    if (!cleanPhone) return { totalBalanceDuePaisa: 0, totalBalanceDueRupees: 0, duesByRestaurant: [] };
+
+    // Find all restaurant IDs present in localStorage (customers, orders, or defaults)
+    const restaurantIds = new Set(['rest-101', 'burgersmoke', 'crust', 'shinwari', 'greenoasis']);
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(CUSTOMERS_STORAGE_PREFIX)) {
+          restaurantIds.add(key.replace(CUSTOMERS_STORAGE_PREFIX, ''));
+        } else if (key && key.startsWith('dinehq_orders_')) {
+          restaurantIds.add(key.replace('dinehq_orders_', ''));
+        }
+      }
+    } catch (e) {
+      console.warn('Error discovering restaurants for customer dues:', e);
+    }
+
+    const duesByRestaurant = [];
+    let grandTotalPaisa = 0;
+
+    restaurantIds.forEach((restId) => {
+      const ledgerData = this.getCustomerLedger(restId, cleanPhone);
+      if (ledgerData && ledgerData.customer) {
+        const summary = ledgerData.summary || {};
+        const balanceDuePaisa = summary.currentBalancePaisa != null ? summary.currentBalancePaisa : (ledgerData.customer.balance_due_paisa || 0);
+
+        // Include if there is a recorded balance due OR if there is transaction history
+        if (balanceDuePaisa > 0 || (ledgerData.lineItems && ledgerData.lineItems.length > 0)) {
+          grandTotalPaisa += Math.max(0, balanceDuePaisa);
+
+          let prettyName = 'Restaurant';
+          if (restId === 'rest-101' || restId === 'burgersmoke') prettyName = 'Burger & Smoke Co.';
+          else if (restId === 'crust') prettyName = 'Crust & Crave Pizzeria';
+          else if (restId === 'shinwari') prettyName = 'Khyber Shinwari & Karahi Dera';
+          else if (restId === 'greenoasis') prettyName = 'Green Oasis Cafe';
+          else prettyName = restId.charAt(0).toUpperCase() + restId.slice(1);
+
+          duesByRestaurant.push({
+            restaurantId: restId,
+            restaurantName: prettyName,
+            balanceDuePaisa: Math.max(0, balanceDuePaisa),
+            balanceDueRupees: toRupees(Math.max(0, balanceDuePaisa)),
+            dueDate: ledgerData.customer.due_date || null,
+            totalOrdersCount: ledgerData.customer.total_orders_count || 0,
+            totalSpentPaisa: ledgerData.customer.total_spent_paisa || 0,
+            totalPaidPaisa: ledgerData.customer.total_paid_paisa || 0,
+            lineItems: ledgerData.lineItems || [],
+          });
+        }
+      }
+    });
+
+    return {
+      totalBalanceDuePaisa: grandTotalPaisa,
+      totalBalanceDueRupees: toRupees(grandTotalPaisa),
+      duesByRestaurant,
+    };
+  },
 };
+

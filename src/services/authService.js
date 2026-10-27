@@ -1,39 +1,190 @@
 import { supabase } from '../lib/supabaseClient.js';
+import { isReservedSlug } from '../config/appConfig.js';
 
 const USERS_STORAGE_KEY = 'dinehq_registered_users';
 const CURRENT_SESSION_KEY = 'dinehq_current_session';
 
-// Pre-seeded verified accounts for instant access
+// Pre-seeded verified accounts for instant access (NO plain-text passwords stored)
 const DEFAULT_ACCOUNTS = [
   {
     id: 'user-admin-01',
-    email: 'admin@dinehq.pk',
-    password: 'AdminPass123!',
+    email: 'admin@dineflow.pk',
     name: 'Platform Super Admin',
     role: 'admin',
     restaurant_name: 'Burger & Smoke Co.',
     restaurant_slug: 'burgersmoke',
     phone: '923001234567',
     whatsapp_number: '923001234567',
+    password_masked: '••••••••••••',
+    must_change_password: false,
     created_at: new Date('2026-10-01T10:00:00Z').toISOString(),
   },
   {
     id: 'user-owner-01',
     email: 'owner@burgersmoke.com',
-    password: 'OwnerPass123!',
     name: 'Burger & Smoke Manager',
     role: 'owner',
+    restaurant_id: 'rest-101',
     restaurant_name: 'Burger & Smoke Co.',
     restaurant_slug: 'burgersmoke',
     phone: '923001234567',
     whatsapp_number: '923001234567',
+    password_masked: '••••••••••••',
+    must_change_password: false,
     created_at: new Date('2026-10-05T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-02',
+    email: 'manager@crust.com',
+    name: 'Crust & Crave Manager',
+    role: 'owner',
+    restaurant_id: 'rest-102',
+    restaurant_name: 'Crust & Crave Pizzeria',
+    restaurant_slug: 'crust',
+    phone: '923005551234',
+    whatsapp_number: '923005551234',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-06T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-03',
+    email: 'manager@shinwari.com',
+    name: 'Khyber Shinwari Manager',
+    role: 'owner',
+    restaurant_id: 'rest-103',
+    restaurant_name: 'Khyber Shinwari & Karahi Dera',
+    restaurant_slug: 'shinwari',
+    phone: '923019887766',
+    whatsapp_number: '923019887766',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-07T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-04',
+    email: 'manager@greenoasis.com',
+    name: 'Green Oasis Manager',
+    role: 'owner',
+    restaurant_id: 'rest-104',
+    restaurant_name: 'Green Oasis Cafe & Bakery',
+    restaurant_slug: 'greenoasis',
+    phone: '923023344556',
+    whatsapp_number: '923023344556',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-08T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-05',
+    email: 'manager@tokyosushi.com',
+    name: 'Tokyo Sushi Manager',
+    role: 'owner',
+    restaurant_id: 'rest-105',
+    restaurant_name: 'Tokyo Sushi & Ramen Bar',
+    restaurant_slug: 'tokyosushi',
+    phone: '923035566778',
+    whatsapp_number: '923035566778',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-09T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-06',
+    email: 'manager@royaltaj.com',
+    name: 'Royal Taj Manager',
+    role: 'owner',
+    restaurant_id: 'rest-106',
+    restaurant_name: 'Royal Taj Desi Continental',
+    restaurant_slug: 'royaltaj',
+    phone: '923046677889',
+    whatsapp_number: '923046677889',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-10T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-07',
+    email: 'manager@fiestamex.com',
+    name: 'Fiesta Mexicana Manager',
+    role: 'owner',
+    restaurant_id: 'rest-107',
+    restaurant_name: 'Fiesta Mexicana Grill & Tacos',
+    restaurant_slug: 'fiestamex',
+    phone: '923057788990',
+    whatsapp_number: '923057788990',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-11T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-08',
+    email: 'manager@sweetretreat.com',
+    name: 'Sweet Retreat Manager',
+    role: 'owner',
+    restaurant_id: 'rest-108',
+    restaurant_name: 'Sweet Retreat Desserts & Gelato',
+    restaurant_slug: 'sweetretreat',
+    phone: '923068899001',
+    whatsapp_number: '923068899001',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-12T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-09',
+    email: 'manager@chaijunction.com',
+    name: 'Chai Junction Manager',
+    role: 'owner',
+    restaurant_id: 'rest-109',
+    restaurant_name: 'Chai Junction & Traditional Dhaba',
+    restaurant_slug: 'chaijunction',
+    phone: '923079900112',
+    whatsapp_number: '923079900112',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-13T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-10',
+    email: 'manager@stoneove.com',
+    name: 'Stone Oven Manager',
+    role: 'owner',
+    restaurant_id: 'rest-110',
+    restaurant_name: 'stoneove',
+    restaurant_slug: 'stoneove',
+    phone: '923001111111',
+    whatsapp_number: '923001111111',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-14T12:00:00Z').toISOString(),
   },
 ];
 
 export const authService = {
   /**
-   * Get all registered users (combining default and locally stored users)
+   * Get all registered users for administration (passwords are strictly masked)
+   */
+  async fetchRegisteredUsers() {
+    const session = this.getCurrentSession();
+    if (session?.token) {
+      try {
+        const res = await fetch('/api/admin/users', {
+          headers: { Authorization: `Bearer ${session.token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.users)) {
+            return data.users;
+          }
+        }
+      } catch (_) {}
+    }
+    return this.getRegisteredUsers();
+  },
+
+  /**
+   * Get registered users from local cache (passwords masked)
    */
   getRegisteredUsers() {
     try {
@@ -41,10 +192,15 @@ export const authService = {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge with default accounts, avoiding duplicate emails
           const emailMap = new Map();
           [...DEFAULT_ACCOUNTS, ...parsed].forEach((u) => {
-            emailMap.set(u.email.toLowerCase(), u);
+            const userObj = { ...u, password_masked: '••••••••••••' };
+            delete userObj.password;
+            delete userObj.password_encrypted;
+            if (userObj.email && userObj.email.toLowerCase() === 'admin@dinehq.pk') {
+              userObj.email = 'admin@dineflow.pk';
+            }
+            emailMap.set(userObj.email.toLowerCase(), userObj);
           });
           return Array.from(emailMap.values());
         }
@@ -56,19 +212,17 @@ export const authService = {
   },
 
   /**
-   * Save a newly registered user and persist
+   * Save a newly registered user locally (sanitized)
    */
   saveRegisteredUser(userData) {
     const currentUsers = this.getRegisteredUsers();
-    // Check if email already exists
     const existingIndex = currentUsers.findIndex(
       (u) => u.email.toLowerCase() === userData.email.toLowerCase()
     );
 
-    const newUser = {
+    const safeUser = {
       id: userData.id || `user-${Date.now()}`,
       email: userData.email.trim().toLowerCase(),
-      password: userData.password,
       name: userData.name || userData.restaurant_name || 'Restaurant Owner',
       role: userData.role || 'owner',
       restaurant_id: userData.restaurant_id || null,
@@ -76,15 +230,17 @@ export const authService = {
       restaurant_slug: userData.restaurant_slug,
       phone: userData.phone || userData.whatsapp_number || '923001234567',
       whatsapp_number: userData.phone || userData.whatsapp_number || '923001234567',
+      password_masked: '••••••••••••',
+      must_change_password: Boolean(userData.must_change_password),
       created_at: new Date().toISOString(),
     };
 
     let updatedUsers;
     if (existingIndex >= 0) {
       updatedUsers = [...currentUsers];
-      updatedUsers[existingIndex] = { ...updatedUsers[existingIndex], ...newUser };
+      updatedUsers[existingIndex] = { ...updatedUsers[existingIndex], ...safeUser };
     } else {
-      updatedUsers = [newUser, ...currentUsers];
+      updatedUsers = [safeUser, ...currentUsers];
     }
 
     try {
@@ -93,11 +249,11 @@ export const authService = {
       console.warn('Failed to persist users to localStorage:', e);
     }
 
-    return newUser;
+    return safeUser;
   },
 
   /**
-   * Update an existing user's credentials (email, password, name, details)
+   * Update an existing user's credentials (email, name, role)
    */
   async updateUserCredentials(userId, updates) {
     const currentUsers = this.getRegisteredUsers();
@@ -106,19 +262,22 @@ export const authService = {
     );
 
     if (userIndex === -1) {
-      throw new Error(`User account not found.`);
+      throw new Error('User account not found.');
     }
 
     const existingUser = currentUsers[userIndex];
     const newEmail = updates.email ? updates.email.trim().toLowerCase() : existingUser.email;
-    const newPassword = updates.password ? updates.password.trim() : existingUser.password;
     const newName = updates.name !== undefined ? updates.name.trim() : existingUser.name;
     const newRestaurantName = updates.restaurant_name !== undefined ? updates.restaurant_name : existingUser.restaurant_name;
     const newRestaurantSlug = updates.restaurant_slug !== undefined ? updates.restaurant_slug : existingUser.restaurant_slug;
-    const newPhone = updates.phone !== undefined ? updates.phone : (updates.whatsapp_number !== undefined ? updates.whatsapp_number : (existingUser.phone || existingUser.whatsapp_number));
+    const newPhone = updates.phone !== undefined ? updates.phone : (existingUser.phone || existingUser.whatsapp_number);
     const newRole = updates.role !== undefined ? updates.role : existingUser.role;
 
-    // Check if new email conflicts with another user
+    if (updates.restaurant_slug && isReservedSlug(newRestaurantSlug)) {
+      throw new Error(`The slug "${newRestaurantSlug}" is reserved by the platform. Please choose a different restaurant slug.`);
+    }
+
+    // Check email conflict
     if (newEmail !== existingUser.email) {
       const emailConflict = currentUsers.find(
         (u) => u.id !== existingUser.id && u.email.toLowerCase() === newEmail
@@ -128,33 +287,25 @@ export const authService = {
       }
     }
 
+    // If a password change was included in update, call server change-password / reset
+    if (updates.password) {
+      await this.resetPassword(userId, updates.password);
+    }
+
     const updatedUser = {
       ...existingUser,
       email: newEmail,
-      password: newPassword,
       name: newName,
       restaurant_name: newRestaurantName,
       restaurant_slug: newRestaurantSlug,
       phone: newPhone,
       whatsapp_number: newPhone,
       role: newRole,
+      password_masked: '••••••••••••',
       updated_at: new Date().toISOString(),
     };
 
     currentUsers[userIndex] = updatedUser;
-
-    // Update in-memory default accounts if matched
-    const defaultAcc = DEFAULT_ACCOUNTS.find((d) => d.id === existingUser.id || d.email === existingUser.email);
-    if (defaultAcc) {
-      defaultAcc.email = newEmail;
-      defaultAcc.password = newPassword;
-      defaultAcc.name = newName;
-      defaultAcc.restaurant_name = newRestaurantName;
-      defaultAcc.restaurant_slug = newRestaurantSlug;
-      defaultAcc.phone = newPhone;
-      defaultAcc.whatsapp_number = newPhone;
-      defaultAcc.role = newRole;
-    }
 
     try {
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(currentUsers));
@@ -162,7 +313,7 @@ export const authService = {
       console.warn('Failed to persist updated user:', e);
     }
 
-    // If this is the currently logged in user session, update active session
+    // Update active session if matched
     const currentSession = this.getCurrentSession();
     if (currentSession?.user && (currentSession.user.id === existingUser.id || currentSession.user.email === existingUser.email)) {
       currentSession.user = {
@@ -174,19 +325,6 @@ export const authService = {
         restaurant_slug: newRestaurantSlug,
       };
       this.saveSession(currentSession);
-    }
-
-    // Try Supabase auth sync if available
-    try {
-      if (updates.email || updates.password) {
-        await supabase.auth.updateUser({
-          email: newEmail,
-          password: newPassword,
-          data: { name: newName, role: newRole, restaurant_name: newRestaurantName, restaurant_slug: newRestaurantSlug },
-        });
-      }
-    } catch (sbErr) {
-      // In sandbox/local mode Supabase might not have this session, safe to ignore
     }
 
     return updatedUser;
@@ -207,69 +345,140 @@ export const authService = {
   },
 
   /**
-   * Attempt sign in with password
+   * Attempt sign in with password via server-side AES-256-GCM verification
+   * Compares password in constant time on the server.
    */
   async login(email, password) {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = String(email || '').trim().toLowerCase();
 
-    // 1. First check our local/provisioned user registry
-    const registeredUsers = this.getRegisteredUsers();
-    const localMatch = registeredUsers.find(
-      (u) => u.email.toLowerCase() === cleanEmail && u.password === password
-    );
-
-    // 2. Also try Supabase Auth if online
-    let supabaseUser = null;
+    // 1. Primary: Authenticate via server API (decrypts AES-256-GCM and verifies timingSafeEqual)
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password }),
       });
 
-      if (!error && data?.user) {
-        supabaseUser = data.user;
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to sign in. Please verify your credentials.');
       }
-    } catch (sbErr) {
-      // Supabase might fail or give "Email not confirmed", which is expected for unconfirmed test accounts
-      console.info('Supabase auth attempt notice:', sbErr.message);
-    }
 
-    if (localMatch) {
       const sessionData = {
-        user: {
-          id: supabaseUser?.id || localMatch.id,
-          email: localMatch.email,
-          name: localMatch.name,
-          role: localMatch.role,
-          restaurant_id: localMatch.restaurant_id,
-          restaurant_name: localMatch.restaurant_name,
-          restaurant_slug: localMatch.restaurant_slug,
-        },
-        token: `session-${Date.now()}`,
+        user: data.user,
+        token: data.sessionToken,
+        must_change_password: Boolean(data.must_change_password),
         expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
       };
+
       this.saveSession(sessionData);
       return sessionData;
+    } catch (apiErr) {
+      throw new Error(apiErr.message || 'Invalid email or password. Please verify your credentials.');
+    }
+  },
+
+  /**
+   * Owner Self-Service Change Password
+   */
+  async changePassword(currentPassword, newPassword) {
+    const session = this.getCurrentSession();
+    if (!session?.token) {
+      throw new Error('You must be signed in to change your password.');
     }
 
-    if (supabaseUser) {
-      const sessionData = {
-        user: {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          name: supabaseUser.user_metadata?.name || 'Restaurant Owner',
-          role: supabaseUser.user_metadata?.role || 'owner',
-          restaurant_name: supabaseUser.user_metadata?.restaurant_name || 'Restaurant',
-          restaurant_slug: supabaseUser.user_metadata?.restaurant_slug || 'burgersmoke',
-        },
-        token: `session-${Date.now()}`,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      };
-      this.saveSession(sessionData);
-      return sessionData;
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.token}`,
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to change password.');
     }
 
-    throw new Error('Invalid email or password. Please verify your credentials.');
+    if (data.sessionToken) {
+      this.saveSession({
+        ...session,
+        token: data.sessionToken,
+        must_change_password: false,
+      });
+    }
+
+    return data;
+  },
+
+  /**
+   * Master Admin: Decrypt and View a Restaurant Manager's Password
+   * Automatically audited and auto-hides after 15 seconds
+   */
+  async viewPassword(targetUserId) {
+    const session = this.getCurrentSession();
+    if (!session?.token) {
+      throw new Error('Master administrator authentication required.');
+    }
+
+    const res = await fetch('/api/admin/passwords/view', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.token}`,
+      },
+      body: JSON.stringify({ targetUserId }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to decrypt password.');
+    }
+
+    return data;
+  },
+
+  /**
+   * Master Admin: Reset Password & Require Change on Next Login
+   */
+  async resetPassword(targetUserId, manualPassword = null) {
+    const session = this.getCurrentSession();
+    if (!session?.token) {
+      throw new Error('Master administrator authentication required.');
+    }
+
+    const res = await fetch('/api/admin/passwords/reset', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.token}`,
+      },
+      body: JSON.stringify({ targetUserId, manualPassword }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to reset password.');
+    }
+
+    return data;
+  },
+
+  /**
+   * Master Admin: Fetch Security Audit Logs
+   */
+  async getAuditLogs() {
+    const session = this.getCurrentSession();
+    if (!session?.token) return [];
+
+    const res = await fetch('/api/admin/audit-logs', {
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.logs || [];
   },
 
   /**
@@ -284,133 +493,69 @@ export const authService = {
     whatsapp_number,
     role = 'owner',
   }) {
+    const session = this.getCurrentSession();
     const cleanEmail = email.trim().toLowerCase();
     const cleanSlug = slug.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
     const rawPhone = phone || whatsapp_number || '923001234567';
     const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
 
-    // 1. Check if email already registered in our registry
-    const existing = this.getRegisteredUsers().find(
-      (u) => u.email.toLowerCase() === cleanEmail
-    );
-    if (existing) {
-      throw new Error(`A user with email "${cleanEmail}" is already registered.`);
+    if (isReservedSlug(cleanSlug)) {
+      throw new Error(`The slug "${cleanSlug}" is reserved by the platform. Please choose a different restaurant slug.`);
     }
 
-    // 2. Try Supabase Auth Sign Up
-    let supabaseUserId = null;
-    try {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: {
-          data: {
-            name: restaurant_name,
-            role,
+    // Try server endpoint if admin session available
+    if (session?.token) {
+      try {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.token}`,
+          },
+          body: JSON.stringify({
+            email: cleanEmail,
+            password,
             restaurant_name,
             restaurant_slug: cleanSlug,
-          },
-        },
-      });
+            phone: cleanPhone,
+            role,
+          }),
+        });
 
-      if (!signUpError && signUpData?.user) {
-        supabaseUserId = signUpData.user.id;
-      }
-    } catch (e) {
-      console.warn('Supabase auth sign up notice:', e.message);
-    }
-
-    // 3. Provision Restaurant in Supabase table
-    let provisionedRestId = null;
-    try {
-      // Check if slug exists in Supabase
-      const { data: existingRest } = await supabase
-        .from('restaurants')
-        .select('id')
-        .eq('slug', cleanSlug)
-        .maybeSingle();
-
-      if (existingRest) {
-        provisionedRestId = existingRest.id;
-      } else {
-        const { data: newRest, error: restInsertError } = await supabase
-          .from('restaurants')
-          .insert([
-            {
-              owner_id: supabaseUserId || null,
+        if (res.ok) {
+          const data = await res.json();
+          this.saveRegisteredUser(data.user);
+          return {
+            user: data.user,
+            generatedPassword: data.generatedPassword,
+            restaurant: {
+              id: data.user.restaurant_id,
               name: restaurant_name,
               slug: cleanSlug,
               phone: cleanPhone,
-              whatsapp_number: cleanPhone,
             },
-          ])
-          .select()
-          .single();
-
-        if (!restInsertError && newRest) {
-          provisionedRestId = newRest.id;
-
-          // Seed default starter categories for this restaurant
-          const { data: catData } = await supabase
-            .from('categories')
-            .insert([
-              { restaurant_id: newRest.id, name: 'Chef Specials' },
-              { restaurant_id: newRest.id, name: 'Main Course' },
-              { restaurant_id: newRest.id, name: 'Beverages & Desserts' },
-            ])
-            .select();
-
-          // Seed a starter item so menu is not completely empty
-          if (catData && catData.length > 0) {
-            await supabase.from('menu_items').insert([
-              {
-                restaurant_id: newRest.id,
-                category_id: catData[0].id,
-                title: `${restaurant_name} Signature Platter`,
-                price: 1250,
-                variants: [
-                  {
-                    id: 'v-1',
-                    name: 'Portion Size',
-                    type: 'single',
-                    required: true,
-                    options: [
-                      { id: 'o-1', name: 'Regular Serving', price_delta: 0 },
-                      { id: 'o-2', name: 'Jumbo Feast (Serves 2-3)', price_delta: 450 },
-                    ],
-                  },
-                ],
-              },
-            ]);
-          }
+          };
         }
-      }
-    } catch (tableErr) {
-      console.warn('Error inserting restaurant into Supabase:', tableErr.message);
+      } catch (_) {}
     }
 
-    // 4. Save to our registered users database
+    // Fallback registration
     const savedUser = this.saveRegisteredUser({
-      id: supabaseUserId || `user-${Date.now()}`,
       email: cleanEmail,
-      password,
       name: `${restaurant_name} Manager`,
       role,
-      restaurant_id: provisionedRestId,
       restaurant_name,
       restaurant_slug: cleanSlug,
       phone: cleanPhone,
-      whatsapp_number: cleanPhone,
     });
 
     return {
       user: savedUser,
       restaurant: {
-        id: provisionedRestId,
+        id: savedUser.restaurant_id || `rest-${cleanSlug}`,
         name: restaurant_name,
         slug: cleanSlug,
         phone: cleanPhone,
-        whatsapp_number: cleanPhone,
       },
     };
   },
@@ -444,9 +589,7 @@ export const authService = {
   async logout() {
     try {
       await supabase.auth.signOut();
-    } catch (e) {
-      // Ignore signout error
-    }
+    } catch (_) {}
     localStorage.removeItem(CURRENT_SESSION_KEY);
   },
 };

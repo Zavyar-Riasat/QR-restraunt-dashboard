@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Check, Package } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
-import { getItemDealInfo, getItemVariants } from '../utils/dealUtils';
+import { getItemDealInfo, getItemVariants, getItemPricing } from '../utils/dealUtils';
 
 export default function VariantCustomizationModal({ item, isOpen, onClose, onAddToCart, restaurant }) {
   const [quantity, setQuantity] = useState(1);
@@ -11,6 +11,7 @@ export default function VariantCustomizationModal({ item, isOpen, onClose, onAdd
   const dealInfo = getItemDealInfo(item);
   const itemIsDeal = Boolean(dealInfo);
   const variantsList = getItemVariants(item);
+  const pricing = getItemPricing(item, restaurant);
 
   useEffect(() => {
     if (!item) return;
@@ -29,7 +30,7 @@ export default function VariantCustomizationModal({ item, isOpen, onClose, onAdd
   if (!isOpen || !item) return null;
 
   const calculateUnitPrice = () => {
-    let unit = Number(item.price);
+    let unit = Number(pricing.finalPrice || item.price);
     variantsList.forEach((vg) => {
       if (vg.type === 'single') {
         const selectedId = choices[vg.id];
@@ -106,17 +107,19 @@ export default function VariantCustomizationModal({ item, isOpen, onClose, onAdd
               </h3>
             </div>
             <div className="flex items-baseline gap-2">
-              {itemIsDeal && dealInfo.original_price > item.price && (
+              {/* 1. DISCOUNTED / SELLING PRICE FIRST */}
+              <p className="text-base text-[#2B2118] font-mono font-extrabold">
+                {formatPKR(pricing.finalPrice)}
+              </p>
+              {/* 2. THEN ORIGINAL PRICE STRIKETHROUGH */}
+              {pricing.hasDiscount && (
                 <span className="text-xs text-[#9E8E81] line-through font-mono">
-                  {formatPKR(dealInfo.original_price)}
+                  {formatPKR(pricing.originalPrice)}
                 </span>
               )}
-              <p className="text-sm text-[#2B2118] font-mono font-bold">
-                {formatPKR(item.price)}
-              </p>
-              {itemIsDeal && dealInfo.original_price > item.price && (
+              {pricing.hasDiscount && (
                 <span className="text-[10px] font-bold text-[#1F9D55] bg-[#E7F6EC] border border-[#C0E9CE] px-2 py-0.5 rounded-md">
-                  Save {formatPKR(dealInfo.original_price - item.price)}
+                  Save {formatPKR(pricing.savings)} ({pricing.discountPercent}% off)
                 </span>
               )}
             </div>

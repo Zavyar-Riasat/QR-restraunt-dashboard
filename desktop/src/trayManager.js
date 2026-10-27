@@ -1,7 +1,7 @@
 /**
  * System Tray Manager
- * Provides system tray icon and context menu for DineHQ:
- * - "Open DineHQ"
+ * Provides system tray icon and context menu for Dineflow:
+ * - "Open Dineflow"
  * - "Mute Sound Alerts"
  * - "Start with Windows"
  * - "Check for Updates..."
@@ -24,7 +24,7 @@ class TrayManager {
     const trayIconPath = path.join(__dirname, '..', 'assets', 'tray-icon.png');
 
     this.tray = new Tray(trayIconPath);
-    this.tray.setToolTip('DineHQ Kitchen & POS');
+    this.tray.setToolTip('Dineflow Kitchen & POS');
 
     this.updateContextMenu(updater);
 
@@ -64,7 +64,7 @@ class TrayManager {
 
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: 'Open DineHQ',
+        label: 'Open Dineflow',
         click: () => this.showWindow(),
         icon: undefined,
       },
@@ -98,7 +98,7 @@ class TrayManager {
       },
       { type: 'separator' },
       {
-        label: 'Quit DineHQ',
+        label: 'Quit Dineflow',
         click: () => {
           app.isQuitting = true;
           app.quit();

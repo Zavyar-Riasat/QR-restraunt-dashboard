@@ -1,6 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Nominatim Geocoding proxy plugin with proper User-Agent and Referer headers
 function nominatimGeocodePlugin() {
@@ -9,7 +14,7 @@ function nominatimGeocodePlugin() {
     configureServer(server) {
       server.middlewares.use('/api/geocode', async (req, res) => {
         try {
-          const url = new URL(req.url, 'http://localhost:5173');
+          const url = new URL(req.url, 'http://127.0.0.1:5173');
           const type = url.searchParams.get('type');
 
           let targetUrl = '';
@@ -29,8 +34,8 @@ function nominatimGeocodePlugin() {
 
           const response = await fetch(targetUrl, {
             headers: {
-              'User-Agent': 'DineHQ-Restaurant-Platform/1.0 (contact@dinehq.pk)',
-              'Referer': 'http://localhost:5173/',
+              'User-Agent': 'Dineflow-Restaurant-Platform/1.0 (contact@dineflow.pk)',
+              'Referer': 'http://127.0.0.1:5173/',
               'Accept-Language': 'en,ur;q=0.9',
             },
           });
@@ -48,11 +53,88 @@ function nominatimGeocodePlugin() {
   };
 }
 
+// Authentication & Reversible Password Management API plugin
+function authApiPlugin() {
+  const handler = async (req, res, next) => {
+    if (req.url && (req.url.startsWith('/api/auth') || req.url.startsWith('/api/admin'))) {
+      try {
+        const { handleAuthApi } = await import('./server/authHandler.js');
+        return await handleAuthApi(req, res);
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+        return;
+      }
+    }
+    next();
+  };
+
+  return {
+    name: 'vite-plugin-auth-api',
+    configureServer(server) {
+      server.middlewares.use(handler);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(handler);
+    },
+  };
+}
+
+// Nearby Dishes Marketplace API plugin
+function nearbyDishesPlugin() {
+  const handler = async (req, res, next) => {
+    if (req.url && req.url.startsWith('/api/nearby/dishes')) {
+      try {
+        const { handleNearbyDishesApi } = await import('./server/nearbyDishesHandler.js');
+        return await handleNearbyDishesApi(req, res);
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+        return;
+      }
+    }
+    next();
+  };
+
+  return {
+    name: 'vite-plugin-nearby-dishes',
+    configureServer(server) {
+      server.middlewares.use(handler);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(handler);
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     nominatimGeocodePlugin(),
+    authApiPlugin(),
+    nearbyDishesPlugin(),
   ],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+    alias: {
+      react: path.resolve(__dirname, 'node_modules/react'),
+      'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+    },
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'react-dom',
+      'react-dom/client',
+      'react-router-dom',
+      'lucide-react',
+      'leaflet',
+    ],
+  },
 });

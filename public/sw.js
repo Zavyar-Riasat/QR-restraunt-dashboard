@@ -1,14 +1,13 @@
 /**
- * DineHQ Service Worker
+ * Dineflow Service Worker
  * Fast offline App Shell caching + Live Network Only for Orders & API
  */
 
-const CACHE_NAME = 'dinehq-pwa-v1';
+const CACHE_NAME = 'dineflow-pwa-v4';
 
 // App shell and critical static assets to precache
 const PRECACHE_ASSETS = [
   '/',
-  '/dashboard',
   '/index.html',
   '/manifest.json',
   '/favicon.svg',
@@ -44,7 +43,7 @@ self.addEventListener('install', (event) => {
       })
       .then(() => self.skipWaiting())
       .catch((err) => {
-        console.warn('[DineHQ SW] Precaching notice:', err);
+        console.warn('[Dineflow SW] Precaching notice:', err);
       })
   );
 });
@@ -146,7 +145,7 @@ self.addEventListener('push', (event) => {
     try {
       data = event.data.json();
     } catch {
-      data = { title: 'DineHQ Alert', body: event.data.text() };
+      data = { title: 'Dineflow Alert', body: event.data.text() };
     }
   }
 
@@ -156,7 +155,7 @@ self.addEventListener('push', (event) => {
     icon: data.icon || '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     vibrate: [200, 100, 200, 100, 300],
-    tag: data.tag || 'dinehq-order',
+    tag: data.tag || 'dineflow-order',
     renotify: true,
     data: {
       url: data.url || '/dashboard',

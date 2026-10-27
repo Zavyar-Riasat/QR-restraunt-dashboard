@@ -46,7 +46,7 @@ export default function OfflineBanner() {
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Wifi className="w-4 h-4 text-emerald-200 shrink-0" />
-            <span>Internet connection restored! DineHQ is now receiving live online orders.</span>
+            <span>Internet connection restored! Dineflow is now receiving live online orders.</span>
           </div>
           <button
             type="button"
@@ -74,7 +74,7 @@ export default function OfflineBanner() {
                 No internet - new orders won't arrive
               </p>
               <p className="text-[11px] text-white/90">
-                You are currently offline. Check your WiFi router or Ethernet connection. DineHQ will reconnect automatically.
+                You are currently offline. Check your WiFi router or Ethernet connection. Dineflow will reconnect automatically.
               </p>
             </div>
           </div>

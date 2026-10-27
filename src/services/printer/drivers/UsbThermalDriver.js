@@ -42,8 +42,8 @@ export class UsbThermalDriver extends BaseDriver {
     }
 
     // Listen for Electron desktop app attach/detach events if running in Electron
-    if (typeof window !== 'undefined' && (window.electronAPI || window.dinehqElectron)) {
-      const electron = window.electronAPI || window.dinehqElectron;
+    if (typeof window !== 'undefined' && (window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron)) {
+      const electron = window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron;
       if (typeof electron.onUsbDeviceChanged === 'function') {
         electron.onUsbDeviceChanged((data) => {
           this.handleElectronUsbEvent(data);
@@ -335,8 +335,8 @@ export class UsbThermalDriver extends BaseDriver {
    */
   async autoDetectPrinter() {
     // 1. Check Electron auto-detect if running on desktop app
-    if (typeof window !== 'undefined' && (window.electronAPI || window.dinehqElectron)) {
-      const electron = window.electronAPI || window.dinehqElectron;
+    if (typeof window !== 'undefined' && (window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron)) {
+      const electron = window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron;
       try {
         const detected = await electron.autoDetectPrinter();
         if (detected) return detected;

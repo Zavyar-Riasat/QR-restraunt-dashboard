@@ -59,11 +59,11 @@ export const menuService = {
 
     // Fallback to local sandbox data (from localStorage or seed)
     const specificKey = `${STORAGE_KEY}_${slug}`;
-    const saved = localStorage.getItem(specificKey) || localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(specificKey);
     if (saved) {
       try {
         const localData = JSON.parse(saved);
-        if (localData.restaurant) {
+        if (localData.restaurant && (!slug || localData.restaurant.slug === slug)) {
           return {
             restaurant: restaurantService.mergeExtendedSettings(localData.restaurant),
             categories: localData.categories || [],
@@ -76,63 +76,40 @@ export const menuService = {
       }
     }
 
-    // Default seeded fallback tenant
-    return {
-      restaurant: restaurantService.mergeExtendedSettings({
-        id: 'rest-101',
-        name: 'Burger & Smoke Co.',
-        slug: slug || 'burgersmoke',
-        phone: '923001234567',
-        whatsapp_number: '923001234567',
-        is_open: true,
-        delivery_mode: 'paid',
-        delivery_fee: 150,
-        show_min_order: true,
-        min_order_amount: 500,
-        show_prep_time: true,
-        prep_time: '20–30 mins',
-      }),
-      categories: [
-        { id: 'cat-1', name: 'Smash Burgers' },
-        { id: 'cat-2', name: 'Sides & Fries' },
-        { id: 'cat-3', name: 'Artisan Shakes' },
-      ],
-      menuItems: [
-        {
-          id: 'item-1',
-          category_id: 'cat-1',
-          title: 'Truffle Double Smash',
-          price: 1190,
-          description: 'Double Angus beef patties, Swiss truffle cheese, caramelized onions, garlic truffle aioli on a brioche bun.',
-          variants: {
-            is_available: true,
-            image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
-            options: [
+    // Check if custom restaurant was created locally via store settings or marketplace overrides
+    try {
+      const customOverride = localStorage.getItem(`dinehq_restaurant_overrides_${slug}`);
+      if (customOverride) {
+        const parsed = JSON.parse(customOverride);
+        if (parsed) {
+          return {
+            restaurant: restaurantService.mergeExtendedSettings(parsed),
+            categories: [
+              { id: 'cat-1', name: 'Chef Specials' },
+              { id: 'cat-2', name: 'Beverages & Sides' },
+            ],
+            menuItems: [
               {
-                id: 'v-size',
-                name: 'Size Option',
-                type: 'single',
-                required: true,
-                options: [
-                  { id: 'o-reg', name: 'Double Patty (Regular)', price_delta: 0 },
-                  { id: 'o-triple', name: 'Triple Patty (Mega)', price_delta: 350 },
-                ],
-              },
-              {
-                id: 'v-addons',
-                name: 'Premium Add-ons',
-                type: 'multi',
-                required: false,
-                options: [
-                  { id: 'o-bacon', name: 'Smoked Beef Bacon', price_delta: 180 },
-                  { id: 'o-cheese', name: 'Extra Cheddar Melt', price_delta: 120 },
-                  { id: 'o-jalapeno', name: 'Pickled Jalapeños', price_delta: 80 },
-                ],
+                id: 'item-1',
+                category_id: 'cat-1',
+                title: `${parsed.name || 'House'} Special`,
+                price: 850,
+                description: 'Freshly prepared signature specialty.',
+                variants: { is_available: true },
               },
             ],
-          },
-        },
-      ],
+            isLive: false,
+          };
+        }
+      }
+    } catch (_) {}
+
+    // Fallback to restaurantService getInitialState to load distinct restaurant profile & 5+ dishes
+    const state = await restaurantService.getInitialState({ slug });
+    return {
+      restaurant: state.restaurant,
+      categories: state.categories || [],
+      menuItems: state.menuItems || [],
       isLive: false,
     };
   },

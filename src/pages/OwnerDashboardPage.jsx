@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ExecutiveKPIs from '../components/ExecutiveKPIs';
 import StoreSettings from '../components/StoreSettings';
@@ -22,12 +22,31 @@ import PrinterReconnectBanner from '../components/Printer/PrinterReconnectBanner
 import OfflineBanner from '../components/PWA/OfflineBanner';
 import NotificationPromptBanner from '../components/PWA/NotificationPromptBanner';
 import { pwaService } from '../services/pwaService';
+import TodaySalesSummaryModal from '../components/Reports/TodaySalesSummaryModal';
 
 export default function OwnerDashboardPage() {
   const navigate = useNavigate();
+  const { restaurantSlug } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('orders'); // default to live kitchen orders
+  const [activeTab, setActiveTabState] = useState(() => searchParams.get('tab') || 'orders');
+
+  const setActiveTab = useCallback((tab) => {
+    setActiveTabState(tab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', tab);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tab !== activeTab) {
+      setActiveTabState(tab);
+    }
+  }, [searchParams, activeTab]);
   const [restaurant, setRestaurant] = useState(null);
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState(null);
@@ -49,6 +68,9 @@ export default function OwnerDashboardPage() {
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [posInitialTable, setPosInitialTable] = useState(null);
   const [posInitialOrderType, setPosInitialOrderType] = useState('dine_in');
+  const [posInitialAppendOrderId, setPosInitialAppendOrderId] = useState(null);
+  const [isSalesSummaryModalOpen, setIsSalesSummaryModalOpen] = useState(false);
+  const [currentSummaryData, setCurrentSummaryData] = useState(null);
 
   // Khata & Customers state
   const [khataFilter, setKhataFilter] = useState('all');
@@ -90,9 +112,10 @@ export default function OwnerDashboardPage() {
     setActiveTab('customers');
   };
 
-  const handleOpenNewOrder = (table = null, orderType = 'dine_in') => {
+  const handleOpenNewOrder = (table = null, orderType = 'dine_in', appendOrderId = null) => {
     setPosInitialTable(table);
     setPosInitialOrderType(orderType);
+    setPosInitialAppendOrderId(appendOrderId);
     setIsNewOrderModalOpen(true);
   };
 
@@ -134,7 +157,7 @@ export default function OwnerDashboardPage() {
 
     // Request desktop browser notifications permission if supported
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+      Notification.requestPermission().catch(() => { });
     }
 
     return () => {
@@ -219,7 +242,9 @@ export default function OwnerDashboardPage() {
       try {
         setLoading(true);
         const filter = {};
-        if (selectedRestaurantId) {
+        if (restaurantSlug) {
+          filter.slug = restaurantSlug;
+        } else if (selectedRestaurantId) {
           filter.restaurantId = selectedRestaurantId;
         } else if (user?.restaurant_id) {
           filter.restaurantId = user.restaurant_id;
@@ -248,7 +273,7 @@ export default function OwnerDashboardPage() {
     }
 
     loadData();
-  }, [user, selectedRestaurantId]);
+  }, [user, selectedRestaurantId, restaurantSlug]);
 
   // Real-time synchronization of incoming orders and audio notifications
   useEffect(() => {
@@ -348,6 +373,10 @@ export default function OwnerDashboardPage() {
 
   const handleSelectRestaurant = (restId) => {
     setSelectedRestaurantId(restId);
+    const target = allRestaurants.find((r) => r.id === restId);
+    if (target?.slug) {
+      navigate(`/${target.slug}/admin`);
+    }
   };
 
   const handleUpdateRestaurant = async (updates) => {
@@ -523,17 +552,28 @@ export default function OwnerDashboardPage() {
         }),
       };
 
-      await printerService.printSalesSummary(summaryData, {
-        restaurant: restaurant || { name: 'DineHQ Kitchen', slug: 'burgersmoke' },
-      });
-
-      setSummaryToast("Today's Sales Summary (80mm) dispatched successfully!");
-      setTimeout(() => setSummaryToast(null), 4000);
+      setCurrentSummaryData(summaryData);
+      setIsSalesSummaryModalOpen(true);
     } catch (err) {
-      console.error('Failed to print sales summary:', err);
-      alert(`Could not print sales summary: ${err.message}`);
+      console.error('Failed to prepare sales summary report:', err);
+      alert(`Could not open sales summary: ${err.message}`);
     } finally {
       setIsPrintingSummary(false);
+    }
+  };
+
+  const handlePrintThermalSummary = async (customSummaryData) => {
+    const dataToPrint = customSummaryData || currentSummaryData;
+    if (!dataToPrint) return;
+    try {
+      await printerService.printSalesSummary(dataToPrint, {
+        restaurant: restaurant || { name: 'Dineflow Kitchen', slug: 'burgersmoke' },
+      });
+      setSummaryToast(`${dataToPrint.rangeLabel || "Sales"} Summary (80mm) dispatched successfully!`);
+      setTimeout(() => setSummaryToast(null), 4000);
+    } catch (err) {
+      console.error('Failed to print thermal sales summary:', err);
+      alert(`Could not print thermal sales summary: ${err.message}`);
     }
   };
 
@@ -576,23 +616,23 @@ export default function OwnerDashboardPage() {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* Friendly Printer Reconnect / Auto-Detect Banner */}
         <PrinterReconnectBanner onOpenSettings={() => setIsPrinterModalOpen(true)} />
 
         {/* Top Executive ROI KPI Cards */}
         <section className="no-print space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 backdrop-blur-xs p-4 rounded-2xl border border-[#F0E4D7]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-[#F0E4D7]">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight">
                   Business Performance & Shift Overview
                 </h2>
-                <span className="text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
                   Live Shift
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
                 Real-time gross revenue, order volume, and daily register metrics
               </p>
             </div>
@@ -621,14 +661,13 @@ export default function OwnerDashboardPage() {
         </section>
 
         {/* Tab Navigation */}
-        <div className="no-print flex items-center gap-1.5 border-b border-[#F0E4D7] pb-3 overflow-x-auto scrollbar-none">
+        <div className="no-print flex items-center gap-1.5 border-b border-[#F0E4D7] pb-2 sm:pb-3 overflow-x-auto no-scrollbar scrollbar-none -mx-3 px-3 sm:-mx-0 sm:px-0">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'orders'
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'orders'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-            }`}
+              }`}
           >
             <Bell className="w-4 h-4 text-amber-300" />
             <span>Orders</span>
@@ -644,11 +683,10 @@ export default function OwnerDashboardPage() {
               setActiveTab('customers');
               setKhataFilter('all');
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'customers'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'customers'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-            }`}
+              }`}
           >
             <Users className="w-4 h-4" />
             <span>Customers</span>
@@ -661,11 +699,10 @@ export default function OwnerDashboardPage() {
 
           <button
             onClick={() => setActiveTab('items')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'items'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'items'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-            }`}
+              }`}
           >
             <Utensils className="w-4 h-4" />
             <span>Menu Items ({menuItems.length})</span>
@@ -673,11 +710,10 @@ export default function OwnerDashboardPage() {
 
           <button
             onClick={() => setActiveTab('categories')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'categories'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'categories'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-            }`}
+              }`}
           >
             <Layers className="w-4 h-4" />
             <span>Categories ({categories.length})</span>
@@ -685,11 +721,10 @@ export default function OwnerDashboardPage() {
 
           <button
             onClick={() => setActiveTab('tables')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'tables'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'tables'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-            }`}
+              }`}
           >
             <LayoutGrid className="w-4 h-4" />
             <span>Tables</span>
@@ -697,11 +732,10 @@ export default function OwnerDashboardPage() {
 
           <button
             onClick={() => setActiveTab('qr')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'qr'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'qr'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-            }`}
+              }`}
           >
             <Printer className="w-4 h-4" />
             <span>Print QR</span>
@@ -709,11 +743,10 @@ export default function OwnerDashboardPage() {
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'settings'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'settings'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-            }`}
+              }`}
           >
             <Store className="w-4 h-4" />
             <span>Settings</span>
@@ -735,7 +768,7 @@ export default function OwnerDashboardPage() {
               isAudioUnlocked={isAudioUnlocked}
               onUnlockAudio={handleUnlockAudio}
               onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
-              onOpenNewOrder={() => handleOpenNewOrder(null, 'dine_in')}
+              onOpenNewOrder={(table, orderType, appendOrderId) => handleOpenNewOrder(table, orderType || 'dine_in', appendOrderId)}
               onDismissOrderAlert={() => setNewOrderAlert(null)}
               menuItems={menuItems}
             />
@@ -746,7 +779,7 @@ export default function OwnerDashboardPage() {
               restaurant={restaurant}
               orders={orders}
               currentUser={user}
-              onOpenPosForTable={(table) => handleOpenNewOrder(table, 'dine_in')}
+              onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
               menuItems={menuItems}
             />
           )}
@@ -797,7 +830,7 @@ export default function OwnerDashboardPage() {
               orders={orders}
               onUpdate={handleUpdateRestaurant}
               onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
-              onOpenPosForTable={(table) => handleOpenNewOrder(table, 'dine_in')}
+              onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
             />
           )}
         </div>
@@ -808,17 +841,19 @@ export default function OwnerDashboardPage() {
         id="fab-new-order-mobile-btn"
         type="button"
         onClick={() => handleOpenNewOrder(null, 'dine_in')}
-        className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-[#F26B1D] to-[#F5A623] text-white font-black text-sm shadow-xl shadow-orange-500/35 hover:scale-105 active:scale-95 transition cursor-pointer border border-amber-300/40 animate-pulse hover:animate-none"
+        className="lg:hidden fixed bottom-5 right-5 z-40 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-[#F26B1D] to-[#F5A623] text-white shadow-xl shadow-orange-500/35 hover:scale-105 active:scale-95 transition cursor-pointer border border-amber-300/40"
         title="Create New Order (POS)"
       >
-        <Plus className="w-5 h-5 stroke-[3]" />
-        <span>New Order</span>
+        <Plus className="w-6 h-6 stroke-[3]" />
       </button>
 
       {/* POS In-Store New Order Modal */}
       <NewOrderModal
         isOpen={isNewOrderModalOpen}
-        onClose={() => setIsNewOrderModalOpen(false)}
+        onClose={() => {
+          setIsNewOrderModalOpen(false);
+          setPosInitialAppendOrderId(null);
+        }}
         restaurant={restaurant}
         categories={categories}
         menuItems={menuItems}
@@ -826,6 +861,7 @@ export default function OwnerDashboardPage() {
         currentUser={user}
         initialTable={posInitialTable}
         initialOrderType={posInitialOrderType}
+        initialAppendOrderId={posInitialAppendOrderId}
         onOrderCreated={() => {
           if (restaurant?.id) {
             const refreshed = orderService.getOrders(restaurant.id);
@@ -863,9 +899,20 @@ export default function OwnerDashboardPage() {
         categories={categories}
       />
 
+      {/* Executive PDF-style Daily & Period Sales Summary Report Modal */}
+      <TodaySalesSummaryModal
+        isOpen={isSalesSummaryModalOpen}
+        onClose={() => setIsSalesSummaryModalOpen(false)}
+        restaurant={restaurant}
+        summaryData={currentSummaryData}
+        onPrintThermal={handlePrintThermalSummary}
+        orders={orders}
+        menuItems={menuItems}
+      />
+
       {/* Footer */}
       <footer className="no-print mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-400 bg-white">
-        <p>DineHQ &copy; 2026</p>
+        <p>Dineflow &copy; 2026</p>
       </footer>
     </div>
   );

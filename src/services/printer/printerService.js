@@ -500,7 +500,7 @@ class PrinterService {
         total_payable: 2760,
       },
       restaurant: {
-        name: 'DineHQ Kitchen',
+        name: 'Dineflow Kitchen',
         slug: 'burgersmoke',
       },
       paperSize: printer.paperSize || PAPER_SIZES.SIZE_80MM,
@@ -1309,7 +1309,7 @@ class PrinterService {
       templateType: TEMPLATE_TYPES.SALES_SUMMARY,
       paperSize: PAPER_SIZES.SIZE_80MM, // Formatted for 80mm paper as requested
       salesSummary: summaryData,
-      restaurant: options.restaurant || { name: 'DineHQ Kitchen', slug: 'burgersmoke' },
+      restaurant: options.restaurant || { name: 'Dineflow Kitchen', slug: 'burgersmoke' },
       templateSettings: this.getTemplateSettings(),
     };
 

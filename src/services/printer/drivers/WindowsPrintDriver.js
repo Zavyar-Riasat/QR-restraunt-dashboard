@@ -30,8 +30,8 @@ export class WindowsPrintDriver extends BaseDriver {
     const deviceName = config.deviceName || config.connection?.deviceName;
 
     // 1. Electron environment check
-    if (typeof window !== 'undefined' && (window.electronAPI || window.dinehqElectron)) {
-      const electron = window.electronAPI || window.dinehqElectron;
+    if (typeof window !== 'undefined' && (window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron)) {
+      const electron = window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron;
       try {
         const printers = await electron.getSystemPrinters();
         const found = deviceName
@@ -77,8 +77,8 @@ export class WindowsPrintDriver extends BaseDriver {
    * Query all installed Windows system printers
    */
   async getInstalledPrinters() {
-    if (typeof window !== 'undefined' && (window.electronAPI || window.dinehqElectron)) {
-      const electron = window.electronAPI || window.dinehqElectron;
+    if (typeof window !== 'undefined' && (window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron)) {
+      const electron = window.dineflowDesktop || window.dineflowElectron || window.electronAPI || window.dinehqElectron;
       try {
         return await electron.getSystemPrinters();
       } catch (err) {

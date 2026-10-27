@@ -273,6 +273,413 @@ const getStarterOrders = (restaurantId, restaurantName) => [
     ],
     created_at: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
   },
+  // --- YESTERDAY'S ORDERS (Previous Day) ---
+  {
+    id: 'DB-5501',
+    restaurant_id: restaurantId,
+    customer_name: 'Tariq Mehmood',
+    customer_phone: '03001234567',
+    customer_address: 'In-Store Table 3',
+    table_number: '3',
+    order_type: 'dine_in',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 2650,
+    delivery_fee: 0,
+    total_payable: 2650,
+    total_payable_paisa: 265000,
+    payment_method: 'Cash at Counter',
+    amount_received: 2650,
+    payments: [
+      {
+        id: 'PAY-5501-1',
+        order_id: 'DB-5501',
+        amount_paisa: 265000,
+        amount: 2650,
+        method: 'cash',
+        date: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+        note: 'Cash received at counter',
+        recorded_by: 'Cashier Ali',
+        is_void: false,
+        created_at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+        edit_history: [],
+      },
+    ],
+    items: [
+      {
+        title: 'Truffle Double Smash',
+        quantity: 2,
+        unitPrice: 1090,
+        choices: ['Patty: Double', 'Sauce: Truffle Aioli'],
+      },
+      {
+        title: 'Cajun Loaded Fries',
+        quantity: 1,
+        unitPrice: 470,
+        choices: [],
+      },
+    ],
+    created_at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+    completed_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'DB-5502',
+    restaurant_id: restaurantId,
+    customer_name: 'Ayesha Noor',
+    customer_phone: '03125556677',
+    customer_address: 'House #14, Street 12, Sector F-10/2, Islamabad',
+    order_type: 'delivery',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 3950,
+    delivery_fee: 150,
+    total_payable: 4100,
+    total_payable_paisa: 410000,
+    payment_method: 'Online (JazzCash)',
+    amount_received: 4100,
+    payments: [
+      {
+        id: 'PAY-5502-1',
+        order_id: 'DB-5502',
+        amount_paisa: 410000,
+        amount: 4100,
+        method: 'jazzcash',
+        date: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
+        note: 'JazzCash payment confirmed',
+        recorded_by: 'POS Manager',
+        is_void: false,
+        created_at: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
+        edit_history: [],
+      },
+    ],
+    items: [
+      {
+        title: 'Super Smash Duo Combo',
+        quantity: 1,
+        unitPrice: 2450,
+        dealBadge: '🔥 SPECIAL DEAL',
+        dealItems: '2x Truffle Smash + 1x Cajun Fries + 2x Drinks',
+        choices: [],
+      },
+      {
+        title: 'Artisan Vanilla Bean Shake',
+        quantity: 3,
+        unitPrice: 500,
+        choices: [],
+      },
+    ],
+    created_at: new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString(),
+    completed_at: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'DB-5503',
+    restaurant_id: restaurantId,
+    customer_name: 'Bilal Siddiqui',
+    customer_phone: '03314449988',
+    customer_address: 'Takeaway Counter',
+    order_type: 'takeaway',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 1580,
+    delivery_fee: 0,
+    total_payable: 1580,
+    total_payable_paisa: 158000,
+    payment_method: 'Cash',
+    amount_received: 1580,
+    payments: [
+      {
+        id: 'PAY-5503-1',
+        order_id: 'DB-5503',
+        amount_paisa: 158000,
+        amount: 1580,
+        method: 'cash',
+        date: new Date(Date.now() - 19 * 60 * 60 * 1000).toISOString(),
+        note: 'Cash settled at pickup',
+        recorded_by: 'Cashier Ali',
+        is_void: false,
+        created_at: new Date(Date.now() - 19 * 60 * 60 * 1000).toISOString(),
+        edit_history: [],
+      },
+    ],
+    items: [
+      {
+        title: 'Crispy Nashville Hot Chicken',
+        quantity: 1,
+        unitPrice: 990,
+        choices: ['Spice: Medium'],
+      },
+      {
+        title: 'Cajun Loaded Fries',
+        quantity: 1,
+        unitPrice: 590,
+        choices: [],
+      },
+    ],
+    created_at: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
+    completed_at: new Date(Date.now() - 19 * 60 * 60 * 1000).toISOString(),
+  },
+  // --- PREVIOUS DAYS THIS WEEK (Last 7 Days) ---
+  {
+    id: 'DB-4810',
+    restaurant_id: restaurantId,
+    customer_name: 'Hamza Ali',
+    customer_phone: '03456789012',
+    customer_address: 'Table 1',
+    table_number: '1',
+    order_type: 'dine_in',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 4200,
+    delivery_fee: 0,
+    total_payable: 4200,
+    total_payable_paisa: 420000,
+    payment_method: 'Online (Credit Card)',
+    amount_received: 4200,
+    items: [
+      {
+        title: 'Truffle Double Smash',
+        quantity: 3,
+        unitPrice: 1090,
+        choices: [],
+      },
+      {
+        title: 'Cajun Loaded Fries',
+        quantity: 1,
+        unitPrice: 590,
+        choices: [],
+      },
+      {
+        title: 'Artisan Vanilla Bean Shake',
+        quantity: 1,
+        unitPrice: 340,
+        choices: [],
+      },
+    ],
+    created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    completed_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000 + 45 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'DB-4815',
+    restaurant_id: restaurantId,
+    customer_name: 'Zainab Rehman',
+    customer_phone: '03348881122',
+    customer_address: 'House #55, MPCHS, E-11/3, Islamabad',
+    order_type: 'delivery',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 2100,
+    delivery_fee: 150,
+    total_payable: 2250,
+    total_payable_paisa: 225000,
+    payment_method: 'Cash on Delivery',
+    amount_received: 2250,
+    items: [
+      {
+        title: 'Crispy Nashville Hot Chicken',
+        quantity: 2,
+        unitPrice: 990,
+        choices: [],
+      },
+      {
+        title: 'Soft Drinks Can',
+        quantity: 1,
+        unitPrice: 120,
+        choices: [],
+      },
+    ],
+    created_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+    completed_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000 + 35 * 60 * 1000).toISOString(),
+  },
+  // --- PREVIOUS MONTH (September 2026) ---
+  {
+    id: 'DB-3920',
+    restaurant_id: restaurantId,
+    customer_name: 'Farhan Akhtar',
+    customer_phone: '03027778899',
+    customer_address: 'Table 6 (Family Hall)',
+    table_number: '6',
+    order_type: 'dine_in',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 5400,
+    delivery_fee: 0,
+    total_payable: 5400,
+    total_payable_paisa: 540000,
+    payment_method: 'Online (Bank Transfer)',
+    amount_received: 5400,
+    items: [
+      {
+        title: 'Super Smash Duo Combo',
+        quantity: 2,
+        unitPrice: 2450,
+        dealBadge: '🔥 SPECIAL DEAL',
+        dealItems: '2x Truffle Smash + 1x Cajun Fries + 2x Drinks',
+        choices: [],
+      },
+      {
+        title: 'Artisan Vanilla Bean Shake',
+        quantity: 1,
+        unitPrice: 500,
+        choices: [],
+      },
+    ],
+    created_at: '2026-09-18T19:30:00.000Z',
+    completed_at: '2026-09-18T20:25:00.000Z',
+  },
+  {
+    id: 'DB-3925',
+    restaurant_id: restaurantId,
+    customer_name: 'Dr. M. Khalid',
+    customer_phone: '03134445566',
+    customer_address: 'Kulsum Plaza, Jinnah Avenue, Blue Area, Islamabad',
+    order_type: 'delivery',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 3250,
+    delivery_fee: 150,
+    total_payable: 3400,
+    total_payable_paisa: 340000,
+    payment_method: 'Cash on Delivery',
+    amount_received: 3400,
+    items: [
+      {
+        title: 'Truffle Double Smash',
+        quantity: 2,
+        unitPrice: 1090,
+        choices: [],
+      },
+      {
+        title: 'Cajun Loaded Fries',
+        quantity: 1,
+        unitPrice: 590,
+        choices: [],
+      },
+      {
+        title: 'Artisan Vanilla Bean Shake',
+        quantity: 1,
+        unitPrice: 480,
+        choices: [],
+      },
+    ],
+    created_at: '2026-09-24T18:15:00.000Z',
+    completed_at: '2026-09-24T19:00:00.000Z',
+  },
+  // --- EARLIER MONTH (August 2026) ---
+  {
+    id: 'DB-2715',
+    restaurant_id: restaurantId,
+    customer_name: 'Salman Sheikh',
+    customer_phone: '03229990011',
+    customer_address: 'Table 2',
+    table_number: '2',
+    order_type: 'dine_in',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 6800,
+    delivery_fee: 0,
+    total_payable: 6800,
+    total_payable_paisa: 680000,
+    payment_method: 'Online (Card)',
+    amount_received: 6800,
+    items: [
+      {
+        title: 'Super Smash Duo Combo',
+        quantity: 2,
+        unitPrice: 2450,
+        dealBadge: '🔥 SPECIAL DEAL',
+        dealItems: '2x Truffle Smash + 1x Cajun Fries + 2x Drinks',
+        choices: [],
+      },
+      {
+        title: 'Artisan Vanilla Bean Shake',
+        quantity: 3,
+        unitPrice: 500,
+        choices: [],
+      },
+      {
+        title: 'Cajun Loaded Fries',
+        quantity: 1,
+        unitPrice: 400,
+        choices: [],
+      },
+    ],
+    created_at: '2026-08-14T20:00:00.000Z',
+    completed_at: '2026-08-14T21:10:00.000Z',
+  },
+  // --- PREVIOUS YEAR (2025) ---
+  {
+    id: 'DB-1105',
+    restaurant_id: restaurantId,
+    customer_name: 'Omar Qureshi',
+    customer_phone: '03008882233',
+    customer_address: 'House 88, Street 4, G-9/1, Islamabad',
+    order_type: 'delivery',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 2800,
+    delivery_fee: 150,
+    total_payable: 2950,
+    total_payable_paisa: 295000,
+    payment_method: 'Cash on Delivery',
+    amount_received: 2950,
+    items: [
+      {
+        title: 'Truffle Double Smash',
+        quantity: 2,
+        unitPrice: 1090,
+        choices: [],
+      },
+      {
+        title: 'Soft Drinks Can',
+        quantity: 2,
+        unitPrice: 310,
+        choices: [],
+      },
+    ],
+    created_at: '2025-11-20T19:00:00.000Z',
+    completed_at: '2025-11-20T19:40:00.000Z',
+  },
+  {
+    id: 'DB-1210',
+    restaurant_id: restaurantId,
+    customer_name: 'Mian Rizwan',
+    customer_phone: '03217774433',
+    customer_address: 'Table 4',
+    table_number: '4',
+    order_type: 'dine_in',
+    status: 'completed',
+    payment_status: 'paid',
+    subtotal: 4650,
+    delivery_fee: 0,
+    total_payable: 4650,
+    total_payable_paisa: 465000,
+    payment_method: 'Online (Easypaisa)',
+    amount_received: 4650,
+    items: [
+      {
+        title: 'Super Smash Duo Combo',
+        quantity: 1,
+        unitPrice: 2450,
+        dealBadge: '🔥 SPECIAL DEAL',
+        dealItems: '2x Truffle Smash + 1x Cajun Fries + 2x Drinks',
+        choices: [],
+      },
+      {
+        title: 'Crispy Nashville Hot Chicken',
+        quantity: 2,
+        unitPrice: 990,
+        choices: [],
+      },
+      {
+        title: 'Mineral Water Large',
+        quantity: 2,
+        unitPrice: 110,
+        choices: [],
+      },
+    ],
+    created_at: '2025-12-15T21:30:00.000Z',
+    completed_at: '2025-12-15T22:20:00.000Z',
+  },
 ];
 
 export const orderService = {
@@ -437,6 +844,7 @@ export const orderService = {
       staff_name: customerDetails?.staff_name || null,
       customer_name: customerDetails?.name?.trim() || (orderType === 'dine_in' ? `Table ${tableNumber || 'Guest'}` : 'Direct Guest'),
       customer_phone: customerDetails?.phone?.trim() || '',
+      customer_id: customerDetails?.customer_id || null,
       order_type: orderType, // 'delivery' | 'pickup' | 'dine_in' | 'phone'
       table_number: tableNumber,
       customer_address: resolvedAddress,
@@ -583,6 +991,9 @@ export const orderService = {
    */
   getOrders(restaurantId) {
     if (!restaurantId) return [];
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return getStarterOrders(restaurantId);
+    }
     const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
     try {
       const saved = localStorage.getItem(storageKey);
@@ -591,7 +1002,7 @@ export const orderService = {
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Sanitize any existing orders by removing residual discounts and recalculating total
           let hasMissingTokens = false;
-          const cleaned = parsed.map((order) => {
+          let cleaned = parsed.map((order) => {
             const copy = { ...order };
             delete copy.discount_percentage;
             delete copy.discount_amount;
@@ -612,6 +1023,24 @@ export const orderService = {
             copy.payment_status = pState.paymentStatus;
             return copy;
           });
+
+          // Check if dataset has any historical orders (older than today)
+          const nowStr = new Date().toDateString();
+          const hasHistorical = cleaned.some((o) => {
+            if (!o.created_at) return false;
+            return new Date(o.created_at).toDateString() !== nowStr;
+          });
+
+          if (!hasHistorical) {
+            const starters = getStarterOrders(restaurantId);
+            const historicalStarters = starters.filter((s) => {
+              if (!s.created_at) return false;
+              return new Date(s.created_at).toDateString() !== nowStr;
+            });
+            cleaned = [...cleaned, ...historicalStarters];
+            hasMissingTokens = true;
+          }
+
           if (hasMissingTokens && typeof window !== 'undefined') {
             try {
               localStorage.setItem(storageKey, JSON.stringify(cleaned));
@@ -630,6 +1059,41 @@ export const orderService = {
       localStorage.setItem(storageKey, JSON.stringify(starter));
     } catch (e) {}
     return starter;
+  },
+
+  /**
+   * Get all orders across all restaurants (for customer accounts and global order histories)
+   */
+  getAllOrdersAcrossRestaurants() {
+    if (typeof window === 'undefined') return [];
+    const all = [];
+    const seenIds = new Set();
+
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(ORDERS_STORAGE_PREFIX)) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              list.forEach((ord) => {
+                if (ord && ord.id && !seenIds.has(ord.id)) {
+                  seenIds.add(ord.id);
+                  all.push(ord);
+                }
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading all orders across restaurants:', e);
+    }
+
+    // Sort newest first
+    all.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return all;
   },
 
   /**
@@ -718,6 +1182,76 @@ export const orderService = {
     }
 
     return updated;
+  },
+
+  /**
+   * Submit a customer rating and review for an order
+   */
+  async submitOrderRating(orderId, ratingData = { rating: 5, comment: '', tags: [] }, restaurantId = null) {
+    if (!orderId) return null;
+    const ratingObj = {
+      rating: Number(ratingData.rating) || 5,
+      comment: ratingData.comment?.trim() || '',
+      tags: Array.isArray(ratingData.tags) ? ratingData.tags : [],
+      rated_at: new Date().toISOString(),
+    };
+
+    // 1. Update in local storage
+    if (typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(ORDERS_STORAGE_PREFIX)) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                const idx = list.findIndex((o) => o.id === orderId);
+                if (idx !== -1) {
+                  list[idx] = {
+                    ...list[idx],
+                    customer_rating: ratingObj,
+                    rating: ratingObj.rating,
+                    review: ratingObj.comment,
+                  };
+                  localStorage.setItem(key, JSON.stringify(list));
+                }
+              }
+            }
+          }
+        }
+        localStorage.setItem(`dinehq_rating_${orderId}`, JSON.stringify(ratingObj));
+        window.dispatchEvent(new CustomEvent('dinehq_order_rated', { detail: { orderId, rating: ratingObj } }));
+      } catch (e) {
+        console.warn('Error saving rating to localStorage:', e);
+      }
+    }
+
+    // 2. Persist to Supabase if configured
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('orders')
+          .update({ customer_rating: ratingObj })
+          .eq('id', orderId);
+      } catch (e) {
+        console.warn('Supabase rating update error:', e);
+      }
+    }
+
+    return ratingObj;
+  },
+
+  /**
+   * Get rating for a specific order
+   */
+  getOrderRating(orderId) {
+    if (!orderId || typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(`dinehq_rating_${orderId}`);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return null;
   },
 
   /**
@@ -1013,5 +1547,97 @@ export const orderService = {
       savedCommission,
       activeCount,
     };
+  },
+
+  /**
+   * Get rating submitted for an order
+   */
+  getOrderRating(orderId) {
+    if (!orderId) return null;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const direct = localStorage.getItem(`dinehq_rating_${orderId}`);
+        if (direct) {
+          return JSON.parse(direct);
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading order rating:', e);
+    }
+    return null;
+  },
+
+  /**
+   * Submit or update a customer rating for an order
+   * @param {string} orderId
+   * @param {Object} ratingData - { rating: number (1-5), comment?: string, tags?: string[] }
+   * @param {string} [restaurantId]
+   */
+  async submitOrderRating(orderId, ratingData, restaurantId = 'rest-demo-1') {
+    if (!orderId || !ratingData) throw new Error('Order ID and rating data are required');
+
+    const cleanRating = {
+      order_id: orderId,
+      restaurant_id: restaurantId,
+      rating: Math.max(1, Math.min(5, Number(ratingData.rating) || 5)),
+      comment: (ratingData.comment || '').trim(),
+      tags: Array.isArray(ratingData.tags) ? ratingData.tags : [],
+      rated_at: new Date().toISOString(),
+    };
+
+    // 1. Save directly under dedicated key
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(`dinehq_rating_${orderId}`, JSON.stringify(cleanRating));
+      }
+    } catch (e) {
+      console.warn('Failed to save rating to localStorage:', e);
+    }
+
+    // 2. Update within restaurant orders list if present
+    try {
+      if (restaurantId && typeof localStorage !== 'undefined') {
+        const storageKey = `dinehq_orders_${restaurantId}`;
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const updated = list.map((ord) =>
+              ord.id === orderId ? { ...ord, customer_rating: cleanRating } : ord
+            );
+            localStorage.setItem(storageKey, JSON.stringify(updated));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to attach rating to order in list:', e);
+    }
+
+    // 3. Notify real-time listeners across browser / tabs
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('dinehq_order_rated', {
+          detail: {
+            orderId,
+            restaurantId,
+            ratingData: cleanRating,
+          },
+        })
+      );
+    }
+
+    // 4. Optionally write to Supabase if configured
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('orders')
+          .update({ customer_rating: cleanRating })
+          .eq('id', orderId);
+      } catch (err) {
+        console.warn('Supabase rating sync notice:', err);
+      }
+    }
+
+    return cleanRating;
   },
 };

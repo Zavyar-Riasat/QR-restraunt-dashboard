@@ -7,7 +7,6 @@ import { EscposEncoder } from '../escposEncoder.js';
 import { jobContainsUrdu, renderReceiptToCanvas } from '../receiptCanvasRenderer.js';
 import { PAPER_SIZES, TEMPLATE_TYPES } from '../printerTypes.js';
 import { formatPKR } from '../../../utils/currencyUtils.js';
-import { buildGoogleMapsNavUrl } from '../../../config/mapConfig.js';
 
 export class BaseDriver {
   constructor(id, name) {
@@ -146,18 +145,15 @@ export class BaseDriver {
       encoder.bold(false);
       encoder.rule(charWidth, '-');
 
-      // QR Code for Delivery Navigation or Customer Reordering
-      const qrUrl = isDelivery
-        ? buildGoogleMapsNavUrl(order)
-        : (reorderQrUrl || `${window?.location?.origin || ''}/${restaurant?.slug || ''}`);
-      const qrTitle = isDelivery ? 'SCAN FOR GOOGLE MAPS NAVIGATION' : 'SCAN TO REORDER DIRECTLY';
+      // QR Code for Customer Reordering (Restaurant QR only, never location maps)
+      const qrUrl = reorderQrUrl || `${window?.location?.origin || ''}/${restaurant?.slug || ''}`;
+      const qrTitle = 'SCAN TO ORDER / MENU';
       if (qrUrl) {
         encoder.align('center');
         encoder.feed(1);
-        encoder.qrCode(qrUrl, is58mm ? 4 : 5);
+        encoder.qrCode(qrUrl, is58mm ? 3 : 4);
         encoder.feed(1);
         encoder.line(qrTitle);
-        encoder.line(qrUrl);
         encoder.feed(1);
       }
 

@@ -90,7 +90,7 @@ class WindowManager {
       y: this.state.y,
       minWidth: 1024,
       minHeight: 700,
-      title: 'DineHQ Kitchen & POS Command Center',
+      title: 'Dineflow Kitchen & POS Command Center',
       backgroundColor: '#FFFDF9',
       show: false, // Show gracefully on ready-to-show
       icon: iconPath,

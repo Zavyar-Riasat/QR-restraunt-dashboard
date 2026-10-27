@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getAppBaseUrl, isReservedSlug } from '../config/appConfig.js';
 import {
   Phone,
   Link2,
@@ -28,6 +29,7 @@ import {
   Bike,
   Trash2,
   Plus,
+  MapPin,
 } from 'lucide-react';
 import { riderService } from '../services/riderService';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +38,7 @@ import { DRIVER_IDS, PAPER_SIZE_SPECS } from '../services/printer/printerTypes';
 import PrintersSection from './Printer/PrintersSection';
 import PrintTemplatesSection from './Printer/PrintTemplatesSection';
 import TableManager from './TableManagement/TableManager';
+import LocationDeliverySection from './LocationDeliverySection';
 
 const BRAND_PRESET_COLORS = [
   { name: 'Warm Orange (Default)', value: '#F26B1D' },
@@ -54,7 +57,7 @@ export default function StoreSettings({
   orders = [],
   onOpenPosForTable,
 }) {
-  const { user, getRegisteredUsers, updateUserCredentials } = useAuth();
+  const { user, getRegisteredUsers, updateUserCredentials, changePassword } = useAuth();
   const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
   const [isTestingPrint, setIsTestingPrint] = useState(false);
   const [printTestStatus, setPrintTestStatus] = useState(null);
@@ -252,7 +255,7 @@ export default function StoreSettings({
     window.open(`tel:+${cleanNumber}`, '_self');
   };
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+  const origin = getAppBaseUrl();
   const previewMenuUrl = `${origin}/${formData.slug || 'your-slug'}`;
 
   const handleCopyMenuLink = () => {
@@ -279,6 +282,10 @@ export default function StoreSettings({
     e.preventDefault();
     if (!formData.slug.trim()) {
       setError('Please provide a menu URL slug.');
+      return;
+    }
+    if (isReservedSlug(formData.slug.trim())) {
+      setError(`The slug "${formData.slug.trim()}" is reserved by the platform. Please choose a different restaurant slug.`);
       return;
     }
     const activePhone = (formData.phone || formData.whatsapp_number || '').trim();
@@ -356,35 +363,21 @@ export default function StoreSettings({
       setPwdError('Please enter your current password.');
       return;
     }
-    if (!newPassword || newPassword.length < 4) {
-      setPwdError('New password must be at least 4 characters long.');
-      return;
-    }
-
-    if (managerAccount?.password && currentPassword !== managerAccount.password) {
-      setPwdError('The current password you entered is incorrect.');
+    if (!newPassword || newPassword.length < 6) {
+      setPwdError('New password must be at least 6 characters long.');
       return;
     }
 
     try {
       setPwdSubmitting(true);
-      const targetUserId = managerAccount?.id || user?.id;
-      if (!targetUserId) {
-        throw new Error('Unable to resolve active user account ID.');
-      }
+      await changePassword(currentPassword, newPassword.trim());
 
-      await updateUserCredentials(targetUserId, {
-        currentEmail: managerAccount?.email || user?.email,
-        password: newPassword.trim(),
-      });
-
-      setManagerAccount((prev) => (prev ? { ...prev, password: newPassword.trim() } : null));
       setCurrentPassword('');
       setNewPassword('');
       setPwdSaved(true);
       setTimeout(() => setPwdSaved(false), 3500);
     } catch (err) {
-      setPwdError(err.message || 'Failed to change password.');
+      setPwdError(err.message || 'Failed to change password. Please check your current password.');
     } finally {
       setPwdSubmitting(false);
     }
@@ -394,6 +387,16 @@ export default function StoreSettings({
     <div className="space-y-8">
       {/* Quick Section Anchor Pills */}
       <div className="flex flex-wrap items-center gap-2 p-2 bg-white border border-[#F0E4D7] rounded-2xl shadow-2xs">
+        <a
+          href="#location-delivery-section"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#F26B1D] bg-[#FFF1E6] hover:bg-[#FFE6D4] transition flex items-center gap-1.5 shadow-2xs"
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Location & Delivery Area</span>
+          {(!restaurant?.address || !restaurant?.latitude) && (
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="Location Required" />
+          )}
+        </a>
         <a
           href="#store-profile"
           className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
@@ -414,7 +417,7 @@ export default function StoreSettings({
         </a>
         <a
           href="#templates-section"
-          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#F26B1D] bg-[#FFF1E6] transition"
+          className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6]/60 transition"
         >
           Print Templates & Live Preview
         </a>
@@ -437,6 +440,9 @@ export default function StoreSettings({
           About & Attribution
         </a>
       </div>
+
+      {/* 0. Dedicated Location & Delivery Area (Required for Marketplace) */}
+      <LocationDeliverySection restaurant={restaurant} onUpdate={onUpdate} />
 
       {/* 1. Store Identity & Delivery Options */}
       <div id="store-profile" className="bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
@@ -1244,13 +1250,13 @@ export default function StoreSettings({
         <div className="flex items-center gap-2 pb-3 border-b border-[#F0E4D7]">
           <Info className="w-5 h-5 text-[#F26B1D]" />
           <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight">
-            About DineHQ
+            About Dineflow
           </h2>
         </div>
         <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2.5 text-xs text-[#7A6A5C]">
           <div className="flex items-center justify-between">
             <span className="font-bold text-[#2B2118]">Platform</span>
-            <span className="font-mono text-[11px] bg-white px-2 py-0.5 rounded-md border border-[#F0E4D7]">DineHQ POS & Kitchen Dispatch v2.4</span>
+            <span className="font-mono text-[11px] bg-white px-2 py-0.5 rounded-md border border-[#F0E4D7]">Dineflow POS & Kitchen Dispatch v2.4</span>
           </div>
           <p className="leading-relaxed">
             Fast, offline-resilient restaurant point-of-sale, QR ordering, and doorstep delivery dispatch system.

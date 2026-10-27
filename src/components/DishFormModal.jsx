@@ -7,7 +7,6 @@ import {
   X,
   Plus,
   Trash2,
-  Sparkles,
   AlertCircle,
   AlertTriangle,
   RotateCcw,
@@ -85,10 +84,11 @@ export default function DishFormModal({
     });
   }, [categories]);
 
-  // Main 4 fields
+  // Main fields
   const [categoryId, setCategoryId] = useState('');
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
+  const [originalPrice, setOriginalPrice] = useState('');
   const [imageUrl, setImageUrl] = useState('');
 
   // Under "More options"
@@ -111,6 +111,7 @@ export default function DishFormModal({
     setCategoryId(dishCategories[0]?.id || categories[0]?.id || '');
     setTitle('');
     setPrice('');
+    setOriginalPrice('');
     setImageUrl('');
     setDescription('');
     setOptionsGroups([]);
@@ -128,6 +129,8 @@ export default function DishFormModal({
       setCategoryId(itemToEdit.category_id || dishCategories[0]?.id || categories[0]?.id || '');
       setTitle(itemToEdit.title || '');
       setPrice(itemToEdit.price ? String(itemToEdit.price) : '');
+      const existingOrigPrice = itemToEdit.original_price ?? itemToEdit.variants?.original_price;
+      setOriginalPrice(existingOrigPrice ? String(existingOrigPrice) : '');
       setImageUrl(getItemImage(itemToEdit) || '');
       setDescription(itemToEdit.description || itemToEdit.variants?.description || '');
       setOptionsGroups(getItemVariants(itemToEdit));
@@ -144,6 +147,7 @@ export default function DishFormModal({
             setCategoryId(draft.categoryId || dishCategories[0]?.id || categories[0]?.id || '');
             setTitle(draft.title || '');
             setPrice(draft.price || '');
+            setOriginalPrice(draft.originalPrice || '');
             setImageUrl(draft.imageUrl || '');
             setDescription(draft.description || '');
             setOptionsGroups(draft.optionsGroups || []);
@@ -174,19 +178,20 @@ export default function DishFormModal({
   // Auto-save draft when fields change in create mode
   useEffect(() => {
     if (!isOpen || itemToEdit) return;
-    const hasData = title || price || imageUrl || description || optionsGroups.length > 0;
+    const hasData = title || price || originalPrice || imageUrl || description || optionsGroups.length > 0;
     if (hasData) {
       const draft = {
         categoryId,
         title,
         price,
+        originalPrice,
         imageUrl,
         description,
         optionsGroups,
       };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     }
-  }, [isOpen, itemToEdit, categoryId, title, price, imageUrl, description, optionsGroups]);
+  }, [isOpen, itemToEdit, categoryId, title, price, originalPrice, imageUrl, description, optionsGroups]);
 
   const handleDiscardDraft = () => {
     localStorage.removeItem(DRAFT_KEY);
@@ -363,11 +368,14 @@ export default function DishFormModal({
         options: grp.options.filter((opt) => opt.name.trim() !== ''),
       }));
 
+    const parsedOriginalPrice = originalPrice && parseFloat(originalPrice) > 0 ? parseFloat(originalPrice) : null;
+
     const variantsPayload = {
       is_available: itemToEdit?.variants?.is_available ?? true,
       image_url: imageUrl.trim(),
       description: description.trim(),
       options: cleanedVariants,
+      original_price: parsedOriginalPrice,
     };
 
     try {
@@ -379,6 +387,7 @@ export default function DishFormModal({
         category_id: categoryId,
         title: title.trim(),
         price: parseFloat(price),
+        original_price: parsedOriginalPrice,
         variants: variantsPayload,
       });
 
@@ -426,7 +435,7 @@ export default function DishFormModal({
         {hasDraftNotice && !itemToEdit && (
           <div className="px-5 py-2.5 bg-[#FEF3D9] border-b border-[#FCE1A8] flex items-center justify-between gap-2 text-xs text-[#B87000] shrink-0">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#F5A623] shrink-0" />
+              <RotateCcw className="w-4 h-4 text-[#F5A623] shrink-0" />
               <span>We restored your unsaved dish draft.</span>
             </div>
             <button
@@ -529,40 +538,96 @@ export default function DishFormModal({
             )}
           </div>
 
-          {/* 3. Price */}
-          <div>
-            <label
-              htmlFor="dish-price-input"
-              className="block text-base font-bold text-slate-800 mb-1.5"
-            >
-              Price
-              <span className="text-xs font-normal text-slate-500 ml-2">
-                قیمت (روپے)
-              </span>
-              <span className="text-rose-500 ml-1">*</span>
-            </label>
-            <div className="relative flex items-center">
-              <div className="absolute left-3.5 px-3 py-1 rounded-xl bg-slate-200/80 text-slate-800 font-bold text-sm select-none">
-                Rs.
+          {/* 3. Pricing Section (Selling Price + Optional Before-Discount Original Price) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label
+                htmlFor="dish-price-input"
+                className="block text-sm font-bold text-slate-800 mb-1.5"
+              >
+                Selling / Discounted Price
+                <span className="text-xs font-normal text-slate-500 ml-1.5">
+                  فروخت کی قیمت
+                </span>
+                <span className="text-rose-500 ml-1">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3.5 px-2.5 py-1 rounded-xl bg-slate-200/80 text-slate-800 font-bold text-xs select-none">
+                  Rs.
+                </div>
+                <input
+                  id="dish-price-input"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  step="1"
+                  min="0"
+                  required
+                  value={price}
+                  onChange={(e) => {
+                    setPrice(e.target.value);
+                    setValidationError('');
+                  }}
+                  placeholder="850"
+                  className="w-full h-13 pl-16 pr-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xl font-extrabold font-mono placeholder:text-slate-300 focus:outline-none focus:border-slate-800 focus:bg-white transition"
+                />
               </div>
-              <input
-                id="dish-price-input"
-                type="number"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                step="1"
-                min="0"
-                required
-                value={price}
-                onChange={(e) => {
-                  setPrice(e.target.value);
-                  setValidationError('');
-                }}
-                placeholder="850"
-                className="w-full h-14 pl-18 pr-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-2xl font-extrabold font-mono placeholder:text-slate-300 focus:outline-none focus:border-slate-800 focus:bg-white transition"
-              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Amount the customer pays. Shown first in menu.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="dish-original-price-input"
+                className="block text-sm font-bold text-slate-800 mb-1.5"
+              >
+                Original Price (Optional)
+                <span className="text-xs font-normal text-slate-500 ml-1.5">
+                  اصل قیمت (رعایت سے پہلے)
+                </span>
+              </label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3.5 px-2.5 py-1 rounded-xl bg-slate-200/80 text-slate-800 font-bold text-xs select-none">
+                  Rs.
+                </div>
+                <input
+                  id="dish-original-price-input"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  step="1"
+                  min="0"
+                  value={originalPrice}
+                  onChange={(e) => {
+                    setOriginalPrice(e.target.value);
+                  }}
+                  placeholder="1000"
+                  className="w-full h-13 pl-16 pr-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xl font-extrabold font-mono placeholder:text-slate-300 focus:outline-none focus:border-slate-800 focus:bg-white transition"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Shown crossed out second in menu.
+              </p>
             </div>
           </div>
+
+          {/* Discount Active Preview Banner */}
+          {parseFloat(price) > 0 && parseFloat(originalPrice) > parseFloat(price) && (
+            <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <span className="text-base select-none">🎉</span>
+                <div>
+                  <span className="font-extrabold text-emerald-800">
+                    Discount Active ({Math.round(((parseFloat(originalPrice) - parseFloat(price)) / parseFloat(originalPrice)) * 100)}% OFF):
+                  </span>{' '}
+                  <span>
+                    In menu, customers see <strong>Rs. {parseFloat(price).toLocaleString()}</strong> first, then <del className="text-slate-500 font-mono">Rs. {parseFloat(originalPrice).toLocaleString()}</del> second (Save Rs. {(parseFloat(originalPrice) - parseFloat(price)).toLocaleString()}).
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 4. Dish Photo */}
           <div>

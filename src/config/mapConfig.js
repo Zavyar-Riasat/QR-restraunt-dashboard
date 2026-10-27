@@ -4,7 +4,12 @@
  * Single source of truth for tile URLs and attributions across the platform.
  */
 
-// OpenStreetMap standard tile server configuration
+// Google Maps standard roadmap tiles (authentic Google Maps roads, labels, landmarks without paid API key)
+export const GOOGLE_MAPS_TILE_URL = 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
+export const GOOGLE_MAPS_SUBDOMAINS = ['mt0', 'mt1', 'mt2', 'mt3'];
+export const GOOGLE_MAPS_ATTRIBUTION = '© <a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">Google Maps</a>';
+
+// OpenStreetMap standard tile server configuration (fallback where needed)
 export const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 // Required OpenStreetMap copyright attribution
@@ -13,8 +18,8 @@ export const ATTRIBUTION = '© <a href="https://www.openstreetmap.org/copyright"
 // Subdomains for load balancing
 export const TILE_SUBDOMAINS = ['a', 'b', 'c'];
 
-// Maximum tile zoom supported by OSM standard tiles
-export const MAX_ZOOM = 19;
+// Maximum tile zoom supported
+export const MAX_ZOOM = 20;
 
 // Default city center fallback (Faisalabad / Lahore, Pakistan)
 export const DEFAULT_FALLBACK_COORDS = {

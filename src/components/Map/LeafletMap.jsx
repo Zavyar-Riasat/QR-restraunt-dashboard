@@ -7,6 +7,9 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import {
   TILE_URL,
   ATTRIBUTION,
+  GOOGLE_MAPS_TILE_URL,
+  GOOGLE_MAPS_SUBDOMAINS,
+  GOOGLE_MAPS_ATTRIBUTION,
   DEFAULT_MAP_ZOOM,
   DEFAULT_FALLBACK_COORDS,
 } from '../../config/mapConfig';
@@ -69,6 +72,7 @@ export default function LeafletMap({
   height = '240px',
   interactive = true,
   popupText = null,
+  tileProvider = 'google',
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -101,11 +105,19 @@ export default function LeafletMap({
       map.attributionControl.setPrefix(false);
     }
 
-    // Standard OpenStreetMap tiles with required attribution
-    L.tileLayer(TILE_URL, {
-      attribution: ATTRIBUTION,
-      maxZoom: 19,
-    }).addTo(map);
+    // Standard Google Maps tiles with subdomains (fallback to OSM if tileProvider is 'osm')
+    if (tileProvider === 'osm') {
+      L.tileLayer(TILE_URL, {
+        attribution: ATTRIBUTION,
+        maxZoom: 19,
+      }).addTo(map);
+    } else {
+      L.tileLayer(GOOGLE_MAPS_TILE_URL, {
+        subdomains: GOOGLE_MAPS_SUBDOMAINS,
+        attribution: GOOGLE_MAPS_ATTRIBUTION,
+        maxZoom: 20,
+      }).addTo(map);
+    }
 
     // Marker with explicit icon
     const marker = L.marker([activeLat, activeLng], {
@@ -240,6 +252,22 @@ export default function LeafletMap({
         style={{ height, width: '100%' }}
         className="w-full h-full z-0"
       />
+
+      {/* Google Maps External Quick Link */}
+      <a
+        href={`https://www.google.com/maps/search/?api=1&query=${activeLat},${activeLng}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute bottom-1.5 left-1.5 z-[500] px-2 py-0.5 rounded-md bg-white/95 hover:bg-white text-[10px] font-bold text-[#1A73E8] border border-slate-200 shadow-xs flex items-center gap-1 transition select-none pointer-events-auto"
+        title="View in Google Maps"
+      >
+        <img
+          src="https://maps.gstatic.com/mapfiles/api-3/images/google_gray.svg"
+          alt="Google"
+          className="h-3"
+        />
+        <span>Google Maps</span>
+      </a>
 
       {/* Compact OpenStreetMap Attribution Icon ("i" that expands on tap/click) */}
       <div className="absolute bottom-1.5 right-1.5 z-[500] pointer-events-auto select-none">

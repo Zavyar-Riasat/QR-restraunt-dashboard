@@ -13,27 +13,36 @@ import {
   Navigation,
   CreditCard,
   Banknote,
-  Sparkles,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
 import { handleDirectOrderCheckout, validatePakistaniPhone } from '../utils/checkoutUtils';
 import { formatPKR } from '../utils/currencyUtils';
 import DeliveryLocationPicker from './DeliveryLocationPicker';
+import { useCustomerAuth } from '../context/CustomerAuthContext';
+import { customerAuthService } from '../services/customerAuthService';
+import CustomerAuthModal from './Customer/CustomerAuthModal';
+import { checkRestaurantDeliveryCoverage } from '../utils/geoValidation';
 
 export default function DirectOrderCheckout({
   cart,
   restaurant,
   onBack,
   onOrderPlaced,
+  isDeliverableToCustomer = true,
+  deliveryAreas = [],
 }) {
   const primaryColor = restaurant?.primary_color || '#F26B1D';
+  const { customer: authCustomer, addresses, isCustomerAuthenticated } = useCustomerAuth();
 
   // Read table parameter from URL if customer scanned a table-specific QR code
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const initialTable = urlParams?.get('table') || urlParams?.get('t') || '';
 
-  const [orderType, setOrderType] = useState(initialTable ? 'dine_in' : 'delivery');
+  const [orderType, setOrderType] = useState(() => {
+    if (initialTable) return 'dine_in';
+    return isDeliverableToCustomer ? 'delivery' : 'pickup';
+  });
   const [tableNumber, setTableNumber] = useState(initialTable);
   const [placedSuccessOrder, setPlacedSuccessOrder] = useState(null);
 
@@ -54,6 +63,48 @@ export default function DirectOrderCheckout({
     deliveryNote: '',
   });
 
+  const [showSignInModal, setShowSignInModal] = useState(false);
+  const [matchedExistingCustomer, setMatchedExistingCustomer] = useState(null);
+
+  // Prefill signed-in customer name, phone, and default delivery address
+  useEffect(() => {
+    if (isCustomerAuthenticated && authCustomer) {
+      setCustomer((prev) => ({
+        ...prev,
+        name: prev.name || authCustomer.name || '',
+        phone: prev.phone || authCustomer.phone || '',
+      }));
+
+      if (Array.isArray(addresses) && addresses.length > 0) {
+        const defaultAddr = addresses.find((a) => a.is_default) || addresses[0];
+        if (defaultAddr) {
+          setDeliveryLocation((prev) => ({
+            ...prev,
+            formattedAddress: prev.formattedAddress || defaultAddr.address || '',
+            areaLandmark: prev.areaLandmark || defaultAddr.landmark || '',
+            deliveryNote: prev.deliveryNote || defaultAddr.delivery_note || '',
+            latitude: prev.latitude != null ? prev.latitude : defaultAddr.latitude,
+            longitude: prev.longitude != null ? prev.longitude : defaultAddr.longitude,
+          }));
+        }
+      }
+    }
+  }, [isCustomerAuthenticated, authCustomer, addresses]);
+
+  // When guest types a phone, check if it matches an existing registered customer
+  useEffect(() => {
+    if (!isCustomerAuthenticated && customer.phone) {
+      const reg = customerAuthService.checkPhoneRegistered(customer.phone);
+      if (reg.isRegistered && reg.customer) {
+        setMatchedExistingCustomer(reg.customer);
+      } else {
+        setMatchedExistingCustomer(null);
+      }
+    } else {
+      setMatchedExistingCustomer(null);
+    }
+  }, [customer.phone, isCustomerAuthenticated]);
+
   const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery');
   const [honeypot, setHoneypot] = useState(''); // Bot trap
   const [idempotencyKey] = useState(() => `idemp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`);
@@ -63,15 +114,27 @@ export default function DirectOrderCheckout({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // Calculate pricing
+  // Evaluate chosen map pin / address coordinates against delivery areas
+  const chosenAddressCoords = (deliveryLocation?.latitude && deliveryLocation?.longitude)
+    ? { lat: Number(deliveryLocation.latitude), lng: Number(deliveryLocation.longitude) }
+    : null;
+
+  const chosenAddressCoverage = chosenAddressCoords && restaurant
+    ? checkRestaurantDeliveryCoverage(chosenAddressCoords, restaurant, deliveryAreas)
+    : null;
+
+  // Calculate pricing & dynamic zone fee
   const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const isFreeDelivery = restaurant?.delivery_mode === 'free';
   const isHiddenDelivery = restaurant?.delivery_mode === 'none';
   const rawDeliveryFee = (isFreeDelivery || isHiddenDelivery) ? 0 : (Number(restaurant?.delivery_fee) || 0);
 
-  // Delivery fee only applies to delivery orders
-  const deliveryFee = orderType === 'delivery' ? rawDeliveryFee : 0;
-  const finalTotal = subtotal + deliveryFee;
+  // Apply zone's delivery fee if configured
+  const effectiveDeliveryFee = (orderType === 'delivery')
+    ? (isFreeDelivery || isHiddenDelivery ? 0 : (chosenAddressCoverage?.fee != null ? Number(chosenAddressCoverage.fee) : rawDeliveryFee))
+    : 0;
+
+  const finalTotal = subtotal + effectiveDeliveryFee;
 
   const isKitchenOpen = restaurant?.is_open !== false;
   const checkMinOrder = restaurant?.show_min_order !== false;
@@ -143,11 +206,19 @@ export default function DirectOrderCheckout({
     }
 
     if (orderType === 'delivery') {
+      if (!isDeliverableToCustomer) {
+        setFormError("This restaurant doesn't deliver to your location. You can choose Pickup or Dine-in.");
+        return;
+      }
       const typedAddress = (deliveryLocation.formattedAddress || '').trim();
       const landmark = (deliveryLocation.areaLandmark || '').trim();
       const house = (deliveryLocation.houseFlat || '').trim();
       if (!typedAddress && !landmark && !house) {
         setFormError('Please enter your delivery address or nearest landmark.');
+        return;
+      }
+      if (chosenAddressCoverage && !chosenAddressCoverage.deliversToUser) {
+        setFormError("Your selected delivery pin is outside this restaurant's delivery area. Please select a valid address within the covered area or switch to Pickup.");
         return;
       }
     }
@@ -172,9 +243,13 @@ export default function DirectOrderCheckout({
 
       const result = await handleDirectOrderCheckout({
         cart,
-        restaurant,
+        restaurant: {
+          ...restaurant,
+          delivery_fee: effectiveDeliveryFee,
+        },
         customerDetails: {
           ...customer,
+          customer_id: isCustomerAuthenticated && authCustomer ? authCustomer.id : null,
           name: customer.name.trim() || (orderType === 'dine_in' ? `Table ${tableNumber}` : 'Guest Customer'),
           address: orderType === 'delivery' ? deliveryAddress : customer.address,
           phone: phoneValidation?.normalized || customer.phone?.trim() || '',
@@ -291,14 +366,18 @@ export default function DirectOrderCheckout({
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
-            onClick={() => setOrderType('delivery')}
-            className={`py-2.5 px-2 rounded-xl border text-center transition cursor-pointer flex flex-col items-center gap-1 ${
-              orderType === 'delivery'
-                ? 'border-[#F26B1D] bg-[#FFF1E6] text-[#2B2118] ring-1 ring-[#F26B1D] font-extrabold shadow-2xs'
-                : 'border-[#F0E4D7] bg-white text-[#7A6A5C] hover:border-[#FCD8BF]'
+            disabled={!isDeliverableToCustomer}
+            onClick={() => isDeliverableToCustomer && setOrderType('delivery')}
+            className={`py-2.5 px-2 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
+              !isDeliverableToCustomer
+                ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400'
+                : orderType === 'delivery'
+                ? 'border-[#F26B1D] bg-[#FFF1E6] text-[#2B2118] ring-1 ring-[#F26B1D] font-extrabold shadow-2xs cursor-pointer'
+                : 'border-[#F0E4D7] bg-white text-[#7A6A5C] hover:border-[#FCD8BF] cursor-pointer'
             }`}
+            title={!isDeliverableToCustomer ? "This restaurant doesn't deliver to your location." : 'Direct Door Delivery'}
           >
-            <Truck className="w-4 h-4 text-[#F26B1D]" />
+            <Truck className={`w-4 h-4 ${!isDeliverableToCustomer ? 'text-slate-400' : 'text-[#F26B1D]'}`} />
             <span className="text-xs">Delivery</span>
           </button>
 
@@ -328,6 +407,14 @@ export default function DirectOrderCheckout({
             <span className="text-xs">Dine-In</span>
           </button>
         </div>
+
+        {/* Outside Delivery Area Notice */}
+        {!isDeliverableToCustomer && (
+          <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 mt-2 animate-fadeIn">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>This restaurant doesn't deliver to your location. You can choose Pickup or Dine-in.</span>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
@@ -392,6 +479,33 @@ export default function DirectOrderCheckout({
               }`}
             />
           </div>
+
+          {/* Signed-in Indicator */}
+          {isCustomerAuthenticated && authCustomer && (
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 mt-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Signed in as {authCustomer.name} • Saved addresses & orders synced</span>
+            </div>
+          )}
+
+          {/* Offer: Sign In when guest phone matches existing customer */}
+          {!isCustomerAuthenticated && matchedExistingCustomer && (
+            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs flex items-center justify-between gap-2 animate-fadeIn mt-1.5 shadow-2xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <User className="w-3.5 h-3.5 text-[#F26B1D] shrink-0" />
+                <span className="truncate">
+                  Account found for <strong>{matchedExistingCustomer.name}</strong>.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSignInModal(true)}
+                className="px-2.5 py-1 rounded-lg bg-[#F26B1D] hover:bg-[#D95A12] text-white text-[11px] font-bold transition shrink-0 cursor-pointer shadow-2xs whitespace-nowrap"
+              >
+                Sign in to track your orders
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Dine-in Table Number Field */}
@@ -431,12 +545,33 @@ export default function DirectOrderCheckout({
 
         {/* Delivery Location & Structured Address */}
         {orderType === 'delivery' && (
-          <DeliveryLocationPicker
-            locationData={deliveryLocation}
-            onChange={setDeliveryLocation}
-            primaryColor={primaryColor}
-            restaurant={restaurant}
-          />
+          <div className="space-y-2">
+            <DeliveryLocationPicker
+              locationData={deliveryLocation}
+              onChange={setDeliveryLocation}
+              primaryColor={primaryColor}
+              restaurant={restaurant}
+            />
+
+            {/* Chosen Address Pin Boundary Warning */}
+            {chosenAddressCoverage && !chosenAddressCoverage.deliversToUser && (
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>Selected pin is outside this restaurant's delivery boundaries. Orders cannot be delivered here.</span>
+              </div>
+            )}
+
+            {/* Zone Fee Applied Badge */}
+            {chosenAddressCoverage && chosenAddressCoverage.deliversToUser && chosenAddressCoverage.fee != null && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between animate-fadeIn">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Delivery Zone Applied</span>
+                </div>
+                <span className="font-mono font-black">{formatPKR(effectiveDeliveryFee)}</span>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Special Instructions (Kitchen Notes) */}
@@ -519,7 +654,7 @@ export default function DirectOrderCheckout({
                 <span>Delivery</span>
               </span>
               <span className="font-mono font-semibold">
-                {isFreeDelivery ? 'Free' : formatPKR(deliveryFee)}
+                {isFreeDelivery ? 'Free' : formatPKR(effectiveDeliveryFee)}
               </span>
             </div>
           )}
@@ -545,19 +680,30 @@ export default function DirectOrderCheckout({
               <span>Placing your order directly...</span>
             </>
           ) : (
-            <>
-              <Sparkles className="w-4 h-4" />
-              <span>
-                {!isKitchenOpen
-                  ? 'Kitchen Paused'
-                  : !meetsMinOrder
-                  ? `Min Order: ${formatPKR(minOrder)}`
-                  : `Place Order • ${formatPKR(finalTotal)}`}
-              </span>
-            </>
+            <span>
+              {!isKitchenOpen
+                ? 'Kitchen Paused'
+                : !meetsMinOrder
+                ? `Min Order: ${formatPKR(minOrder)}`
+                : `Place Order • ${formatPKR(finalTotal)}`}
+            </span>
           )}
         </button>
       </form>
+
+      {/* Sign-in Modal from Checkout */}
+      {showSignInModal && (
+        <CustomerAuthModal
+          isOpen={showSignInModal}
+          onClose={() => setShowSignInModal(false)}
+          initialPhone={customer.phone}
+          onSuccess={(logged) => {
+            setShowSignInModal(false);
+          }}
+          title="Sign in to your account"
+          subtitle="Sign in to prefill your delivery address and link this order to your history."
+        />
+      )}
     </div>
   );
 }

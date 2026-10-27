@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   /* Warm Friendly Food Palette - Defined centrally */
@@ -161,24 +162,208 @@
 .card-warm {
   background-color: var(--color-card);
   border: 1px solid var(--color-card-border);
-  border-radius: 1rem;
-  box-shadow: 0 1px 4px rgba(43, 33, 24, 0.04);
+  border-radius: 1rem; /* 16px radius */
+  box-shadow: 0 2px 12px rgba(43, 33, 24, 0.05);
+  transition: transform 250ms ease-out, box-shadow 250ms ease-out, border-color 250ms ease;
 }
 
-/* Custom scrollbars for bright theme */
+@media (hover: hover) and (pointer: fine) {
+  .card-warm:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(43, 33, 24, 0.1);
+  }
+}
+
+/* Dark mode theme token mapping */
+:root.dark, [data-theme="dark"] {
+  --color-page: #17110C;
+  --color-card: #221A14;
+  --color-card-border: #3A2B20;
+  --color-text-main: #FFF9F2;
+  --color-text-secondary: #CBB8A8;
+  --color-text-muted: #8E7A6B;
+  --color-primary-soft: #382417;
+  --color-primary-border: #523522;
+}
+
+/* ========================================================
+   HERO KEYFRAME ANIMATIONS (Rich, smooth, hardware-accelerated)
+   ======================================================== */
+@keyframes heroFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes heroShadowPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(0.93);
+    opacity: 0.28;
+  }
+}
+
+@keyframes steamRise {
+  0% {
+    transform: translateY(0px);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-8px);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-16px);
+    opacity: 0;
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    transform: scale(0.95);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(-8px) translateX(4px);
+  }
+}
+
+@keyframes floatReverse {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(8px) translateX(-4px);
+  }
+}
+
+@keyframes auroraShift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(20px, -15px) scale(1.12);
+  }
+}
+
+@keyframes wavyShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.animate-hero-float {
+  animation: heroFloat 4.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.animate-hero-shadow {
+  animation: heroShadowPulse 4.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center center;
+}
+
+.animate-steam-1 {
+  animation: steamRise 2.4s ease-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.animate-steam-2 {
+  animation: steamRise 2.9s ease-out infinite 0.75s;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.animate-steam-3 {
+  animation: steamRise 2.6s ease-out infinite 1.4s;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 5s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.animate-float-slow {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: floatReverse 4.6s ease-in-out infinite 0.8s;
+}
+
+.animate-aurora {
+  animation: auroraShift 9s ease-in-out infinite;
+}
+
+.animate-wavy-shimmer {
+  background-size: 200% auto;
+  animation: wavyShimmer 4s linear infinite;
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
+}
+
+/* Compact OSM Attribution: Hide default Leaflet branding */
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+/* Custom scrollbars - Warm transparent track, eliminates stray white line */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #E8D9CC;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #D2C0B0;
+}
+
+/* Hide horizontal scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 @media print {

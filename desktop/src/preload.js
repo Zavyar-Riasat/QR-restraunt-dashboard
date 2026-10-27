@@ -69,6 +69,8 @@ const desktopAPI = {
 };
 
 // Expose on both modern and legacy namespaces for seamless compatibility
+contextBridge.exposeInMainWorld('dineflowDesktop', desktopAPI);
+contextBridge.exposeInMainWorld('dineflowElectron', desktopAPI);
 contextBridge.exposeInMainWorld('dinehqDesktop', desktopAPI);
 contextBridge.exposeInMainWorld('electronAPI', desktopAPI);
 contextBridge.exposeInMainWorld('dinehqElectron', desktopAPI);

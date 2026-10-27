@@ -25,7 +25,7 @@ import SendToRiderMenu from './SendToRiderMenu';
 import RecordPaymentModal from './RecordPaymentModal';
 import { TEMPLATE_TYPES } from '../../services/printer/printerTypes';
 
-const LeafletMap = lazy(() => import('../Map/LeafletMap.jsx'));
+import LeafletMap from '../Map/LeafletMap.jsx';
 
 export default function OrderDetailsModal({
   order,

@@ -1,5 +1,5 @@
 /**
- * Centralized PKR currency & financial integrity utilities for DineHQ
+ * Centralized PKR currency & financial integrity utilities for Dineflow
  * Stores money as integer paisa (1 PKR = 100 paisa) to avoid IEEE 754 float rounding issues.
  */
 

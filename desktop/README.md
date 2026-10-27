@@ -1,12 +1,12 @@
-# DineHQ Desktop Application
+# Dineflow Desktop Application
 
-Native Windows Electron desktop wrapper for the **DineHQ Restaurant Kitchen & POS Dashboard**.
+Native Windows Electron desktop wrapper for the **Dineflow Restaurant Kitchen & POS Dashboard**.
 
 Provides:
 - 🚀 **Silent Printing**: Direct spooling to 80mm thermal receipt printers without browser print dialogs.
 - 🔌 **Raw ESC/POS Support**: TCP Port 9100 network printers, Bluetooth/Serial COM ports, and USB direct.
 - 🔔 **Kitchen Order Alerts**: Flashes Windows taskbar, plays loud repeating chimes, and triggers native Windows notifications even when minimized.
-- 📌 **System Tray Integration**: Minimizes to tray, quick actions ("Open DineHQ", "Mute sound", "Start with Windows", "Quit").
+- 📌 **System Tray Integration**: Minimizes to tray, quick actions ("Open Dineflow", "Mute sound", "Start with Windows", "Quit").
 - ⚡ **Auto-Launch ("Start with Windows")**: Automatically boots when Windows starts (ON by default).
 - 📶 **Friendly Offline Screen**: Automatically detects network loss and provides a clean reconnect screen with automatic retry.
 - 🔄 **OTA Auto-Updates**: Seamless updates across all restaurant computers using `electron-updater`.
@@ -37,7 +37,7 @@ All configuration is managed in a single JSON file: **`desktop/config.json`**.
 
 ```json
 {
-  "dashboardUrl": "https://dinehq.app/dashboard",
+  "dashboardUrl": "https://dineflow.app/dashboard",
   "devDashboardUrl": "http://localhost:5173/dashboard",
   "useDevInDevelopment": true,
   "startWithWindows": true,
@@ -45,6 +45,8 @@ All configuration is managed in a single JSON file: **`desktop/config.json`**.
   "autoUpdate": true,
   "updateFeedUrl": "https://github.com/Zavyar-Riasat/QR-restraunt-dashboard/releases/latest/download",
   "allowedOrigins": [
+    "https://dineflow.app",
+    "https://*.dineflow.app",
     "https://dinehq.app",
     "https://*.dinehq.app",
     "http://localhost:5173",
@@ -58,7 +60,7 @@ You can also point the desktop app to any staging or production URL without modi
 
 ```powershell
 # PowerShell:
-$env:DINEHQ_DASHBOARD_URL="https://your-custom-domain.com/dashboard"
+$env:DINEFLOW_DASHBOARD_URL="https://your-custom-domain.com/dashboard"
 npm start
 ```
 
@@ -66,7 +68,7 @@ npm start
 
 ## 3. How to Build the Installer & Portable .exe
 
-We use `electron-builder` to package DineHQ into standard Windows binaries.
+We use `electron-builder` to package Dineflow into standard Windows binaries.
 
 ```bash
 cd desktop
@@ -82,9 +84,9 @@ npm run build:portable
 ```
 
 ### Generated Artifacts in `desktop/dist-electron/`:
-1. **`DineHQ-1.0.0-win-x64.exe`** (or `DineHQ Setup 1.0.0.exe`):  
-   Standard Windows NSIS Installer. Creates Start Menu and Desktop shortcuts with the official DineHQ icon.
-2. **`DineHQ-1.0.0-Portable.exe`**:  
+1. **`Dineflow-1.0.0-win-x64.exe`** (or `Dineflow Setup 1.0.0.exe`):  
+   Standard Windows NSIS Installer. Creates Start Menu and Desktop shortcuts with the official Dineflow icon.
+2. **`Dineflow-1.0.0-Portable.exe`**:  
    Standalone single-file executable that runs instantly without installation (ideal for USB drives or quick testing).
 
 ---
@@ -99,7 +101,7 @@ Because code-signing certificates (EV / OV certificates) will be configured in p
 ### How Restaurant Owners Run It:
 1. Click **"More info"** on the blue SmartScreen dialog.
 2. Click the **"Run anyway"** button that appears.
-3. DineHQ will launch and remember permission for subsequent launches.
+3. Dineflow will launch and remember permission for subsequent launches.
 
 ---
 
@@ -117,25 +119,25 @@ The desktop app integrates `electron-updater` configured for GitHub Releases.
    npx electron-builder --win --publish always
    ```
 4. This will build the update and draft a release on GitHub containing:
-   - `DineHQ-1.0.1-win-x64.exe`
+   - `Dineflow-1.0.1-win-x64.exe`
    - `latest.yml` (update metadata and SHA512 hash)
 5. Publish the release on GitHub.
-6. Every restaurant's installed DineHQ desktop app will automatically detect the new release within 4 hours (or on next launch), download it silently in the background, and prompt:
-   > *"A new version of DineHQ is ready. Restart to apply update."*
+6. Every restaurant's installed Dineflow desktop app will automatically detect the new release within 4 hours (or on next launch), download it silently in the background, and prompt:
+   > *"A new version of Dineflow is ready. Restart to apply update."*
 
 ---
 
 ## 6. Preload JavaScript API Reference
 
-The web application securely accesses desktop capabilities via `window.dinehqDesktop` (also aliased to `window.electronAPI`):
+The web application securely accesses desktop capabilities via `window.dineflowDesktop` (also aliased to `window.electronAPI` and `window.dinehqDesktop`):
 
 ```javascript
 // 1. List installed Windows printers
-const printers = await window.dinehqDesktop.getPrinters();
+const printers = await window.dineflowDesktop.getPrinters();
 console.log(printers); // [{ name: "POS-80", isDefault: true, ... }]
 
 // 2. Silent print receipt HTML directly to thermal printer
-await window.dinehqDesktop.printSilent({
+await window.dineflowDesktop.printSilent({
   html: '<html><body><h1>Receipt #1024</h1></body></html>',
   deviceName: 'POS-80',
   pageSize: { width: 80000, height: 297000 }
@@ -143,21 +145,21 @@ await window.dinehqDesktop.printSilent({
 
 // 3. Raw ESC/POS byte printing
 // Network thermal printer (TCP Port 9100)
-await window.dinehqDesktop.printRawEscPos({
+await window.dineflowDesktop.printRawEscPos({
   type: 'network',
   target: '192.168.1.150:9100',
   data: [0x1B, 0x40, 0x1B, 0x61, 0x01, ...] // Raw ESC/POS commands
 });
 
 // Serial / Bluetooth COM Port
-await window.dinehqDesktop.printRawEscPos({
+await window.dineflowDesktop.printRawEscPos({
   type: 'serial',
   target: 'COM3',
   data: escposBuffer
 });
 
 // 4. Trigger incoming order alert (flashes taskbar, loud chime, Windows notification)
-window.dinehqDesktop.triggerNewOrderAlert({
+window.dineflowDesktop.triggerNewOrderAlert({
   id: '504',
   customer_name: 'Usman Khan',
   order_type: 'delivery',
@@ -165,6 +167,6 @@ window.dinehqDesktop.triggerNewOrderAlert({
 });
 
 // 5. Windows Auto-Launch status
-const isAuto = await window.dinehqDesktop.isStartWithWindows();
-await window.dinehqDesktop.setStartWithWindows(true);
+const isAuto = await window.dineflowDesktop.isStartWithWindows();
+await window.dineflowDesktop.setStartWithWindows(true);
 ```

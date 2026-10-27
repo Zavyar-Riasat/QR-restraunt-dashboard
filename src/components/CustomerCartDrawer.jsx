@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Minus, ShoppingBag, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, ArrowRight, CheckCircle2 } from 'lucide-react';
 import DirectOrderCheckout from './DirectOrderCheckout';
 import CustomerOrderTracker from './CustomerOrderTracker';
 import ErrorBoundary from './ErrorBoundary';
@@ -13,6 +13,8 @@ export default function CustomerCartDrawer({
   onRemoveItem,
   restaurant,
   onCartClear,
+  isDeliverableToCustomer = true,
+  deliveryAreas = [],
 }) {
   const [step, setStep] = useState('cart'); // 'cart' | 'checkout' | 'tracker'
   const [placedOrder, setPlacedOrder] = useState(null);
@@ -23,7 +25,10 @@ export default function CustomerCartDrawer({
   const isFreeDelivery = restaurant?.delivery_mode === 'free';
   const isHiddenDelivery = restaurant?.delivery_mode === 'none';
   const deliveryFee = (isFreeDelivery || isHiddenDelivery) ? 0 : (Number(restaurant?.delivery_fee) || 0);
-  const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => {
+    const price = item.unitPrice ?? item.finalItemPrice ?? item.item?.price ?? 0;
+    return sum + price * (item.quantity || 1);
+  }, 0);
   const finalTotal = subtotal + deliveryFee;
 
   const handleOrderPlaced = (newOrder) => {
@@ -93,6 +98,8 @@ export default function CustomerCartDrawer({
             <DirectOrderCheckout
               cart={cart}
               restaurant={restaurant}
+              isDeliverableToCustomer={isDeliverableToCustomer}
+              deliveryAreas={deliveryAreas}
               onBack={() => setStep('cart')}
               onOrderPlaced={handleOrderPlaced}
             />
@@ -146,7 +153,7 @@ export default function CustomerCartDrawer({
                         </div>
                       )}
                       <p className="text-xs font-mono font-bold text-[#F26B1D] mt-1.5" style={{ color: primaryColor }}>
-                        {formatPKR(cartItem.unitPrice * cartItem.quantity)}
+                        {formatPKR(((cartItem.unitPrice ?? cartItem.finalItemPrice ?? cartItem.item?.price) || 0) * (cartItem.quantity || 1))}
                       </p>
                     </div>
 

@@ -50,7 +50,7 @@ export default function InstallAppButton() {
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
           className="h-9 px-3 rounded-xl bg-gradient-to-r from-[#FFF1E6] to-[#FFE8D6] hover:from-[#F26B1D] hover:to-[#E55B0D] text-[#D95A12] hover:text-white border border-[#FCD8BF] hover:border-[#F26B1D] text-xs font-bold transition-all duration-200 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs group whitespace-nowrap shrink-0"
-          title="Install DineHQ on this computer for quick access."
+          title="Install Dineflow on this computer for quick access."
         >
           <Download className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
           <span className="hidden sm:inline">Install App</span>
@@ -60,7 +60,7 @@ export default function InstallAppButton() {
         {/* One-line Help Tooltip */}
         {showTooltip && (
           <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 whitespace-nowrap bg-[#2B2118] text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl shadow-xl border border-white/10 pointer-events-none animate-fadeIn">
-            Install DineHQ on this computer for quick access.
+            Install Dineflow on this computer for quick access.
             <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#2B2118] rotate-45 border-l border-t border-white/10" />
           </div>
         )}
@@ -84,10 +84,10 @@ export default function InstallAppButton() {
                 </div>
                 <div>
                   <h3 className="font-heading font-extrabold text-lg text-[#2B2118]">
-                    Install DineHQ
+                    Install Dineflow
                   </h3>
                   <p className="text-xs text-[#7A6A5C]">
-                    Install DineHQ on this computer for quick access.
+                    Install Dineflow on this computer for quick access.
                   </p>
                 </div>
               </div>
@@ -115,7 +115,7 @@ export default function InstallAppButton() {
                       Scroll down and tap <strong className="inline-flex items-center gap-1 font-bold text-[#F26B1D] bg-[#FFF1E6] px-1.5 py-0.5 rounded border border-[#FCD8BF]"><PlusSquare className="w-3 h-3" /> Add to Home Screen</strong>.
                     </li>
                     <li className="leading-relaxed">
-                      Tap <strong>Add</strong> in the top right. DineHQ will appear on your home screen.
+                      Tap <strong>Add</strong> in the top right. Dineflow will appear on your home screen.
                     </li>
                   </ol>
                 </>
@@ -126,13 +126,13 @@ export default function InstallAppButton() {
                   </p>
                   <ol className="space-y-2 text-[#2B2118] list-decimal list-inside">
                     <li className="leading-relaxed">
-                      Click the <strong>Install DineHQ</strong> icon in your browser’s URL address bar (at the right edge).
+                      Click the <strong>Install Dineflow</strong> icon in your browser’s URL address bar (at the right edge).
                     </li>
                     <li className="leading-relaxed">
                       In Safari: Click <strong>File &gt; Add to Dock...</strong> from the top menu bar.
                     </li>
                     <li className="leading-relaxed">
-                      Click <strong>Install</strong> to open DineHQ in its own high-performance window.
+                      Click <strong>Install</strong> to open Dineflow in its own high-performance window.
                     </li>
                   </ol>
                 </>
@@ -146,10 +146,10 @@ export default function InstallAppButton() {
                       Look for the <strong className="text-[#F26B1D]">Install App icon (⊕ or 💻)</strong> on the right side of your browser address bar.
                     </li>
                     <li className="leading-relaxed">
-                      Or click the browser menu (<strong>⋮</strong> or <strong>⋯</strong>) and select <strong>"Install DineHQ..."</strong>.
+                      Or click the browser menu (<strong>⋮</strong> or <strong>⋯</strong>) and select <strong>"Install Dineflow..."</strong>.
                     </li>
                     <li className="leading-relaxed">
-                      Click <strong>Install</strong> to add DineHQ directly to your desktop and taskbar.
+                      Click <strong>Install</strong> to add Dineflow directly to your desktop and taskbar.
                     </li>
                   </ol>
                 </>

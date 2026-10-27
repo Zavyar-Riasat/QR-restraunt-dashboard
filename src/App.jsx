@@ -1,60 +1,100 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CustomerAuthProvider } from './context/CustomerAuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import MarketplaceHomePage from './pages/MarketplaceHomePage';
+import CustomerAccountPage from './pages/CustomerAccountPage';
 import OwnerDashboardPage from './pages/OwnerDashboardPage';
 import CustomerMenuPage from './pages/CustomerMenuPage';
 import LoginPage from './pages/LoginPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 import RiderDeliveryPage from './pages/RiderDeliveryPage';
 
+/**
+ * Legacy Dashboard Redirect Component
+ * Redirects legacy /dashboard and /admin paths to the new /:restaurantSlug/admin (or /superadmin)
+ */
+function LegacyDashboardRedirect() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FFF9F2] flex items-center justify-center">
+        <div className="w-8 h-8 border-3 border-[#F26B1D] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (user.role === 'admin') {
+    return <Navigate to="/superadmin" replace />;
+  }
+
+  const slug = user.restaurant_slug || 'burgersmoke';
+  return <Navigate to={`/${slug}/admin`} replace />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Customer Authentication Page */}
-          <Route path="/login" element={<LoginPage />} />
+      <CustomerAuthProvider>
+        <LanguageProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* 1. Public Marketplace Home Page (Nearby Approved Restaurants) */}
+              <Route path="/" element={<MarketplaceHomePage />} />
 
-          {/* Public No-Login Delivery Rider Page */}
-          <Route path="/rider/:token" element={<RiderDeliveryPage />} />
+              {/* 2. Customer Dashboard & Saved Addresses / Orders (Sign-in required) */}
+              <Route path="/account" element={<CustomerAccountPage />} />
 
-          {/* Master Admin Portal (Restricted to Administrators via Middleware) */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requireAdmin={true}>
-                <AdminPanelPage />
-              </ProtectedRoute>
-            }
-          />
+              {/* 3. Authentication & Sign In */}
+              <Route path="/login" element={<LoginPage />} />
 
-          {/* Restaurant Owner SaaS Dashboard (Restricted to Authenticated Managers via Middleware) */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <OwnerDashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <OwnerDashboardPage />
-              </ProtectedRoute>
-            }
-          />
+              {/* 4. Public No-Login Delivery Rider Page */}
+              <Route path="/rider/:token" element={<RiderDeliveryPage />} />
 
-          {/* Customer-Facing Mobile Web Menus (Open to Public Diners) */}
-          <Route path="/menu/:slug" element={<CustomerMenuPage />} />
-          <Route path="/:slug" element={<CustomerMenuPage />} />
+              {/* 5. Master Console (Superadmin) */}
+            <Route
+              path="/superadmin"
+              element={
+                <ProtectedRoute requireAdmin={true}>
+                  <AdminPanelPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* 6. Legacy Redirects for /dashboard and /admin */}
+            <Route path="/dashboard" element={<LegacyDashboardRedirect />} />
+            <Route path="/admin" element={<LegacyDashboardRedirect />} />
+
+            {/* 7. Restaurant Owner / Manager Dashboard (Moved to /:restaurantSlug/admin) */}
+            <Route
+              path="/:restaurantSlug/admin"
+              element={
+                <ProtectedRoute>
+                  <OwnerDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 8. Backward-Compatible /menu/:slug route for existing printed collateral */}
+            <Route path="/menu/:slug" element={<CustomerMenuPage />} />
+
+            {/* 9. Customer-Facing Restaurant Menu (/:restaurantSlug) - Keeps existing QR codes working */}
+            <Route path="/:restaurantSlug" element={<CustomerMenuPage />} />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+        </LanguageProvider>
+      </CustomerAuthProvider>
     </AuthProvider>
   );
 }

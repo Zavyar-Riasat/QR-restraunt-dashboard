@@ -9,7 +9,6 @@ import { DRIVER_IDS, PAPER_SIZES, TEMPLATE_TYPES } from '../printerTypes.js';
 import { printerService } from '../printerService.js';
 import { generateReceiptHtml } from '../templateHtmlGenerator.js';
 import QRCode from 'qrcode';
-import { buildGoogleMapsNavUrl } from '../../../config/mapConfig.js';
 
 export class BrowserPrintDriver extends BaseDriver {
   constructor() {
@@ -52,8 +51,8 @@ export class BrowserPrintDriver extends BaseDriver {
     const templateSettings = job.templateSettings || printerService.getTemplateSettings();
 
     // 1. Inject Dynamic @page style tag into document head
-    const styleId = 'dinehq-dynamic-page-print-style';
-    let styleEl = document.getElementById(styleId);
+    const styleId = 'dineflow-dynamic-page-print-style';
+    let styleEl = document.getElementById(styleId) || document.getElementById('dinehq-dynamic-page-print-style');
     if (!styleEl) {
       styleEl = document.createElement('style');
       styleEl.id = styleId;
@@ -77,10 +76,13 @@ export class BrowserPrintDriver extends BaseDriver {
         body * {
           visibility: hidden !important;
         }
+        #dineflow-browser-print-portal,
+        #dineflow-browser-print-portal *,
         #dinehq-browser-print-portal,
         #dinehq-browser-print-portal * {
           visibility: visible !important;
         }
+        #dineflow-browser-print-portal,
         #dinehq-browser-print-portal {
           position: fixed !important;
           left: 0 !important;
@@ -100,9 +102,9 @@ export class BrowserPrintDriver extends BaseDriver {
       }
     `;
 
-    // 2. Generate direct QR Code (Reorder QR for Bill, or Google Maps QR for Delivery Slip)
+    // 2. Generate direct QR Code (Restaurant Menu / Reorder QR only, never location maps)
     let qrDataUrl = '';
-    if (templateType === TEMPLATE_TYPES.BILL) {
+    if (templateType === TEMPLATE_TYPES.BILL || templateType === TEMPLATE_TYPES.DELIVERY) {
       const origin = window?.location?.origin || '';
       const slug = job.restaurant?.slug || 'burgersmoke';
       let qrUrl = job.reorderQrUrl;
@@ -119,32 +121,20 @@ export class BrowserPrintDriver extends BaseDriver {
         try {
           qrDataUrl = await QRCode.toDataURL(qrUrl, {
             margin: 1,
-            width: paperSize === PAPER_SIZES.SIZE_58MM ? 110 : 140,
+            width: paperSize === PAPER_SIZES.SIZE_58MM ? 65 : 85,
             errorCorrectionLevel: 'M',
           });
         } catch (err) {
           console.warn('BrowserPrint QR generation error:', err);
         }
       }
-    } else if (templateType === TEMPLATE_TYPES.DELIVERY) {
-      const navUrl = buildGoogleMapsNavUrl(job.order);
-      if (navUrl) {
-        try {
-          qrDataUrl = await QRCode.toDataURL(navUrl, {
-            margin: 1,
-            width: paperSize === PAPER_SIZES.SIZE_58MM ? 95 : 120,
-          });
-        } catch (err) {
-          console.warn('BrowserPrint Delivery QR generation error:', err);
-        }
-      }
     }
 
     // 3. Build Print DOM container
-    let portal = document.getElementById('dinehq-browser-print-portal');
+    let portal = document.getElementById('dineflow-browser-print-portal') || document.getElementById('dinehq-browser-print-portal');
     if (!portal) {
       portal = document.createElement('div');
-      portal.id = 'dinehq-browser-print-portal';
+      portal.id = 'dineflow-browser-print-portal';
       document.body.appendChild(portal);
     }
 

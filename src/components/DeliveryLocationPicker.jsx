@@ -24,8 +24,7 @@ import {
   DEFAULT_MAP_ZOOM,
 } from '../config/mapConfig.js';
 
-// Lazy-load the Leaflet map only when needed to maintain ultra-fast page load on slow connections
-const LeafletMap = lazy(() => import('./Map/LeafletMap.jsx'));
+import LeafletMap from './Map/LeafletMap.jsx';
 
 export default function DeliveryLocationPicker({
   locationData = {
@@ -355,7 +354,7 @@ export default function DeliveryLocationPicker({
                 className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF] text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-                <span>{isLocating ? 'Locating...' : 'Share My Location'}</span>
+                <span>{isLocating ? 'Locating...' : 'Use Current Location'}</span>
               </button>
             )}
           </div>

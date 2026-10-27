@@ -23,6 +23,7 @@ export default function EditOrderItemsModal({
   menuItems = [],
   onOrderUpdated,
   onPrintBill,
+  onOpenPosForOrder,
 }) {
   const [items, setItems] = useState([]);
   const [discountValue, setDiscountValue] = useState('');
@@ -31,6 +32,23 @@ export default function EditOrderItemsModal({
   const [menuSearch, setMenuSearch] = useState('');
   const [errorMsg, setErrorMsg] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Fallback to demo data if menuItems prop is empty
+  const effectiveMenuItems = useMemo(() => {
+    if (Array.isArray(menuItems) && menuItems.length > 0) return menuItems;
+    try {
+      const stored = localStorage.getItem('foodbypass_demo_data');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed.menuItems) && parsed.menuItems.length > 0) {
+          return parsed.menuItems;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return [];
+  }, [menuItems]);
 
   // Sync state whenever modal opens or order changes
   useEffect(() => {
@@ -68,12 +86,12 @@ export default function EditOrderItemsModal({
 
   // Filtered menu items for the "+ Add Item" picker
   const filteredCatalog = useMemo(() => {
-    if (!menuSearch.trim()) return menuItems.slice(0, 10);
+    if (!menuSearch.trim()) return effectiveMenuItems.slice(0, 10);
     const q = menuSearch.toLowerCase().trim();
-    return menuItems.filter(
+    return effectiveMenuItems.filter(
       (m) => m.title?.toLowerCase().includes(q) || m.description?.toLowerCase().includes(q)
     );
-  }, [menuItems, menuSearch]);
+  }, [effectiveMenuItems, menuSearch]);
 
   if (!isOpen || !order) return null;
 
@@ -285,28 +303,48 @@ export default function EditOrderItemsModal({
             })}
           </div>
 
-          {/* "+ Add Item from Menu" Drawer */}
-          <div className="pt-2">
-            {!isAddingItem ? (
+          {/* Add Another Dish Actions */}
+          <div className="pt-2 space-y-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsAddingItem(true)}
-                className="w-full py-2.5 px-3 rounded-2xl border border-dashed border-[#F26B1D] bg-[#FFF1E6]/50 hover:bg-[#FFF1E6] text-[#F26B1D] text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => {
+                  if (onOpenPosForOrder) {
+                    onClose();
+                    onOpenPosForOrder(order);
+                  } else {
+                    setIsAddingItem(true);
+                  }
+                }}
+                className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-[#F26B1D] to-[#EA580C] hover:from-[#EA580C] hover:to-[#C2410C] text-white font-extrabold text-sm shadow-md shadow-orange-500/25 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer border border-amber-300/30"
+                title="Open full POS with categories, dish images, and addon customization"
               >
-                <Plus className="w-4 h-4" />
-                <span>+ Add Item from Restaurant Menu</span>
+                <Plus className="w-5 h-5 stroke-[2.5]" />
+                <span>+ Add Another Dish in POS (Full Menu)</span>
               </button>
-            ) : (
+
+              <button
+                type="button"
+                onClick={() => setIsAddingItem((prev) => !prev)}
+                className="py-3 px-3.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                title="Quick search dish by name right here"
+              >
+                <Search className="w-3.5 h-3.5 text-slate-400" />
+                <span>{isAddingItem ? 'Hide Quick Search' : 'Quick Search'}</span>
+              </button>
+            </div>
+
+            {isAddingItem && (
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 animate-fadeIn">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <UtensilsCrossed className="w-4 h-4 text-[#F26B1D]" />
-                    <span>Select dish to add to this order:</span>
+                    <span>Quick search dish to add to this order:</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsAddingItem(false)}
-                    className="text-xs text-slate-500 hover:text-slate-700 font-bold"
+                    className="text-xs text-slate-500 hover:text-slate-700 font-bold cursor-pointer"
                   >
                     Close
                   </button>

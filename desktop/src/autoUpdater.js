@@ -57,7 +57,7 @@ class AutoUpdaterService {
 
       if (Notification.isSupported()) {
         new Notification({
-          title: 'DineHQ Update Available',
+          title: 'Dineflow Update Available',
           body: `Version ${info.version} is downloading in the background.`,
           icon: require('path').join(__dirname, '..', 'assets', 'icon.png'),
         }).show();
@@ -82,8 +82,8 @@ class AutoUpdaterService {
           type: 'info',
           buttons: ['Restart & Install Now', 'Later on Exit'],
           defaultId: 0,
-          title: 'DineHQ Update Ready',
-          message: `A new version of DineHQ (${info.version}) has been downloaded.`,
+          title: 'Dineflow Update Ready',
+          message: `A new version of Dineflow (${info.version}) has been downloaded.`,
           detail: 'Would you like to restart the application now to apply the update?',
         })
         .then(({ response }) => {
@@ -132,7 +132,7 @@ class AutoUpdaterService {
         type: 'info',
         title: 'Check for Updates',
         message: 'You are running in development mode.',
-        detail: `DineHQ Desktop v${app.getVersion()}. Updates are enabled in packaged builds.`,
+        detail: `Dineflow Desktop v${app.getVersion()}. Updates are enabled in packaged builds.`,
         buttons: ['OK'],
       });
       return;
@@ -145,8 +145,8 @@ class AutoUpdaterService {
           dialog.showMessageBox(this.mainWindow || null, {
             type: 'info',
             title: 'Check for Updates',
-            message: 'You have the latest version of DineHQ.',
-            detail: `DineHQ v${app.getVersion()} is currently up to date.`,
+            message: 'You have the latest version of Dineflow.',
+            detail: `Dineflow v${app.getVersion()} is currently up to date.`,
             buttons: ['OK'],
           });
         }

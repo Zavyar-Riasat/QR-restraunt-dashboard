@@ -1,9 +1,9 @@
 {
-  "name": "dinehq-desktop",
+  "name": "dineflow-desktop",
   "version": "1.0.0",
-  "description": "DineHQ Restaurant Kitchen & POS Desktop Application",
+  "description": "Dineflow Restaurant Kitchen & POS Desktop Application",
   "main": "src/main.js",
-  "author": "DineHQ Team",
+  "author": "Dineflow Team",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
@@ -20,8 +20,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.dinehq.desktop",
-    "productName": "DineHQ",
+    "appId": "com.dineflow.desktop",
+    "productName": "Dineflow",
     "directories": {
       "output": "dist-electron"
     },
@@ -43,14 +43,16 @@
         }
       ],
       "icon": "assets/icon.ico",
-      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+      "sign": null,
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "DineHQ"
+      "shortcutName": "Dineflow"
     },
     "portable": {
       "artifactName": "${productName}-${version}-Portable.${ext}"

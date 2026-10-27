@@ -28,7 +28,7 @@ import { format12HourTime } from '../utils/dateUtils';
 import { buildGoogleMapsNavUrl, buildOsmNavUrl } from '../config/mapConfig';
 import { restaurantService } from '../services/restaurantService';
 
-const LeafletMap = lazy(() => import('../components/Map/LeafletMap.jsx'));
+import LeafletMap from '../components/Map/LeafletMap.jsx';
 
 export default function RiderDeliveryPage() {
   const { token } = useParams();
@@ -202,7 +202,7 @@ export default function RiderDeliveryPage() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-heading font-extrabold text-sm text-[#2B2118]">
-                  {restaurant?.name || 'DineHQ Restaurant'}
+                  {restaurant?.name || 'Dineflow Restaurant'}
                 </span>
                 <span className="text-[10px] font-bold text-[#F26B1D] bg-[#FFF1E6] px-1.5 py-0.2 rounded">
                   Rider
@@ -521,7 +521,7 @@ export default function RiderDeliveryPage() {
         {/* Footer */}
         <footer className="text-center py-4 space-y-1 text-xs text-[#7A6A5C]">
           <p className="font-medium">
-            Powered by <strong>DineHQ Rider Logistics</strong>
+            Powered by <strong>Dineflow Rider Logistics</strong>
           </p>
           <p className="text-[10px] text-slate-400">
             Link auto-expires 24 hours after completion. Drive safely!

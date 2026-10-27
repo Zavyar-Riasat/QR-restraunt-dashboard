@@ -1,8 +1,8 @@
 {
-  "name": "DineHQ",
-  "short_name": "DineHQ",
-  "description": "DineHQ Restaurant POS & Real-Time Kitchen Operations Dashboard",
-  "start_url": "/dashboard",
+  "name": "Dineflow",
+  "short_name": "Dineflow",
+  "description": "Dineflow Restaurant POS & Real-Time Kitchen Operations Dashboard",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

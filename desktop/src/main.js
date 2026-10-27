@@ -1,6 +1,6 @@
 /**
- * DineHQ Desktop Application - Main Process
- * Electron wrapper for the DineHQ owner kitchen and POS dashboard.
+ * Dineflow Desktop Application - Main Process
+ * Electron wrapper for the Dineflow owner kitchen and POS dashboard.
  */
 
 const path = require('path');
@@ -49,7 +49,7 @@ function loadOfflinePage(win, failedUrl) {
 // 3. App Ready: Initialize all services & create window
 app.whenReady().then(() => {
   console.log('----------------------------------------------------');
-  console.log(`   DineHQ Desktop v${app.getVersion()} Starting...   `);
+  console.log(`   Dineflow Desktop v${app.getVersion()} Starting...   `);
   console.log('----------------------------------------------------');
 
   // Create main window with persistent bounds
@@ -119,7 +119,7 @@ app.whenReady().then(() => {
 function setupIpcHandlers() {
   // System Info
   ipcMain.handle('app:get-system-info', () => ({
-    name: 'DineHQ Desktop',
+    name: 'Dineflow Desktop',
     version: app.getVersion(),
     platform: process.platform,
     arch: process.arch,

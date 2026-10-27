@@ -1,4 +1,4 @@
-// End-to-End Flow Integration Test for DineHQ Restaurant Platform
+// End-to-End Flow Integration Test for Dineflow Restaurant Platform
 import assert from 'node:assert/strict';
 
 // Mock browser environment for Node.js execution
@@ -89,7 +89,7 @@ const { tableService, TABLE_STATUS } = await import('../src/services/tableServic
 const { printerService } = await import('../src/services/printer/printerService.js');
 const { TEMPLATE_TYPES, PRINT_TARGETS } = await import('../src/services/printer/printerTypes.js');
 
-console.log('🚀 Starting DineHQ End-to-End System Tests...\n');
+console.log('🚀 Starting Dineflow End-to-End System Tests...\n');
 
 let testsPassed = 0;
 let testsFailed = 0;

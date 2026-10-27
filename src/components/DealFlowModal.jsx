@@ -10,7 +10,6 @@ import {
   Plus,
   Minus,
   Trash2,
-  Sparkles,
   AlertCircle,
   Utensils,
   Package,
@@ -431,6 +430,7 @@ export default function DealFlowModal({
         category_id: finalCategoryId,
         title: title.trim(),
         price: parseFloat(price),
+        original_price: originalPrice,
         variants: variantsPayload,
       });
 
@@ -523,7 +523,7 @@ export default function DealFlowModal({
         {hasDraftNotice && !itemToEdit && (
           <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200/70 flex items-center justify-between gap-2 text-xs text-amber-900 shrink-0">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+              <RotateCcw className="w-4 h-4 text-amber-600 shrink-0" />
               <span>We restored your unsaved deal draft.</span>
             </div>
             <button

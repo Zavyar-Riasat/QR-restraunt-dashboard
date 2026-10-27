@@ -4,7 +4,6 @@ import {
   Clock,
   ChefHat,
   Truck,
-  Sparkles,
   Phone,
   MapPin,
   Utensils,
@@ -15,6 +14,8 @@ import {
   AlertCircle,
   Copy,
   Check,
+  X,
+  Star,
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
 import { format12HourTime } from '../utils/dateUtils';
@@ -24,7 +25,7 @@ const STATUS_STEPS = [
   { key: 'new', label: 'Received', icon: Clock, desc: 'Kitchen received your order' },
   { key: 'preparing', label: 'Cooking', icon: ChefHat, desc: 'Chef is preparing your dishes' },
   { key: 'out_for_delivery', label: 'Ready / Dispatch', icon: Truck, desc: 'Ready for pickup or out with rider' },
-  { key: 'completed', label: 'Completed', icon: Sparkles, desc: 'Order delivered / enjoyed' },
+  { key: 'completed', label: 'Completed', icon: CheckCircle2, desc: 'Order delivered / enjoyed' },
 ];
 
 export default function CustomerOrderTracker({
@@ -40,6 +41,46 @@ export default function CustomerOrderTracker({
   const primaryColor = restaurant?.primary_color || '#F26B1D';
 
   const targetOrderId = initialOrder?.id || orderId;
+
+  // Rating State for Completed / Delivered orders
+  const [orderRating, setOrderRating] = useState(() => {
+    if (initialOrder?.customer_rating) return initialOrder.customer_rating;
+    if (targetOrderId) return orderService.getOrderRating(targetOrderId);
+    return null;
+  });
+  const [ratingInput, setRatingInput] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingTags, setRatingTags] = useState(['😋 Delicious Food']);
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [ratingSuccessMsg, setRatingSuccessMsg] = useState(false);
+  const [isEditingRating, setIsEditingRating] = useState(false);
+
+  // Sync rating from storage or order updates
+  useEffect(() => {
+    if (!targetOrderId) return;
+    const existing = orderService.getOrderRating(targetOrderId) || order?.customer_rating;
+    if (existing) {
+      setOrderRating(existing);
+      setRatingInput(existing.rating || 5);
+      setRatingComment(existing.comment || '');
+      setRatingTags(existing.tags || []);
+    }
+  }, [targetOrderId, order?.status, order?.customer_rating]);
+
+  // Listen for real-time rating updates
+  useEffect(() => {
+    const handleRated = (e) => {
+      if (e.detail?.orderId === targetOrderId && e.detail?.ratingData) {
+        setOrderRating(e.detail.ratingData);
+        setRatingInput(e.detail.ratingData.rating || 5);
+        setRatingComment(e.detail.ratingData.comment || '');
+        setRatingTags(e.detail.ratingData.tags || []);
+      }
+    };
+    window.addEventListener('dinehq_order_rated', handleRated);
+    return () => window.removeEventListener('dinehq_order_rated', handleRated);
+  }, [targetOrderId]);
 
   // Poll order status every 5 seconds to provide real-time updates as kitchen advances status
   useEffect(() => {
@@ -129,9 +170,31 @@ export default function CustomerOrderTracker({
   const phoneForCall = restaurant?.phone || restaurant?.whatsapp_number || '03001234567';
 
   return (
-    <div className="w-full max-w-xl mx-auto bg-white rounded-3xl border border-[#F0E4D7] shadow-xl overflow-hidden animate-in fade-in duration-300">
-      {/* Top Banner */}
-      <div className="p-5 sm:p-6 bg-[#FFF9F2] border-b border-[#F0E4D7] relative">
+    <div className="w-full max-w-xl mx-auto bg-white rounded-3xl border border-[#F0E4D7] shadow-2xl overflow-hidden flex flex-col max-h-[88vh] animate-in fade-in duration-300">
+      {/* Top Banner (Sticky header) */}
+      <div className="p-4 sm:p-5 bg-[#FFF9F2] border-b border-[#F0E4D7] shrink-0">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <button
+            type="button"
+            onClick={onClose || onNewOrder}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] hover:text-[#F26B1D] border border-[#F0E4D7] text-xs font-bold shadow-2xs transition cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Menu</span>
+          </button>
+
+          {(onClose || onNewOrder) && (
+            <button
+              type="button"
+              onClick={onClose || onNewOrder}
+              className="p-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] transition cursor-pointer"
+              title="Close Tracker"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -187,8 +250,10 @@ export default function CustomerOrderTracker({
         </div>
       </div>
 
-      {/* Live Stepper Tracker */}
-      <div className="p-5 sm:p-6 border-b border-[#F0E4D7] bg-white">
+      {/* Scrollable Body Content */}
+      <div className="flex-1 overflow-y-auto divide-y divide-[#F0E4D7]">
+        {/* Live Stepper Tracker */}
+        <div className="p-5 sm:p-6 bg-white">
         {isCancelled ? (
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-3">
             <XCircle className="w-6 h-6 text-rose-600 shrink-0" />
@@ -279,6 +344,199 @@ export default function CustomerOrderTracker({
           </div>
         )}
       </div>
+
+      {/* Customer Food & Experience Rating (When order is completed / delivered) */}
+      {(activeIndex >= 3 || currentStatus === 'completed' || currentStatus === 'delivered') && (
+        <div className="p-5 sm:p-6 bg-white border-b border-[#F0E4D7]">
+          {orderRating && !isEditingRating ? (
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#FFF9F2] to-amber-500/5 border border-amber-200/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                    <Star className="w-4 h-4 fill-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-heading font-extrabold text-sm text-[#2B2118]">
+                      You rated this order {orderRating.rating}/5 ⭐
+                    </h4>
+                    <p className="text-[11px] text-[#7A6A5C]">
+                      Thank you! Your feedback helps {restaurant?.name || 'the kitchen'} stay delicious.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingRating(true)}
+                  className="text-xs font-bold text-[#F26B1D] hover:underline px-2 py-1 cursor-pointer"
+                >
+                  Edit
+                </button>
+              </div>
+              {orderRating.tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {orderRating.tags.map((t, i) => (
+                    <span
+                      key={i}
+                      className="px-2.5 py-0.5 rounded-full bg-white border border-amber-200 text-[11px] font-bold text-[#7A6A5C]"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {orderRating.comment && (
+                <p className="text-xs italic text-[#2B2118] bg-white/80 p-2.5 rounded-xl border border-amber-100">
+                  "{orderRating.comment}"
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-[#FFF9F2] to-white border border-[#F0E4D7] shadow-xs space-y-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#F26B1D]">
+                    Order Delivered • How was it?
+                  </span>
+                  <h4 className="font-heading font-extrabold text-base text-[#2B2118]">
+                    Rate Your Meal & Experience
+                  </h4>
+                  <p className="text-xs text-[#7A6A5C]">
+                    How was the food from {restaurant?.name || 'the kitchen'}?
+                  </p>
+                </div>
+                {isEditingRating && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingRating(false)}
+                    className="text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+
+              {/* Star Picker */}
+              <div className="flex flex-col items-center gap-1.5 py-1">
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setRatingInput(star)}
+                      className="p-1 cursor-pointer transition transform hover:scale-110 active:scale-95"
+                    >
+                      <Star
+                        className={`w-8 h-8 transition-colors ${
+                          star <= (hoverRating || ratingInput)
+                            ? 'fill-amber-400 text-amber-400 drop-shadow-xs'
+                            : 'text-slate-300 fill-slate-100'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <span className="text-xs font-bold text-[#F26B1D]">
+                  {ratingInput === 5
+                    ? 'Outstanding & Delicious! ⭐'
+                    : ratingInput === 4
+                    ? 'Very good! 😋'
+                    : ratingInput === 3
+                    ? 'Good & tasty 😊'
+                    : ratingInput === 2
+                    ? 'Fair 🙂'
+                    : 'Needs improvement 😕'}
+                </span>
+              </div>
+
+              {/* Quick Praise Tags */}
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {[
+                  '🔥 Piping Hot',
+                  '⚡ Fast Delivery',
+                  '😋 Delicious Food',
+                  '📦 Great Packaging',
+                  '👌 Polite Rider',
+                  '💰 Great Value',
+                ].map((tag) => {
+                  const isSelected = ratingTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        setRatingTags((prev) =>
+                          prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+                        );
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs font-bold border transition cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#2B2118] text-white border-[#2B2118]'
+                          : 'bg-white text-[#7A6A5C] border-[#F0E4D7] hover:border-[#F26B1D]'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Optional Comment */}
+              <textarea
+                rows={2}
+                value={ratingComment}
+                onChange={(e) => setRatingComment(e.target.value)}
+                placeholder="Write a brief comment about taste, portion, or delivery (optional)..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#F0E4D7] bg-white text-xs font-medium text-[#2B2118] placeholder:text-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D]"
+              />
+
+              {/* Submit Button */}
+              <div className="flex items-center justify-between gap-3">
+                {ratingSuccessMsg ? (
+                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>Rating submitted! Thank you.</span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-[#7A6A5C]">
+                    Helps improve food quality
+                  </span>
+                )}
+                <button
+                  type="button"
+                  disabled={isSubmittingRating}
+                  onClick={async () => {
+                    setIsSubmittingRating(true);
+                    try {
+                      const res = await orderService.submitOrderRating(
+                        order.id,
+                        {
+                          rating: ratingInput,
+                          comment: ratingComment,
+                          tags: ratingTags,
+                        },
+                        restaurant?.id || order.restaurant_id
+                      );
+                      setOrderRating(res);
+                      setIsEditingRating(false);
+                      setRatingSuccessMsg(true);
+                      setTimeout(() => setRatingSuccessMsg(false), 3000);
+                    } catch (err) {
+                      console.warn('Failed to submit rating:', err);
+                    } finally {
+                      setIsSubmittingRating(false);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#d95a12] text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingRating ? 'Submitting...' : 'Submit Rating'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Customer & Location Card */}
       <div className="p-5 sm:p-6 border-b border-[#F0E4D7] bg-[#FFF9F2]/40 space-y-3 text-xs">
@@ -385,14 +643,15 @@ export default function CustomerOrderTracker({
           </div>
         </div>
       </div>
+      </div>
 
-      {/* Bottom Action Buttons */}
-      <div className="p-4 sm:p-5 bg-[#FFF9F2] border-t border-[#F0E4D7] flex flex-col sm:flex-row items-center gap-2.5">
+      {/* Bottom Action Buttons (Sticky footer) */}
+      <div className="p-3.5 sm:p-4 bg-[#FFF9F2] border-t border-[#F0E4D7] shrink-0 flex flex-col sm:flex-row items-center gap-2">
         <a
           href={`tel:${phoneForCall}`}
-          className="w-full sm:w-1/2 py-3 px-4 rounded-xl bg-white hover:bg-slate-50 text-[#2B2118] font-bold text-xs border border-[#F0E4D7] shadow-2xs flex items-center justify-center gap-2 transition cursor-pointer"
+          className="w-full sm:w-1/2 py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-[#2B2118] font-bold text-xs border border-[#F0E4D7] shadow-2xs flex items-center justify-center gap-2 transition cursor-pointer"
         >
-          <Phone className="w-4 h-4 text-[#F26B1D]" />
+          <Phone className="w-3.5 h-3.5 text-[#F26B1D]" />
           <span>Call Restaurant</span>
         </a>
 
@@ -400,10 +659,10 @@ export default function CustomerOrderTracker({
           type="button"
           onClick={onNewOrder || onClose}
           style={{ backgroundColor: primaryColor }}
-          className="w-full sm:w-1/2 py-3 px-4 rounded-xl text-white font-bold text-xs shadow-md hover:brightness-95 flex items-center justify-center gap-2 transition cursor-pointer"
+          className="w-full sm:w-1/2 py-2.5 px-4 rounded-xl text-white font-bold text-xs shadow-md hover:brightness-95 flex items-center justify-center gap-2 transition cursor-pointer"
         >
-          <Utensils className="w-4 h-4" />
-          <span>Browse Menu</span>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Menu</span>
         </button>
       </div>
     </div>

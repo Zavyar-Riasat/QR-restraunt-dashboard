@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Sparkles,
   ArrowRight,
   ArrowLeft,
   RotateCcw,
@@ -689,7 +688,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                       <div>
                         <p className="font-bold">Port-Independent USB Identification</p>
                         <p className="text-[11px] text-emerald-700 leading-relaxed">
-                          This printer is tracked by its unique USB Vendor ID and Product ID, <strong>never by COM port or bus slot</strong>. If you plug it into another USB port, DineHQ automatically reconnects in the background.
+                          This printer is tracked by its unique USB Vendor ID and Product ID, <strong>never by COM port or bus slot</strong>. If you plug it into another USB port, Dineflow automatically reconnects in the background.
                         </p>
                       </div>
                     </div>
@@ -974,7 +973,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                   {/* YES Celebration */}
                   {didPrintAnswer === 'yes' && (
                     <div className="p-4 rounded-xl bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
-                      <Sparkles className="w-5 h-5 shrink-0" />
+                      <CheckCircle2 className="w-5 h-5 shrink-0" />
                       <span>
                         Awesome! Printer "{name}" is verified and ready. Click Next to set up order routing.
                       </span>

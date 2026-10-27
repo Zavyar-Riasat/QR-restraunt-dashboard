@@ -5,6 +5,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
+import { getAppBaseUrl } from '../config/appConfig.js';
 
 const TABLES_STORAGE_PREFIX = 'dinehq_tables_';
 
@@ -111,7 +112,7 @@ export const tableService = {
    * Generate Table QR URL
    */
   getTableQrUrl(restaurant, tableNumber) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+    const origin = getAppBaseUrl();
     const slug = restaurant?.slug || 'burgersmoke';
     return `${origin}/${slug}?table=${encodeURIComponent(tableNumber)}`;
   },

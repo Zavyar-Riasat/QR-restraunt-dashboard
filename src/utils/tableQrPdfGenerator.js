@@ -67,13 +67,15 @@ export async function generateTableQrDataUrl(tableUrl, logoUrl) {
  * Generates and downloads a single high-quality PDF containing all table QRs,
  * with each table on its own standee card and table number printed large under the QR.
  */
+import { getAppBaseUrl } from '../config/appConfig.js';
+
 export async function downloadAllTableQrsPdf({ restaurant, tables, origin: customOrigin }) {
   if (!tables || tables.length === 0) {
     alert('No tables found to export.');
     return;
   }
 
-  const origin = customOrigin || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173');
+  const origin = customOrigin || getAppBaseUrl();
   const slug = restaurant?.slug || 'burgersmoke';
   const storeName = restaurant?.name || 'Restaurant';
   const phone = restaurant?.phone || restaurant?.whatsapp_number || '923001234567';

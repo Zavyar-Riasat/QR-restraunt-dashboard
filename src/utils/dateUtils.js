@@ -1,5 +1,5 @@
 /**
- * Date & Time Utilities for DineHQ Print Templates & Dashboard
+ * Date & Time Utilities for Dineflow Print Templates & Dashboard
  * Formats dates in standard 12-hour format (e.g., 03:45 PM, 15 Oct 2026)
  */
 

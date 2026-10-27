@@ -16,7 +16,7 @@ class ConfigManager {
 
   loadConfig() {
     const defaults = {
-      dashboardUrl: 'https://dinehq.app/dashboard',
+      dashboardUrl: 'https://dineflow.app/dashboard',
       devDashboardUrl: 'http://localhost:5173/dashboard',
       useDevInDevelopment: true,
       startWithWindows: true,
@@ -24,6 +24,8 @@ class ConfigManager {
       autoUpdate: true,
       updateFeedUrl: 'https://github.com/Zavyar-Riasat/QR-restraunt-dashboard/releases/latest/download',
       allowedOrigins: [
+        'https://dineflow.app',
+        'https://*.dineflow.app',
         'https://dinehq.app',
         'https://*.dinehq.app',
         'http://localhost:5173',
@@ -68,8 +70,8 @@ class ConfigManager {
 
   getDashboardUrl(isDevMode = false) {
     // 1. Environment variable override takes highest priority
-    if (process.env.DINEHQ_DASHBOARD_URL) {
-      return process.env.DINEHQ_DASHBOARD_URL;
+    if (process.env.DINEFLOW_DASHBOARD_URL || process.env.DINEHQ_DASHBOARD_URL) {
+      return process.env.DINEFLOW_DASHBOARD_URL || process.env.DINEHQ_DASHBOARD_URL;
     }
 
     // 2. Local dev server if in dev mode
@@ -78,7 +80,7 @@ class ConfigManager {
     }
 
     // 3. Configured production dashboard URL
-    return this.config.dashboardUrl || 'https://dinehq.app/dashboard';
+    return this.config.dashboardUrl || 'https://dineflow.app/dashboard';
   }
 
   isAllowedOrigin(rawUrl) {

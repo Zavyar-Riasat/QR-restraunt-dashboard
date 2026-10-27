@@ -1,16 +1,27 @@
-# React + Vite
+# Dineflow Restaurant Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Fast, modern, offline-resilient restaurant point-of-sale, customer QR ordering, marketplace discovery, and doorstep delivery dispatch system.
 
-Currently, two official plugins are available:
+## Reversible Password Encryption & Security Architecture
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Passwords for restaurant managers are encrypted at rest using **AES-256-GCM (Node.js `crypto`)** with a unique cryptographically random 12-byte initialization vector (IV) per password and 16-byte authentication tag. This allows authorized master administrators to view manager credentials when providing phone/on-site onboarding assistance, while ensuring zero plain-text passwords ever exist in storage, logs, error messages, or client bundles.
 
-## React Compiler
+### Critical Key Backup Notice
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+> [!WARNING]
+> **IMPORTANT**: Keep `PASSWORD_ENCRYPTION_KEY` backed up securely in your production secrets manager (e.g. Vercel Environment Variables, AWS Secrets Manager, Doppler).
+> **Losing `PASSWORD_ENCRYPTION_KEY` makes all stored passwords permanently unreadable and unrecoverable.**
+>
+> - The key MUST be exactly 32 bytes (64 hex characters or 32 raw ASCII characters).
+> - Never commit `.env` or `PASSWORD_ENCRYPTION_KEY` to git or version control.
+> - Never send `PASSWORD_ENCRYPTION_KEY` or ciphertext to browser bundles or client API responses.
 
-## Expanding the Oxlint configuration
+## Key Security Controls
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+1. **AES-256-GCM Authenticated Encryption**: Ciphertext, random IV, and auth tag stored as `aes-256-gcm:iv:tag:ciphertext`.
+2. **Constant-Time Verification**: Server-side logins compare passwords in constant time via `crypto.timingSafeEqual` to prevent side-channel timing attacks.
+3. **Session Invalidation**: Whenever a password is changed or reset, active sessions for that account are immediately invalidated across all devices.
+4. **Brute-Force Rate Limiting & Lockout**: 5 consecutive failed login attempts trigger a 15-minute temporary lockout.
+5. **Audited Master Admin Access**: Password viewing is restricted to the platform master admin role, auto-hides from the console after 15 seconds, and records an immutable audit log entry (admin email, restaurant, target user, timestamp, IP address).
+6. **Mandatory Password Reset**: Master admin password resets generate strong passwords and set `must_change_password = true`, requiring the owner to choose their own password on next login.
+

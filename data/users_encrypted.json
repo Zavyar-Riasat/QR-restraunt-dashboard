@@ -1,0 +1,210 @@
+[
+  {
+    "id": "user-admin-01",
+    "email": "admin@dineflow.pk",
+    "name": "Platform Super Admin",
+    "role": "admin",
+    "restaurant_name": "Burger & Smoke Co.",
+    "restaurant_slug": "burgersmoke",
+    "phone": "923001234567",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "752cd78ad585f62e49d44f2adc",
+      "iv": "d918f65c1259ae4015fc55d6",
+      "authTag": "868c641b22ed696eada141bc8a17d08b"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-01T10:00:00.000Z"
+  },
+  {
+    "id": "user-owner-01",
+    "email": "owner@burgersmoke.com",
+    "name": "Burger & Smoke Manager",
+    "role": "owner",
+    "restaurant_id": "rest-101",
+    "restaurant_name": "Burger & Smoke Co.",
+    "restaurant_slug": "burgersmoke",
+    "phone": "923001234567",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "f1950bcdf487895154c9e87667",
+      "iv": "5609944a941d4ddcaeaf2bc2",
+      "authTag": "e8c30b75c081ebe57f650a118cce50e9"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-05T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-02",
+    "email": "manager@crust.com",
+    "name": "Crust & Crave Manager",
+    "role": "owner",
+    "restaurant_id": "rest-102",
+    "restaurant_name": "Crust & Crave Pizzeria",
+    "restaurant_slug": "crust",
+    "phone": "923005551234",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "cf14eff4e17d5c781e133d9d63",
+      "iv": "d1e2f3793f99c22d21a2a955",
+      "authTag": "f89a13864ed328f304bd0a62f5944e6b"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-06T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-03",
+    "email": "manager@shinwari.com",
+    "name": "Khyber Shinwari Manager",
+    "role": "owner",
+    "restaurant_id": "rest-103",
+    "restaurant_name": "Khyber Shinwari & Karahi Dera",
+    "restaurant_slug": "shinwari",
+    "phone": "923019887766",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "ef49a5b87122db27651f3db6c4fbecc5",
+      "iv": "6b18ae88dd33034f5615d252",
+      "authTag": "08f1125dcff30f8485c142604608dcef"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-07T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-04",
+    "email": "manager@greenoasis.com",
+    "name": "Green Oasis Manager",
+    "role": "owner",
+    "restaurant_id": "rest-104",
+    "restaurant_name": "Green Oasis Cafe & Bakery",
+    "restaurant_slug": "greenoasis",
+    "phone": "923023344556",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "b1f32bea588e6e2bda6853a49c",
+      "iv": "19a4c6a6e2e2203bb4dc1cc2",
+      "authTag": "d03e9efb0019f8a51e4df71390ad1fdc"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-08T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-05",
+    "email": "manager@tokyosushi.com",
+    "name": "Tokyo Sushi Manager",
+    "role": "owner",
+    "restaurant_id": "rest-105",
+    "restaurant_name": "Tokyo Sushi & Ramen Bar",
+    "restaurant_slug": "tokyosushi",
+    "phone": "923035566778",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "9dbf168f5b6cf1509a34713f5f",
+      "iv": "8dabff1f69e3189334bfc2df",
+      "authTag": "7a7978d08329230a61ef00f676820105"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-09T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-06",
+    "email": "manager@royaltaj.com",
+    "name": "Royal Taj Manager",
+    "role": "owner",
+    "restaurant_id": "rest-106",
+    "restaurant_name": "Royal Taj Desi Continental",
+    "restaurant_slug": "royaltaj",
+    "phone": "923046677889",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "7dd232c9a8adcdd3677164",
+      "iv": "f4468f76d452a9f80fe90bfb",
+      "authTag": "6ea445f5e36dadacfb0dd0cb6005f470"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-10T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-07",
+    "email": "manager@fiestamex.com",
+    "name": "Fiesta Mexicana Manager",
+    "role": "owner",
+    "restaurant_id": "rest-107",
+    "restaurant_name": "Fiesta Mexicana Grill & Tacos",
+    "restaurant_slug": "fiestamex",
+    "phone": "923057788990",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "3fbab2e3cb7deba867597a8d1f0e",
+      "iv": "fe062270ca1dd92340f9f1d6",
+      "authTag": "db87a74749986b05321bf275521d4152"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-11T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-08",
+    "email": "manager@sweetretreat.com",
+    "name": "Sweet Retreat Manager",
+    "role": "owner",
+    "restaurant_id": "rest-108",
+    "restaurant_name": "Sweet Retreat Desserts & Gelato",
+    "restaurant_slug": "sweetretreat",
+    "phone": "923068899001",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "23294593c1729f5f491c866634fc58",
+      "iv": "7beea5221dfb8cb58694be0e",
+      "authTag": "fec28ede83bd439c0dde80371ec31099"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-12T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-09",
+    "email": "manager@chaijunction.com",
+    "name": "Chai Junction Manager",
+    "role": "owner",
+    "restaurant_id": "rest-109",
+    "restaurant_name": "Chai Junction & Traditional Dhaba",
+    "restaurant_slug": "chaijunction",
+    "phone": "923079900112",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "b7cd10cf91b02f87745d7527",
+      "iv": "b46c0498489745216746ff12",
+      "authTag": "47a4c4c44b2db75ecfa4866c08442766"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-13T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-10",
+    "email": "manager@stoneove.com",
+    "name": "Stone Oven Manager",
+    "role": "owner",
+    "restaurant_id": "rest-110",
+    "restaurant_name": "stoneove",
+    "restaurant_slug": "stoneove",
+    "phone": "923001111111",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "089b91d98da8bb9ea164ccbf4b",
+      "iv": "b492193b439c24b49b48e804",
+      "authTag": "c268cb9fccfc66debd3759a93379bfc7"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-14T12:00:00.000Z"
+  }
+]

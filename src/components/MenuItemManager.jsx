@@ -15,6 +15,7 @@ import {
   getItemAvailability,
   getItemImage,
   getItemDescription,
+  getItemPricing,
 } from '../utils/dealUtils';
 import DealFlowModal from './DealFlowModal';
 import DishFormModal from './DishFormModal';
@@ -26,6 +27,20 @@ function capitalizeWord(str) {
     .split(' ')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(' ');
+}
+
+function getFoodEmoji(title = '', category = '') {
+  const t = `${title} ${category}`.toLowerCase();
+  if (t.includes('burger') || t.includes('smash') || t.includes('zinger')) return '🍔';
+  if (t.includes('pizza')) return '🍕';
+  if (t.includes('fries') || t.includes('cajun') || t.includes('onion') || t.includes('side')) return '🍟';
+  if (t.includes('shake') || t.includes('smoothie') || t.includes('drink') || t.includes('beverage') || t.includes('cola') || t.includes('vanilla') || t.includes('chocolate')) return '🥤';
+  if (t.includes('chicken') || t.includes('wing') || t.includes('nugget') || t.includes('broast') || t.includes('nashville')) return '🍗';
+  if (t.includes('kabab') || t.includes('behari') || t.includes('tikka') || t.includes('bbq') || t.includes('meat') || t.includes('steak')) return '🍢';
+  if (t.includes('sandwich') || t.includes('wrap') || t.includes('roll')) return '🌯';
+  if (t.includes('cake') || t.includes('sweet') || t.includes('dessert') || t.includes('ice cream') || t.includes('lotus')) return '🍰';
+  if (t.includes('deal') || t.includes('combo') || t.includes('feast') || t.includes('bundle')) return '🔥';
+  return '🍽️';
 }
 
 export default function MenuItemManager({
@@ -92,12 +107,13 @@ export default function MenuItemManager({
     }
   };
 
-  const handleSaveDeal = async ({ itemId, category_id, title, price, variants }) => {
+  const handleSaveDeal = async ({ itemId, category_id, title, price, original_price, variants }) => {
     if (itemId) {
       await onUpdateMenuItem(itemId, {
         category_id,
         title,
         price,
+        original_price,
         variants,
       });
     } else {
@@ -105,17 +121,19 @@ export default function MenuItemManager({
         category_id,
         title,
         price,
+        original_price,
         variants,
       });
     }
   };
 
-  const handleSaveDish = async ({ itemId, category_id, title, price, variants }) => {
+  const handleSaveDish = async ({ itemId, category_id, title, price, original_price, variants }) => {
     if (itemId) {
       await onUpdateMenuItem(itemId, {
         category_id,
         title,
         price,
+        original_price,
         variants,
       });
     } else {
@@ -123,6 +141,7 @@ export default function MenuItemManager({
         category_id,
         title,
         price,
+        original_price,
         variants,
       });
     }
@@ -271,122 +290,137 @@ export default function MenuItemManager({
             const hasVariants = variantsList && variantsList.length > 0;
             const itemImage = getItemImage(item);
             const itemDesc = getItemDescription(item);
+            const pricing = getItemPricing(item);
 
             return (
               <div
                 key={item.id}
-                className={`p-4 rounded-2xl border transition flex flex-col justify-between shadow-xs ${
+                className={`bg-white rounded-2xl border transition flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-md group ${
                   isSoldOut
-                    ? 'bg-[#FFF9F2]/50 border-[#F0E4D7] opacity-60'
+                    ? 'opacity-65 border-slate-200 bg-slate-50/50'
                     : itemIsDeal
-                    ? 'bg-gradient-to-b from-[#FEF3D9]/30 to-white border-[#FCE1A8] hover:shadow-md'
-                    : 'bg-white border-[#F0E4D7] hover:border-[#FCD8BF] hover:shadow-md'
+                    ? 'border-amber-200 hover:border-amber-400'
+                    : 'border-[#F0E4D7] hover:border-[#F26B1D]/40'
                 }`}
               >
                 <div>
-                  {/* Top Badges and In-Stock toggle */}
-                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                  {/* DIV 1: Card Header (Category Tag, Deal Badge, Stock Toggle) */}
+                  <div className="p-3 bg-[#FFF9F2]/80 border-b border-[#F0E4D7]/70 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-bold text-[#D95A12] bg-[#FFF1E6] px-2 py-0.5 rounded-lg border border-[#FCD8BF]/60">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#D95A12] bg-[#FFF1E6] px-2 py-0.5 rounded-md border border-[#FCD8BF]">
                         {getCategoryName(item.category_id)}
                       </span>
 
                       {itemIsDeal && (
-                        <span className="text-[10px] font-extrabold text-[#B87000] bg-[#FEF3D9] px-2.5 py-0.5 rounded-lg border border-[#FCE1A8]">
-                          🔥 {dealInfo.badge || 'Deal'}
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#B87000] bg-[#FEF3D9] px-2 py-0.5 rounded-md border border-[#FCE1A8] flex items-center gap-1 shadow-2xs">
+                          <span>🔥</span>
+                          <span>{dealInfo.badge || 'DEAL'}</span>
                         </span>
                       )}
                     </div>
 
-                    {/* Stock switch (Consistent Green/Red) */}
+                    {/* Stock Switch */}
                     <button
                       type="button"
                       onClick={() => toggleStock(item)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer shrink-0 ${
+                      className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition cursor-pointer shrink-0 ${
                         isSoldOut
-                          ? 'bg-[#FDECEC] text-[#E5484D] border-[#F9C3C5] hover:bg-[#FCD9DA]'
-                          : 'bg-[#E7F6EC] text-[#1F9D55] border-[#C0E9CE] hover:bg-[#D5EFE0]'
+                          ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                       }`}
-                      title={isSoldOut ? 'Mark back In Stock' : 'Mark as Sold Out'}
+                      title={isSoldOut ? 'Click to mark In Stock' : 'Click to mark Sold Out'}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isSoldOut ? 'bg-[#E5484D]' : 'bg-[#1F9D55]'}`}></span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSoldOut ? 'bg-red-500' : 'bg-emerald-500'}`} />
                       <span>{isSoldOut ? 'Sold Out' : 'In Stock'}</span>
                     </button>
                   </div>
 
-                  {/* Image & Title & Price Display */}
-                  <div className="flex gap-3 mb-2.5">
-                    {itemImage ? (
-                      <img
-                        src={itemImage}
-                        alt={item.title}
-                        className="w-16 h-16 rounded-xl object-cover border border-[#F0E4D7] shrink-0"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-center text-[#9E8E81] shrink-0">
-                        <Utensils className="w-7 h-7" />
-                      </div>
-                    )}
+                  {/* DIV 2: Product Showcase (Appetizing Food Icon/Photo, Title, Price, Description) */}
+                  <div className="p-3.5 flex gap-3 items-start">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-50 to-orange-100/80 border border-orange-200/60 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs group-hover:scale-105 transition">
+                      {itemImage ? (
+                        <img src={itemImage} alt={item.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl select-none" role="img" aria-label="dish">
+                          {getFoodEmoji(item.title, getCategoryName(item.category_id))}
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-1">
-                        <h3 className="font-heading font-extrabold text-[#2B2118] text-sm leading-snug line-clamp-2">
-                          {item.title}
-                        </h3>
-                      </div>
+                      <h3 className="font-heading font-black text-sm text-[#2B2118] leading-tight line-clamp-1 group-hover:text-[#F26B1D] transition">
+                        {item.title}
+                      </h3>
 
                       <div className="flex items-baseline gap-2 mt-1">
-                        <span className="text-sm font-extrabold text-[#F26B1D] font-mono">
-                          {formatPKR(item.price)}
+                        {/* 1. DISCOUNTED / SELLING PRICE FIRST */}
+                        <span className="text-sm sm:text-base font-extrabold text-[#F26B1D] font-mono">
+                          {formatPKR(pricing.finalPrice)}
                         </span>
-                        {itemIsDeal && dealInfo.original_price > item.price && (
+                        {/* 2. ORIGINAL PRICE SECOND WITH STRIKETHROUGH */}
+                        {pricing.hasDiscount && (
                           <span className="text-xs text-[#9E8E81] line-through font-mono">
-                            {formatPKR(dealInfo.original_price)}
+                            {formatPKR(pricing.originalPrice)}
+                          </span>
+                        )}
+                        {pricing.hasDiscount && (
+                          <span className="text-[10px] font-bold text-[#1F9D55] bg-[#E7F6EC] border border-[#C0E9CE] px-1.5 py-0.5 rounded">
+                            {pricing.discountPercent}% off
                           </span>
                         )}
                       </div>
 
-                      {itemDesc && !itemIsDeal && (
-                        <p className="text-[11px] text-[#7A6A5C] line-clamp-2 mt-1">
-                          {itemDesc}
-                        </p>
-                      )}
+                      <p className="text-[11px] text-[#7A6A5C] line-clamp-1 mt-0.5">
+                        {itemDesc || (itemIsDeal ? dealInfo.deal_items : 'Freshly prepared')}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Deal Bundle Summary */}
-                  {itemIsDeal && dealInfo.deal_items && (
-                    <div className="mb-2 p-2.5 rounded-xl bg-[#FEF3D9] border border-[#FCE1A8] text-xs">
-                      <p className="text-[10px] font-extrabold text-[#B87000] uppercase tracking-wider mb-1">
-                        📦 Included in Deal:
-                      </p>
-                      <p className="text-[#2B2118] font-medium text-xs leading-relaxed">
-                        {dealInfo.deal_items}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Options Summary */}
-                  {hasVariants && (
-                    <div className="mb-2 space-y-1">
-                      {variantsList.map((vg) => (
-                        <div key={vg.id} className="text-[11px] text-[#7A6A5C] bg-[#FFF9F2] px-2.5 py-1 rounded-lg border border-[#F0E4D7] flex items-center justify-between">
-                          <span className="font-bold text-[#2B2118]">{vg.name}</span>
-                          <span className="text-[10px] text-[#9E8E81]">
-                            {vg.options?.length || 0} choices
+                  {/* DIV 3: Structured Inclusions / Options Box (Uniform layout across dishes & deals) */}
+                  <div className="px-3.5 pb-3 flex-1 flex flex-col justify-start">
+                    <div className="bg-[#FFF9F2] rounded-xl p-2.5 border border-[#F0E4D7] min-h-[56px] flex flex-col justify-center">
+                      {itemIsDeal && dealInfo.deal_items ? (
+                        <div>
+                          <span className="text-[9px] font-black uppercase text-[#B87000] tracking-wider block mb-0.5">
+                            📦 Included In Deal:
                           </span>
+                          <p className="text-[11px] text-[#2B2118] font-semibold line-clamp-2 leading-snug">
+                            {dealInfo.deal_items}
+                          </p>
                         </div>
-                      ))}
+                      ) : hasVariants ? (
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">
+                            Customization Options:
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {variantsList.map((vg) => (
+                              <span key={vg.id} className="text-[10px] bg-white text-[#7A6A5C] px-2 py-0.5 rounded-md border border-[#F0E4D7] font-bold">
+                                {vg.name}: <strong className="text-[#2B2118] font-mono">{vg.options?.length || 0} choices</strong>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-[11px] text-[#9E8E81]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>Standard Recipe • Single Size</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                {/* Card Actions */}
-                <div className="flex items-center justify-end pt-2.5 border-t border-[#F0E4D7] text-xs mt-1">
-                  <div className="flex items-center gap-1.5">
+                {/* DIV 4: Card Action Footer */}
+                <div className="px-3.5 py-2.5 bg-[#FFF9F2]/40 border-t border-[#F0E4D7] flex items-center justify-between text-xs">
+                  <span className="text-[10px] text-[#9E8E81] font-mono font-medium">
+                    {itemIsDeal ? 'Combo Package' : `${variantsList?.length || 0} variant groups`}
+                  </span>
+
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenEdit(item)}
-                      className="px-2.5 py-1.5 rounded-lg text-[#F26B1D] hover:bg-[#FFF1E6] transition cursor-pointer flex items-center gap-1 font-bold text-xs"
+                      className="px-2.5 py-1 rounded-lg text-[#F26B1D] hover:bg-[#FFF1E6] transition cursor-pointer flex items-center gap-1 font-bold text-xs"
                       title="Edit dish"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
@@ -399,7 +433,7 @@ export default function MenuItemManager({
                           onDeleteMenuItem(item.id);
                         }
                       }}
-                      className="p-1.5 rounded-lg text-[#9E8E81] hover:text-[#D92D20] hover:bg-[#FEE4E2] transition cursor-pointer"
+                      className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                       title="Delete dish"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

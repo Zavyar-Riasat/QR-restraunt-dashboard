@@ -767,6 +767,13 @@ export default function TableManager({
               { printType: templateType || TEMPLATE_TYPES.BILL }
             );
           }}
+          onOpenPosForOrder={(ord) => {
+            setEditingOrderItems(null);
+            if (onOpenPosForTable) {
+              const tableObj = ord.table ? { table_number: ord.table } : null;
+              onOpenPosForTable(tableObj, ord.id);
+            }
+          }}
         />
       )}
 

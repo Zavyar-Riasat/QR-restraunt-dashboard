@@ -80,6 +80,7 @@ export default function OrdersFeed({
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [openMenuOrderId, setOpenMenuOrderId] = useState(null);
   const [activePrintMenuOrderId, setActivePrintMenuOrderId] = useState(null);
+  const [copiedLocationId, setCopiedLocationId] = useState(null);
   const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
   const [directPrintingId, setDirectPrintingId] = useState(null);
   const [printSuccessToast, setPrintSuccessToast] = useState(null);
@@ -109,7 +110,11 @@ export default function OrdersFeed({
 
   const handleCopyLocation = (order) => {
     const url = buildGoogleMapsNavUrl(order);
-    navigator.clipboard.writeText(url);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).catch(() => {});
+      }
+    } catch (_) {}
     setCopiedLocationId(order.id);
     setTimeout(() => setCopiedLocationId(null), 2500);
   };
@@ -1594,9 +1599,18 @@ export default function OrdersFeed({
                       <div className="relative">
                         <button
                           type="button"
-                          onClick={() => setOpenMenuOrderId(openMenuOrderId === order.id ? null : order.id)}
-                          className="p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200 hover:border-slate-300 flex items-center justify-center"
+                          id={`order-actions-btn-${order.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuOrderId((prev) => (prev === order.id ? null : order.id));
+                          }}
+                          className={`p-3 rounded-xl border text-slate-700 transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 ${
+                            openMenuOrderId === order.id
+                              ? 'bg-slate-200 border-slate-300'
+                              : 'bg-slate-100 hover:bg-slate-200 border-slate-200 hover:border-slate-300'
+                          }`}
                           title="More actions"
+                          aria-label="More actions"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
@@ -1605,26 +1619,51 @@ export default function OrdersFeed({
                           <>
                             <div
                               className="fixed inset-0 z-30"
-                              onClick={() => setOpenMenuOrderId(null)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuOrderId(null);
+                              }}
                             />
-                            <div className="absolute right-0 bottom-full mb-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 bottom-full mb-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100"
+                            >
+                              <div className="px-3.5 py-1.5 border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Order #{order.id} Actions
+                              </div>
+
                               <button
                                 type="button"
                                 onClick={() => {
                                   setSelectedOrderDetails(order);
                                   setOpenMenuOrderId(null);
                                 }}
-                                className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition cursor-pointer"
+                                className="w-full px-3.5 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-[#FFF1E6] hover:text-[#F26B1D] flex items-center gap-2.5 transition cursor-pointer"
                               >
-                                <FileText className="w-4 h-4 text-[#F26B1D]" />
+                                <Eye className="w-4 h-4 text-[#F26B1D]" />
                                 <span>View Full Details</span>
                               </button>
+
+                              {/* Google Maps link */}
+                              {(order.latitude || order.location_coords?.lat || order.customer_address) && (
+                                <a
+                                  href={buildGoogleMapsNavUrl(order)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() => setOpenMenuOrderId(null)}
+                                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition"
+                                >
+                                  <MapPin className="w-4 h-4 text-emerald-600" />
+                                  <span>Open Google Maps</span>
+                                </a>
+                              )}
+
                               {/* Secondary Maps link: Open in OpenStreetMap */}
                               {(order.latitude || order.location_coords?.lat) && (
                                 <a
                                   href={buildOsmNavUrl(
-                                    order.latitude || order.location_coords.lat,
-                                    order.longitude || order.location_coords.lng,
+                                    order.latitude || order.location_coords?.lat,
+                                    order.longitude || order.location_coords?.lng,
                                     18
                                   )}
                                   target="_blank"
@@ -1633,7 +1672,7 @@ export default function OrdersFeed({
                                   className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition"
                                 >
                                   <ExternalLink className="w-4 h-4 text-slate-500" />
-                                  <span>Open in OpenStreetMap</span>
+                                  <span>Open OpenStreetMap</span>
                                 </a>
                               )}
 
@@ -1659,6 +1698,7 @@ export default function OrdersFeed({
 
                               {order.customer_phone && (
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     handleSmsCustomer(order);
                                     setOpenMenuOrderId(null);
@@ -1673,6 +1713,7 @@ export default function OrdersFeed({
                               {(order.status === 'new' || order.status === 'preparing') && (
                                 <div className="pt-1 mt-1 border-t border-slate-100">
                                   <button
+                                    type="button"
                                     onClick={() => {
                                       setOpenMenuOrderId(null);
                                       if (confirm(`Are you sure you want to cancel order #${order.id}?`)) {

@@ -268,22 +268,32 @@ export default function PrintTemplatesSection({ restaurant }) {
             </h4>
 
             {/* Toggle: Show Logo */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-[#F0E4D7]">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-[#F0E4D7] shadow-2xs">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center">
-                  <ImageIcon className="w-3.5 h-3.5" />
+                <div className="w-8 h-8 rounded-lg bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center shrink-0">
+                  <ImageIcon className="w-4 h-4" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-[#2B2118] block">Show Restaurant Logo</label>
-                  <p className="text-[10px] text-[#7A6A5C]">Prints header brand logo on bill</p>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-[#2B2118] block">Print Restaurant Logo</label>
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600">
+                      Default: No
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#7A6A5C]">Prints header brand logo on bill and customer receipts</p>
                 </div>
               </div>
-              <input
-                type="checkbox"
-                checked={settings.showLogo}
-                onChange={() => handleToggle('showLogo')}
-                className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
-              />
+              <div className="flex items-center gap-2">
+                <span className={`text-[11px] font-bold ${settings.showLogo ? 'text-[#F26B1D]' : 'text-slate-400'}`}>
+                  {settings.showLogo ? 'Logo ON' : 'Logo OFF'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={Boolean(settings.showLogo)}
+                  onChange={() => handleToggle('showLogo')}
+                  className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
+                />
+              </div>
             </div>
 
             {/* Toggle: Show Phone Number */}

@@ -13,6 +13,7 @@ import {
   Wifi,
   Smartphone,
   Activity,
+  Receipt,
 } from 'lucide-react';
 import { printerService } from '../../services/printer/printerService';
 import {
@@ -172,6 +173,19 @@ export default function PrintersSection({ categories = [] }) {
 
           <button
             type="button"
+            onClick={() => {
+              const el = document.getElementById('templates-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="px-4 py-3 rounded-2xl bg-white hover:bg-[#FFF1E6] active:scale-[0.98] border border-[#FCD8BF] text-[#F26B1D] text-xs sm:text-sm font-extrabold shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+            title="Configure Receipt Logo, Header, Language, and Footer"
+          >
+            <Receipt className="w-4 h-4 text-[#F26B1D]" />
+            <span>Bill & Logo Settings</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsWizardOpen(true)}
             className="px-5 py-3 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
           >
@@ -317,6 +331,18 @@ export default function PrintersSection({ categories = [] }) {
                     {/* Number of Copies */}
                     <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold border border-slate-200">
                       {printer.copies || 1} {(printer.copies || 1) === 1 ? 'copy' : 'copies'}
+                    </span>
+
+                    {/* Logo Print Status */}
+                    <span
+                      className={`px-2 py-0.5 rounded-md font-bold border ${
+                        printer.showLogo
+                          ? 'bg-orange-50 text-orange-700 border-orange-200'
+                          : 'bg-slate-50 text-slate-500 border-slate-200'
+                      }`}
+                      title={printer.showLogo ? 'Header brand logo is enabled on receipts' : 'Header brand logo is disabled on receipts (Default: No)'}
+                    >
+                      Logo: {printer.showLogo ? 'ON' : 'OFF'}
                     </span>
                   </div>
 

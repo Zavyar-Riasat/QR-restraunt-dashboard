@@ -9,6 +9,7 @@ import {
   HardDrive,
   Usb,
   Zap,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { printerService } from '../../services/printer/printerService';
 import {
@@ -76,6 +77,7 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
         copies: printer.copies || 1,
         autoPrint: Boolean(printer.autoPrint),
         openCashDrawer: Boolean(printer.openCashDrawer),
+        showLogo: printer.showLogo !== undefined ? Boolean(printer.showLogo) : false,
         isDefault: Boolean(printer.isDefault),
         connection: { ...printer.connection },
       });
@@ -366,6 +368,30 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
                 onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
                 className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
               />
+            </div>
+
+            {/* Print Logo on Bill / Receipt */}
+            <div className="p-4 rounded-2xl bg-[#FFF9F2]/60 border border-[#F0E4D7] flex items-center justify-between sm:col-span-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center shrink-0">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[#2B2118] block">Print Logo on Bill / Receipt</label>
+                  <p className="text-[10px] text-[#7A6A5C]">Include restaurant brand logo at the top of receipts (Default: No)</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[11px] font-bold ${formData.showLogo ? 'text-[#F26B1D]' : 'text-slate-400'}`}>
+                  {formData.showLogo ? 'Yes (ON)' : 'No (OFF)'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.showLogo)}
+                  onChange={(e) => setFormData({ ...formData, showLogo: e.target.checked })}
+                  className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
+                />
+              </div>
             </div>
           </div>
 

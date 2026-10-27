@@ -152,6 +152,7 @@ export const createDefaultPrinter = (overrides = {}) => ({
   copies: 1,
   autoPrint: false,
   openCashDrawer: true,
+  showLogo: false, // Default is NO as requested by owner
   isDefault: true,
   connection: {
     deviceName: null,
@@ -183,7 +184,7 @@ export const STORAGE_PRINTED_ORDERS_KEY = 'dinehq_printed_orders';
 export const STORAGE_RETRY_QUEUE_KEY = 'dinehq_print_retry_queue';
 
 export const DEFAULT_TEMPLATE_SETTINGS = {
-  showLogo: true,
+  showLogo: false, // Default is NO (owner can toggle ON anytime)
   footerMessage: 'Thank you for ordering with us! Visit again soon.',
   showPhone: true,
   language: 'both', // 'en' | 'ur' | 'both'

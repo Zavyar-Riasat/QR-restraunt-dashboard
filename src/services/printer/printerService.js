@@ -124,7 +124,16 @@ class PrinterService {
     try {
       const stored = localStorage.getItem(STORAGE_TEMPLATE_KEY);
       if (stored) {
-        return { ...DEFAULT_TEMPLATE_SETTINGS, ...JSON.parse(stored) };
+        const parsed = JSON.parse(stored);
+        // Ensure that unless the owner explicitly set logo preference, default is NO (false)
+        if (!parsed.logoPreferenceSet && parsed.showLogo === true) {
+          parsed.showLogo = false;
+          parsed.logoPreferenceSet = true;
+          try {
+            localStorage.setItem(STORAGE_TEMPLATE_KEY, JSON.stringify(parsed));
+          } catch (_) {}
+        }
+        return { ...DEFAULT_TEMPLATE_SETTINGS, ...parsed };
       }
     } catch (e) {
       console.warn('Error reading template settings:', e);
@@ -137,7 +146,7 @@ class PrinterService {
    */
   saveTemplateSettings(partialSettings) {
     const current = this.getTemplateSettings();
-    const updated = { ...current, ...partialSettings };
+    const updated = { ...current, ...partialSettings, logoPreferenceSet: true };
     localStorage.setItem(STORAGE_TEMPLATE_KEY, JSON.stringify(updated));
     this.notifyListeners({ templateSettings: updated });
     return updated;
@@ -753,9 +762,22 @@ class PrinterService {
       },
     };
 
+    // Merge effective template settings: allow per-printer showLogo override or global template settings
+    const effectiveTemplateSettings = {
+      ...this.getTemplateSettings(),
+      ...(job.templateSettings || {}),
+      ...(printer.showLogo !== undefined ? { showLogo: Boolean(printer.showLogo) } : {}),
+    };
+
+    const effectiveJob = {
+      ...job,
+      templateSettings: effectiveTemplateSettings,
+      showLogo: effectiveTemplateSettings.showLogo,
+    };
+
     if (driverId === DRIVER_IDS.BROWSER) {
       try {
-        const result = await driver.print(job, driverConfig);
+        const result = await driver.print(effectiveJob, driverConfig);
         this.setPrinterStatus(printer.id, 'connected');
         return {
           success: true,
@@ -811,7 +833,7 @@ class PrinterService {
     }
 
     try {
-      const result = await driver.print(job, driverConfig);
+      const result = await driver.print(effectiveJob, driverConfig);
       this.setPrinterStatus(printer.id, 'connected');
       return {
         success: true,

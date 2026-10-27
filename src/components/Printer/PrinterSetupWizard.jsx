@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   RotateCcw,
   Zap,
+  Image as ImageIcon,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { printerService } from '../../services/printer/printerService';
@@ -85,6 +86,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
   const [copies, setCopies] = useState(1);
   const [autoPrint, setAutoPrint] = useState(true);
   const [openCashDrawer, setOpenCashDrawer] = useState(false);
+  const [printLogo, setPrintLogo] = useState(false); // Default is NO as requested by owner
   const [isDefault, setIsDefault] = useState(false);
 
   if (!isOpen) return null;
@@ -257,6 +259,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
       copies: Math.max(1, parseInt(copies, 10) || 1),
       autoPrint,
       openCashDrawer,
+      showLogo: printLogo,
       isDefault,
       connection: connectionInfo,
     });
@@ -1113,6 +1116,30 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                     onChange={(e) => setIsDefault(e.target.checked)}
                     className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
                   />
+                </div>
+
+                {/* Print Logo on Bill / Receipt */}
+                <div className="p-4 rounded-2xl bg-white border border-[#F0E4D7] flex items-center justify-between sm:col-span-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center shrink-0">
+                      <ImageIcon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-[#2B2118] block">Print Logo on Bill / Receipt</label>
+                      <p className="text-[10px] text-[#7A6A5C]">Include restaurant logo at the top of receipts (Default: No)</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-bold ${printLogo ? 'text-[#F26B1D]' : 'text-slate-400'}`}>
+                      {printLogo ? 'Yes (ON)' : 'No (OFF)'}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={printLogo}
+                      onChange={(e) => setPrintLogo(e.target.checked)}
+                      className="w-4 h-4 accent-[#F26B1D] cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

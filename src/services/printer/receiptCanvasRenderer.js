@@ -73,8 +73,9 @@ function wrapText(ctx, text, maxWidth) {
  * Width is precisely locked to 384px (58mm) or 576px (80mm) at 203 DPI.
  */
 export async function renderReceiptToCanvas(job) {
-  const { order, restaurant, paperSize = PAPER_SIZES.SIZE_80MM, reorderQrUrl } = job;
+  const { order, restaurant, paperSize = PAPER_SIZES.SIZE_80MM, reorderQrUrl, templateSettings = {} } = job;
   const is58mm = paperSize === PAPER_SIZES.SIZE_58MM;
+  const showLogo = Boolean(templateSettings.showLogo ?? job.showLogo ?? false);
 
   // Dimensions
   const width = is58mm ? 384 : 576;
@@ -96,8 +97,8 @@ export async function renderReceiptToCanvas(job) {
 
   let y = 14;
 
-  // 1. Restaurant Logo (at top of printout)
-  if (restaurant?.logo_url) {
+  // 1. Restaurant Logo (at top of printout) - only if owner enabled showLogo
+  if (showLogo && restaurant?.logo_url) {
     try {
       const logoImg = new Image();
       logoImg.crossOrigin = 'anonymous';

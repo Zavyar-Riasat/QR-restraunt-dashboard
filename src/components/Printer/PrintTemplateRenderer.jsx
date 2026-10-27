@@ -14,7 +14,7 @@ export default function PrintTemplateRenderer({
   salesSummary = null,
 }) {
   const {
-    showLogo = true,
+    showLogo = false, // Default is NO as requested by owner
     showPhone = true,
     footerMessage = 'Thank you for ordering with us! Visit again soon.',
     language = 'both', // 'en' | 'ur' | 'both'

@@ -10,7 +10,7 @@ import OrdersFeed from '../components/OrdersFeed';
 import { restaurantService } from '../services/restaurantService';
 import { orderService, playKitchenChime, playLoudKitchenAlarm, unlockAudioContext } from '../services/orderService';
 import { useAuth } from '../context/AuthContext';
-import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users } from 'lucide-react';
+import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users, CheckCircle2 } from 'lucide-react';
 import PrinterSetupWizard from '../components/Printer/PrinterSetupWizard';
 import { printerService } from '../services/printer/printerService';
 import NewOrderModal from '../components/POS/NewOrderModal';
@@ -587,7 +587,8 @@ export default function OwnerDashboardPage() {
     );
   }
 
-  const activeOrdersCount = orders.filter((o) => o.status === 'new' || o.status === 'preparing' || o.status === 'out_for_delivery').length;
+  const activeOrdersCount = orders.filter((o) => o.status === 'new' || o.status === 'preparing' || o.status === 'out_for_delivery' || o.status === 'ready' || o.status === 'held').length;
+  const completedOrdersCount = orders.filter((o) => o.status === 'completed').length;
 
   return (
     <div className="min-h-screen bg-[#FFF9F2] text-[#2B2118] flex flex-col font-sans selection:bg-[#F26B1D] selection:text-white">
@@ -679,6 +680,24 @@ export default function OwnerDashboardPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('completed')}
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'completed'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+              }`}
+          >
+            <CheckCircle2 className={`w-4 h-4 ${activeTab === 'completed' ? 'text-white' : 'text-emerald-500'}`} />
+            <span>Completed Orders</span>
+            {completedOrdersCount > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+                activeTab === 'completed' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                {completedOrdersCount}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => {
               setActiveTab('customers');
               setKhataFilter('all');
@@ -758,6 +777,29 @@ export default function OwnerDashboardPage() {
           {activeTab === 'orders' && (
             <OrdersFeed
               orders={orders}
+              feedMode="active"
+              onNavigateToCompleted={() => setActiveTab('completed')}
+              onUpdateStatus={handleUpdateOrderStatus}
+              restaurant={restaurant}
+              soundEnabled={soundEnabled}
+              onToggleSound={toggleSound}
+              newOrderAlert={newOrderAlert}
+              mutedOrderIds={mutedOrderIds}
+              onMuteOrderAlert={handleMuteOrderAlert}
+              isAudioUnlocked={isAudioUnlocked}
+              onUnlockAudio={handleUnlockAudio}
+              onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
+              onOpenNewOrder={(table, orderType, appendOrderId) => handleOpenNewOrder(table, orderType || 'dine_in', appendOrderId)}
+              onDismissOrderAlert={() => setNewOrderAlert(null)}
+              menuItems={menuItems}
+            />
+          )}
+
+          {activeTab === 'completed' && (
+            <OrdersFeed
+              orders={orders}
+              feedMode="completed"
+              onNavigateToOrders={() => setActiveTab('orders')}
               onUpdateStatus={handleUpdateOrderStatus}
               restaurant={restaurant}
               soundEnabled={soundEnabled}

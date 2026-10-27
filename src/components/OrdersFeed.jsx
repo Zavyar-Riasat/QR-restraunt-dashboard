@@ -58,6 +58,9 @@ import ErrorBoundary from './ErrorBoundary';
 
 export default function OrdersFeed({
   orders = [],
+  feedMode = 'active', // 'active' (orders page) | 'completed' (completed orders tab)
+  onNavigateToCompleted,
+  onNavigateToOrders,
   onUpdateStatus,
   restaurant,
   soundEnabled = true,
@@ -73,8 +76,9 @@ export default function OrdersFeed({
   onDismissOrderAlert,
   menuItems = [],
 }) {
-  const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
+  const [filter, setFilter] = useState('all'); // all, active, new, preparing, out_for_delivery / dine_in, delivery, pickup
   const [search, setSearch] = useState('');
+  const [orderStatusToast, setOrderStatusToast] = useState(null);
   const [printingOrder, setPrintingOrder] = useState(null);
   const [editingOrderItems, setEditingOrderItems] = useState(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
@@ -117,6 +121,23 @@ export default function OrdersFeed({
     } catch (_) {}
     setCopiedLocationId(order.id);
     setTimeout(() => setCopiedLocationId(null), 2500);
+  };
+
+  const handleOrderStatusChange = (orderId, newStatus) => {
+    onUpdateStatus(orderId, newStatus);
+    if (newStatus === 'completed') {
+      setOrderStatusToast({
+        message: `Order #${orderId} marked completed & moved to Completed Orders tab`,
+        orderId,
+      });
+      setTimeout(() => setOrderStatusToast(null), 5000);
+    } else if (newStatus === 'preparing' && feedMode === 'completed') {
+      setOrderStatusToast({
+        message: `Order #${orderId} re-opened & sent back to Live Kitchen Orders!`,
+        orderId,
+      });
+      setTimeout(() => setOrderStatusToast(null), 5000);
+    }
   };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -277,25 +298,53 @@ export default function OrdersFeed({
     }
   };
 
+  // When in 'completed' feedMode, only show completed orders.
+  // When in 'active' feedMode, completed orders must NEVER be visible on the orders page!
+  const baseOrders = useMemo(() => {
+    if (feedMode === 'completed') {
+      return orders.filter((o) => o.status === 'completed');
+    }
+    return orders.filter((o) => o.status !== 'completed');
+  }, [orders, feedMode]);
+
   const dateFilteredOrders = useMemo(() => {
-    if (dateFilter === 'all') return orders;
-    return filterOrdersByDate(orders, {
+    if (dateFilter === 'all') return baseOrders;
+    return filterOrdersByDate(baseOrders, {
       mode: dateFilter === 'custom' ? 'specific_date' : dateFilter,
       specificDate: customFilterDate,
       includeCancelled: true,
     }).filteredOrders;
-  }, [orders, dateFilter, customFilterDate]);
+  }, [baseOrders, dateFilter, customFilterDate]);
+
+  const completedOrdersCount = useMemo(() => {
+    return orders.filter((o) => o.status === 'completed').length;
+  }, [orders]);
+
+  const completedRevenue = useMemo(() => {
+    return dateFilteredOrders.reduce((sum, o) => sum + (Number(o.total_payable) || 0), 0);
+  }, [dateFilteredOrders]);
 
   const filteredOrders = useMemo(() => {
     return dateFilteredOrders.filter((order) => {
-      const matchesFilter =
-        filter === 'all'
-          ? true
-          : filter === 'active'
-            ? order.status === 'new' || order.status === 'preparing' || order.status === 'out_for_delivery' || order.status === 'ready' || order.status === 'held'
-            : order.status === filter;
+      let matchesFilter = true;
+      if (feedMode === 'completed') {
+        if (filter === 'dine_in') matchesFilter = order.order_type === 'dine_in';
+        else if (filter === 'delivery') matchesFilter = order.order_type === 'delivery';
+        else if (filter === 'pickup') matchesFilter = order.order_type === 'pickup' || order.order_source === 'phone_pickup';
+        else matchesFilter = true;
+      } else {
+        if (filter === 'all' || filter === 'active') {
+          matchesFilter = true;
+        } else if (filter === 'out_for_delivery') {
+          matchesFilter = order.status === 'out_for_delivery' || order.status === 'ready';
+        } else {
+          matchesFilter = order.status === filter;
+        }
+      }
 
-      const query = search.toLowerCase();
+      const query = search.toLowerCase().trim();
+      if (!query) return matchesFilter;
+
       const matchesSearch =
         (order.id || '').toLowerCase().includes(query) ||
         (order.customer_name || '').toLowerCase().includes(query) ||
@@ -305,7 +354,7 @@ export default function OrdersFeed({
 
       return matchesFilter && matchesSearch;
     });
-  }, [dateFilteredOrders, filter, search]);
+  }, [dateFilteredOrders, filter, search, feedMode]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -370,7 +419,7 @@ export default function OrdersFeed({
     window.open(`sms:+${cleanPhone}?body=${text}`, '_blank');
   };
 
-  const pendingNewOrders = orders.filter((o) => o.status === 'new');
+  const pendingNewOrders = feedMode === 'completed' ? [] : orders.filter((o) => o.status === 'new');
   const latestNewOrder = pendingNewOrders[0];
   const unmutedPendingCount = pendingNewOrders.filter((o) => !mutedOrderIds.includes(o.id)).length;
 
@@ -380,7 +429,7 @@ export default function OrdersFeed({
       <div className={`space-y-6 ${printingOrder ? 'no-print' : ''}`}>
 
         {/* Audio Context Unlock Banner (Browser Autoplay Policy) */}
-        {!isAudioUnlocked && soundEnabled && (
+        {!isAudioUnlocked && soundEnabled && feedMode !== 'completed' && (
           <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500 text-slate-950 font-bold text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-amber-500/25 animate-fadeIn border-2 border-amber-600">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-slate-950/15 flex items-center justify-center shrink-0">
@@ -563,20 +612,64 @@ export default function OrdersFeed({
           {/* Top Row: Brand Header & Search/Filters */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
-                <Bell className="w-6 h-6 stroke-[2.5]" />
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md shrink-0 ${
+                feedMode === 'completed'
+                  ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-emerald-500/20'
+                  : 'bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] text-white shadow-orange-500/20'
+              }`}>
+                {feedMode === 'completed' ? (
+                  <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+                ) : (
+                  <Bell className="w-6 h-6 stroke-[2.5]" />
+                )}
               </div>
               <div>
-                <h2 className="text-2xl font-heading font-extrabold text-[#2B2118] tracking-tight leading-tight">
-                  Orders
-                </h2>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-2xl font-heading font-extrabold text-[#2B2118] tracking-tight leading-tight">
+                    {feedMode === 'completed' ? 'Completed Orders' : 'Live Kitchen Orders'}
+                  </h2>
+                  {feedMode === 'completed' ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold font-mono">
+                      {dateFilteredOrders.length} Fulfilled
+                    </span>
+                  ) : (
+                    dateFilteredOrders.length > 0 && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-bold font-mono">
+                        {dateFilteredOrders.length} Active
+                      </span>
+                    )
+                  )}
+                </div>
                 <p className="text-xs text-[#7A6A5C] mt-0.5">
-                  Incoming orders, tickets, and status.
+                  {feedMode === 'completed'
+                    ? 'Archived history of fulfilled dine-in, takeaway, and delivery orders.'
+                    : 'Real-time incoming orders, tickets, and active kitchen operations.'}
                 </p>
               </div>
             </div>
 
-            {/* Search & Filter Tabs */}
+            {/* If in completed mode, show total revenue pill & shortcut to active orders */}
+            {feedMode === 'completed' && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-1.5 shadow-2xs">
+                  <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Settled: {formatPKR(completedRevenue)}</span>
+                </div>
+                {onNavigateToOrders && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToOrders}
+                    className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-white hover:bg-[#FFF1E6] text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <span>← Back to Active Orders</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Search & Filter Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="relative flex-1 sm:flex-initial">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -618,30 +711,100 @@ export default function OrdersFeed({
                 )}
               </div>
 
-              {/* Status Tabs */}
-              <div className="flex rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
-                <button
-                  onClick={() => setFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${filter === 'all' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
+              {/* Category / Status Tabs */}
+              {feedMode === 'completed' ? (
+                <div className="flex rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                      filter === 'all' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
                     }`}
-                >
-                  All ({dateFilteredOrders.length})
-                </button>
-                <button
-                  onClick={() => setFilter('active')}
-                  className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${filter === 'active' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
+                  >
+                    All Completed ({dateFilteredOrders.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilter('dine_in')}
+                    className={`px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
+                      filter === 'dine_in' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
                     }`}
-                >
-                  Active ({dateFilteredOrders.filter((o) => o.status === 'new' || o.status === 'preparing' || o.status === 'out_for_delivery' || o.status === 'ready' || o.status === 'held').length})
-                </button>
-                <button
-                  onClick={() => setFilter('completed')}
-                  className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${filter === 'completed' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
+                  >
+                    Dine-In ({dateFilteredOrders.filter((o) => o.order_type === 'dine_in').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilter('delivery')}
+                    className={`px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
+                      filter === 'delivery' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
                     }`}
-                >
-                  Completed ({dateFilteredOrders.filter((o) => o.status === 'completed').length})
-                </button>
-              </div>
+                  >
+                    Delivery ({dateFilteredOrders.filter((o) => o.order_type === 'delivery').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilter('pickup')}
+                    className={`px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
+                      filter === 'pickup' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
+                    }`}
+                  >
+                    Takeaway ({dateFilteredOrders.filter((o) => o.order_type === 'pickup' || o.order_source === 'phone_pickup').length})
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                        filter === 'all' || filter === 'active' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
+                      }`}
+                    >
+                      All Active ({dateFilteredOrders.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilter('new')}
+                      className={`px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
+                        filter === 'new' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
+                      }`}
+                    >
+                      New ({dateFilteredOrders.filter((o) => o.status === 'new').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilter('preparing')}
+                      className={`px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
+                        filter === 'preparing' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
+                      }`}
+                    >
+                      Preparing ({dateFilteredOrders.filter((o) => o.status === 'preparing').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilter('out_for_delivery')}
+                      className={`px-2.5 py-1.5 rounded-lg transition cursor-pointer ${
+                        filter === 'out_for_delivery' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
+                      }`}
+                    >
+                      Ready/Out ({dateFilteredOrders.filter((o) => o.status === 'out_for_delivery' || o.status === 'ready').length})
+                    </button>
+                  </div>
+
+                  {onNavigateToCompleted && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToCompleted}
+                      className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
+                      title="View all completed orders in the Completed tab"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Completed ({completedOrdersCount}) →</span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* View Mode Toggle (Cards vs List) */}
               <div className="flex items-center rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
@@ -718,10 +881,26 @@ export default function OrdersFeed({
         {filteredOrders.length === 0 ? (
           <div className="text-center py-16 border-2 border-dashed border-[#F0E4D7] rounded-3xl bg-[#FFF9F2]/50">
             <Package className="w-12 h-12 text-[#9E8E81] mx-auto mb-3" />
-            <h3 className="text-base font-bold text-[#2B2118]">No orders match this filter</h3>
+            <h3 className="text-base font-bold text-[#2B2118]">
+              {feedMode === 'completed'
+                ? 'No completed orders match this filter'
+                : 'No active orders in kitchen right now'}
+            </h3>
             <p className="text-xs text-[#7A6A5C] mt-1 max-w-sm mx-auto">
-              When customers place direct orders from your menu, they will appear here in real time.
+              {feedMode === 'completed'
+                ? 'Fulfilled customer and dine-in orders will be automatically archived here.'
+                : 'When customers place direct orders from your menu, they will appear here in real time.'}
             </p>
+            {feedMode !== 'completed' && completedOrdersCount > 0 && onNavigateToCompleted && (
+              <button
+                type="button"
+                onClick={onNavigateToCompleted}
+                className="mt-4 px-4 py-2 rounded-xl bg-white border border-[#F0E4D7] hover:border-emerald-400 text-xs font-bold text-emerald-800 hover:bg-emerald-50 transition shadow-xs inline-flex items-center gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>View {completedOrdersCount} Completed Orders in History →</span>
+              </button>
+            )}
           </div>
         ) : viewMode === 'list' ? (
           <div className="bg-white rounded-2xl border border-[#F0E4D7] shadow-xs overflow-hidden">
@@ -874,7 +1053,7 @@ export default function OrdersFeed({
                         <td className="py-3 px-3 text-center whitespace-nowrap">
                           <select
                             value={order.status || 'new'}
-                            onChange={(e) => onUpdateStatus(order.id, e.target.value)}
+                            onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
                             className={`text-[11px] font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-1 transition ${
                               order.status === 'new'
                                 ? 'bg-red-100 text-red-800 border-red-300'
@@ -1468,7 +1647,7 @@ export default function OrdersFeed({
 
                       {(order.status === 'out_for_delivery' || order.status === 'ready') && (
                         <button
-                          onClick={() => onUpdateStatus(order.id, 'completed')}
+                          onClick={() => handleOrderStatusChange(order.id, 'completed')}
                           className="flex-1 py-3 px-4 rounded-xl bg-[#1F9D55] hover:bg-[#188044] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-green-500/20"
                         >
                           <CheckCircle2 className="w-4 h-4 text-white" />
@@ -1710,6 +1889,29 @@ export default function OrdersFeed({
                                 </button>
                               )}
 
+                              {order.status === 'completed' && (
+                                <div className="pt-1 mt-1 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenMenuOrderId(null);
+                                      if (confirm(`Re-open order #${order.id} and send back to active kitchen?`)) {
+                                        onUpdateStatus(order.id, 'preparing');
+                                        setOrderStatusToast({
+                                          message: `Order #${order.id} re-opened and sent back to Live Kitchen Orders!`,
+                                          orderId: order.id,
+                                        });
+                                        setTimeout(() => setOrderStatusToast(null), 5000);
+                                      }
+                                    }}
+                                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition cursor-pointer"
+                                  >
+                                    <RotateCcw className="w-4 h-4 text-amber-600" />
+                                    <span>Re-open to Kitchen</span>
+                                  </button>
+                                </div>
+                              )}
+
                               {(order.status === 'new' || order.status === 'preparing') && (
                                 <div className="pt-1 mt-1 border-t border-slate-100">
                                   <button
@@ -1921,6 +2123,35 @@ export default function OrdersFeed({
             setSelectedPaymentOrder(null);
           }}
         />
+      )}
+
+      {/* Floating Status / Completion Toast */}
+      {orderStatusToast && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 text-white shadow-2xl flex items-center gap-3 border border-slate-800 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          <div className="text-xs font-bold">
+            {orderStatusToast.message}
+          </div>
+          {onNavigateToCompleted && (
+            <button
+              type="button"
+              onClick={() => {
+                onNavigateToCompleted();
+                setOrderStatusToast(null);
+              }}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition cursor-pointer"
+            >
+              View in Completed Tab →
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setOrderStatusToast(null)}
+            className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       )}
     </div>
   );

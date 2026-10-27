@@ -142,16 +142,20 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#FFF9F2] flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans selection:bg-[#F26B1D] selection:text-white">
       {/* Brand Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] shadow-lg shadow-[#F26B1D]/25 mb-4 text-white">
+        <Link
+          to="/"
+          className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] shadow-lg shadow-[#F26B1D]/25 mb-4 text-white hover:scale-105 transition-transform"
+          title="Back to Marketplace"
+        >
           <UtensilsCrossed className="w-7 h-7" />
-        </div>
+        </Link>
         <div className="flex items-center justify-center mb-1">
           <h2 className="text-2xl sm:text-3xl font-heading font-extrabold text-[#2B2118] tracking-tight">
-            Dineflow
+            Restaurant Owner Portal
           </h2>
         </div>
         <p className="text-xs text-[#7A6A5C]">
-          Restaurant Management & Super Admin Portal
+          Sign in with your owner credentials to access your dashboard
         </p>
       </div>
 
@@ -223,11 +227,11 @@ export default function LoginPage() {
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Signing in...</span>
+                    <span>Signing in to Dashboard...</span>
                   </>
                 ) : (
                   <>
-                    <span>Login</span>
+                    <span>Sign In to Dashboard</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -424,16 +428,16 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Customer Menu Navigation Link */}
+        {/* Customer Marketplace Navigation Link */}
         <div className="mt-6 text-center">
           <p className="text-xs text-[#7A6A5C] flex items-center justify-center gap-1.5">
-            <span>Are you a customer wanting food?</span>
+            <span>Looking for food & restaurants?</span>
             <Link
-              to="/burgersmoke"
+              to="/"
               className="text-[#F26B1D] hover:text-[#D95A12] font-bold inline-flex items-center gap-1 transition"
             >
-              <span>View Customer Menu</span>
-              <ExternalLink className="w-3 h-3" />
+              <span>Explore Restaurant Marketplace</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </p>
         </div>

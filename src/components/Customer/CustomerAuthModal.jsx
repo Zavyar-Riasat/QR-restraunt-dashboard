@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Phone,
   ArrowRight,
@@ -412,9 +412,21 @@ export default function CustomerAuthModal({
           )}
         </div>
 
-        {/* Security Footer */}
-        <div className="p-3 bg-[#FFF9F2] border-t border-[#F0E4D7] text-center text-[10px] text-[#9E8E81]">
-          🔒 Bank-grade OTP authentication. Your data is private and encrypted.
+        {/* Security & Owner Login Footer */}
+        <div className="p-3 bg-[#FFF9F2] border-t border-[#F0E4D7] text-center space-y-1">
+          <p className="text-[11px] text-[#7A6A5C]">
+            Restaurant owner or manager?{' '}
+            <Link
+              to="/login"
+              onClick={handleClose}
+              className="text-[#F26B1D] hover:underline font-bold"
+            >
+              Sign In to Dashboard →
+            </Link>
+          </p>
+          <p className="text-[10px] text-[#9E8E81]">
+            🔒 Bank-grade OTP authentication. Your data is private and encrypted.
+          </p>
         </div>
       </div>
     </div>

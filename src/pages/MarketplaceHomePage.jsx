@@ -1517,22 +1517,9 @@ export default function MarketplaceHomePage() {
         )}
 
         {/* ========================================================
-            8. MINIMAL FOOTER with Store Admin text link
+            8. MINIMAL CLEAN FOOTER
             ======================================================== */}
-        <footer className="mt-12 sm:mt-16 border-t border-[#F0E4D7] dark:border-[#382B20] py-6 sm:py-8 text-center text-xs text-[#7A6A5C] dark:text-[#A8988B] space-y-2">
-          <div className="flex items-center justify-center gap-3 sm:gap-4 font-medium">
-            <Link to="/" className="hover:text-[#F26B1D] transition">
-              Home
-            </Link>
-            <span>•</span>
-            <Link to="/account" className="hover:text-[#F26B1D] transition">
-              Account
-            </Link>
-            <span>•</span>
-            <Link to="/burgersmoke/admin" className="hover:text-[#F26B1D] transition">
-              Store Admin
-            </Link>
-          </div>
+        <footer className="mt-12 sm:mt-16 border-t border-[#F0E4D7] dark:border-[#382B20] py-6 sm:py-8 text-center text-xs text-[#7A6A5C] dark:text-[#A8988B] space-y-1">
           <p>© {new Date().getFullYear()} Dineflow. Fresh food delivered directly from kitchen menus.</p>
         </footer>
       </main>

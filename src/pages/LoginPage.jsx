@@ -35,17 +35,28 @@ export default function LoginPage() {
   const [changeModalError, setChangeModalError] = useState('');
 
   // Destination after login
-  const from = location.state?.from?.pathname || '';
+  const rawFrom = location.state?.from;
+  const from = (typeof rawFrom === 'string' ? rawFrom : rawFrom?.pathname) || '';
 
   const getDestination = (loggedInUser) => {
-    if (from && from !== '/' && from !== '/dashboard' && from !== '/admin') {
-      return from;
-    }
     if (loggedInUser?.role === 'admin') {
       return '/superadmin';
     }
+
     const slug = loggedInUser?.restaurant_slug || 'burgersmoke';
-    return `/${slug}/admin`;
+    const ownerDashboard = `/${slug}/admin`;
+
+    // Only redirect to 'from' if it specifically points to an owner dashboard or admin route
+    // (Never redirect an owner back to the customer menu or home page)
+    if (from && (from.includes('/admin') || from.includes('/dashboard'))) {
+      if (from === '/dashboard' || from === '/admin') {
+        return ownerDashboard;
+      }
+      return from;
+    }
+
+    // Default: Always redirect owner/manager directly to the Owner Dashboard
+    return ownerDashboard;
   };
 
   // If already logged in, redirect immediately (unless password change is required)

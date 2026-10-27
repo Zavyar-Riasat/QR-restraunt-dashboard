@@ -1288,6 +1288,7 @@ export default function CustomerMenuPage() {
             <span className="text-[#F0E4D7]">•</span>
             <Link
               to="/login"
+              state={{ from: `/${restaurant.slug}/admin` }}
               className="text-[#7A6A5C] hover:text-[#2B2118] transition flex items-center gap-1"
               title="Restaurant Staff Access"
             >

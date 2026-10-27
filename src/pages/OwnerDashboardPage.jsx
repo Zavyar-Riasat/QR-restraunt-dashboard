@@ -10,7 +10,7 @@ import OrdersFeed from '../components/OrdersFeed';
 import { restaurantService } from '../services/restaurantService';
 import { orderService, playKitchenChime, playLoudKitchenAlarm, unlockAudioContext } from '../services/orderService';
 import { useAuth } from '../context/AuthContext';
-import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users, CheckCircle2, Wallet } from 'lucide-react';
+import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users, CheckCircle2, Wallet, UtensilsCrossed } from 'lucide-react';
 import PrinterSetupWizard from '../components/Printer/PrinterSetupWizard';
 import { printerService } from '../services/printer/printerService';
 import NewOrderModal from '../components/POS/NewOrderModal';
@@ -945,8 +945,14 @@ export default function OwnerDashboardPage() {
       />
 
       {/* Footer */}
-      <footer className="no-print mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-400 bg-white">
-        <p>Dineflow &copy; 2026</p>
+      <footer className="no-print mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-500 bg-white space-y-2">
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] flex items-center justify-center text-white shadow-2xs">
+            <UtensilsCrossed className="w-3.5 h-3.5" />
+          </div>
+          <span className="font-heading font-extrabold text-[#2B2118] text-sm tracking-tight">Dineflow</span>
+        </div>
+        <p className="text-[11px] text-slate-400">Dineflow &copy; 2026. All rights reserved.</p>
       </footer>
     </div>
   );

@@ -1519,7 +1519,17 @@ export default function MarketplaceHomePage() {
         {/* ========================================================
             8. MINIMAL CLEAN FOOTER
             ======================================================== */}
-        <footer className="mt-12 sm:mt-16 border-t border-[#F0E4D7] dark:border-[#382B20] py-6 sm:py-8 text-center text-xs text-[#7A6A5C] dark:text-[#A8988B] space-y-1">
+        <footer className="mt-12 sm:mt-16 border-t border-[#F0E4D7] dark:border-[#382B20] py-8 sm:py-10 text-center text-xs text-[#7A6A5C] dark:text-[#A8988B] space-y-3">
+          <div className="flex items-center justify-center">
+            <Link to="/" className="inline-flex items-center justify-center gap-2.5 group">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#F26B1D] to-[#E05307] text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                <UtensilsCrossed className="w-4 h-4" />
+              </div>
+              <span className="font-heading font-extrabold text-base sm:text-lg tracking-tight text-[#2B2118] dark:text-[#FFF9F2] group-hover:text-[#F26B1D] transition-colors">
+                Dineflow
+              </span>
+            </Link>
+          </div>
           <p>© {new Date().getFullYear()} Dineflow. Fresh food delivered directly from kitchen menus.</p>
         </footer>
       </main>

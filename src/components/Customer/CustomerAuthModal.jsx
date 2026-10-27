@@ -418,6 +418,7 @@ export default function CustomerAuthModal({
             Restaurant owner or manager?{' '}
             <Link
               to="/login"
+              state={{ from: '/dashboard' }}
               onClick={handleClose}
               className="text-[#F26B1D] hover:underline font-bold"
             >

@@ -2440,12 +2440,6 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                     : 'bg-white border-[#F0E4D7] hover:border-[#F26B1D]/40 hover:bg-[#FFF9F2] shadow-xs'
                 }`}
               >
-                {isSelected && (
-                  <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#F26B1D] text-white flex items-center justify-center">
-                    <Check className="w-2.5 h-2.5 stroke-[3]" />
-                  </div>
-                )}
-
                 <div>
                   <div className="w-full h-16 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-center mb-2.5 relative overflow-hidden group-hover:scale-[1.02] transition-transform">
                     <div

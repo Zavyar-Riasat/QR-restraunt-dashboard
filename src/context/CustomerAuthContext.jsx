@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { customerService } from '../services/customerService.js';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 
 const CustomerAuthContext = createContext(null);
 
@@ -13,7 +14,26 @@ export function CustomerAuthProvider({ children }) {
   useEffect(() => {
     async function initCustomer() {
       try {
-        const current = customerService.getCurrentCustomer();
+        let current = customerService.getCurrentCustomer();
+
+        // If not in localStorage, check if Supabase has an active OAuth session (e.g. from Google redirect)
+        if (!current && isSupabaseConfigured()) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              const meta = session.user.user_metadata || {};
+              current = await customerService.loginOrRegister({
+                name: meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Customer',
+                email: session.user.email,
+                phone: session.user.phone || meta.phone || '',
+                avatar: meta.avatar_url || meta.picture || null,
+              });
+            }
+          } catch (sessionErr) {
+            console.warn('Error reading Supabase session for customer:', sessionErr);
+          }
+        }
+
         if (current) {
           setCustomer(current);
           const [addrs, favs] = await Promise.all([

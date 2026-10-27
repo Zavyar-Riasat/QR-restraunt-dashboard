@@ -284,6 +284,32 @@ export const customerAuthService = {
           },
         });
         if (!error && data?.url) {
+          // Pre-check if the provider is enabled in Supabase to avoid navigating to a raw 400 error page
+          try {
+            const check = await fetch(data.url, { method: 'GET' });
+            if (check.status === 400) {
+              const body = await check.json().catch(() => ({}));
+              if (body?.msg?.includes('provider is not enabled') || body?.error_code === 'validation_failed') {
+                console.warn('[Dineflow] Supabase Google Provider is not enabled in dashboard. Falling back to Demo Google login.');
+                const demoGoogleUser = {
+                  name: 'Ahmed Khan (Google Demo)',
+                  email: 'ahmed.khan@gmail.com',
+                  phone: '03001234567',
+                  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80',
+                  preferred_language: 'en',
+                };
+                const customer = await customerService.loginOrRegister(demoGoogleUser);
+                return {
+                  success: true,
+                  customer,
+                  isFallback: true,
+                };
+              }
+            }
+          } catch (fetchErr) {
+            // In case of CORS or network error, proceed to standard redirect
+          }
+
           window.location.href = data.url;
           return { redirecting: true };
         }

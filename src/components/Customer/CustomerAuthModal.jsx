@@ -115,6 +115,7 @@ export default function CustomerAuthModal({
       setErrorMsg('');
       const res = await customerAuthService.verifyOtp(phone, otpCode.trim());
       if (res.success && res.customer) {
+        await loginCustomer(res.customer);
         if (onSuccess) onSuccess(res.customer);
         if (onClose) onClose();
       }
@@ -133,6 +134,7 @@ export default function CustomerAuthModal({
       const res = await customerAuthService.loginWithGoogle();
       if (res.redirecting) return;
       if (res.success && res.customer) {
+        await loginCustomer(res.customer);
         if (onSuccess) onSuccess(res.customer);
         if (onClose) onClose();
       }

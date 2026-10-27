@@ -25,7 +25,6 @@ import {
   Clock,
   Lock,
   Truck,
-  Globe,
   ArrowRight,
   X,
 } from 'lucide-react';
@@ -75,41 +74,6 @@ const UI_TRANSLATIONS = {
     order_success: 'Order Received by Kitchen!',
     order_success_sub: 'Your order is confirmed and being freshly prepared.',
   },
-  ur: {
-    all_items: 'تمام ڈشز',
-    deals_combos: 'ڈیلز اور کمبوز',
-    search_placeholder: 'ڈشز، اجزاء یا ڈیلز تلاش کریں...',
-    no_dishes: 'کوئی ڈش نہیں ملی',
-    no_dishes_sub: 'کچھ اور تلاش کریں یا کوئی دوسرا زمرہ منتخب کریں۔',
-    prep: 'تیاری',
-    delivery: 'ڈیلیوری',
-    free_delivery: 'مفت ڈیلیوری',
-    min_order: 'کم از کم آرڈر',
-    kitchen_paused: 'کچن آرڈرز بند ہیں',
-    kitchen_paused_sub: 'کچن اس وقت نئے آرڈرز وصول نہیں کر رہا۔',
-    add: 'شامل کریں',
-    choose_options: 'اختیارات منتخب کریں',
-    save: 'بچت',
-    off: 'رعایت',
-    items: 'اشیاء',
-    item: 'آئٹم',
-    view_order: 'آرڈر دیکھیں',
-    your_order: 'آپ کا آرڈر',
-    subtotal: 'سب ٹوٹل',
-    delivery_fee: 'ڈیلیوری فیس',
-    total_payable: 'کل قابل ادائیگی رقم',
-    place_order: 'آرڈر درج کریں',
-    customer_name: 'آپ کا نام',
-    customer_name_placeholder: 'مثال: علی خان',
-    customer_phone: 'موبائل نمبر',
-    customer_phone_placeholder: '0300 1234567',
-    customer_address: 'ڈیلیوری کا پتہ',
-    customer_address_placeholder: 'مکان نمبر، گلی، علاقہ، شہر',
-    special_notes: 'خصوصی ہدایات',
-    special_notes_placeholder: 'مثال: کم مرچ، دروازے پر دستک دیں',
-    order_success: 'آرڈر کچن کو روانہ کر دیا گیا!',
-    order_success_sub: 'آپ کا آرڈر موصول ہو چکا ہے اور کچن میں تیار کیا جا رہا ہے۔',
-  },
 };
 
 export default function CustomerMenuPage() {
@@ -129,9 +93,7 @@ export default function CustomerMenuPage() {
   const [restaurant, setRestaurant] = useState(null);
   const [categories, setCategories] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
-  const [lang, setLang] = useState('en'); // 'en' or 'ur'
-
-  const t = UI_TRANSLATIONS[lang] || UI_TRANSLATIONS.en;
+  const t = UI_TRANSLATIONS.en;
 
   // Filter & Search
   const [activeCategory, setActiveCategory] = useState('ALL');
@@ -497,17 +459,6 @@ export default function CustomerMenuPage() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {/* Urdu / English Language Switcher */}
-            <button
-              type="button"
-              onClick={() => setLang((l) => (l === 'en' ? 'ur' : 'en'))}
-              className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer"
-              title={lang === 'en' ? 'اردو میں تبدیل کریں' : 'Switch to English'}
-            >
-              <Globe className="w-3.5 h-3.5 text-[#F26B1D]" style={{ color: primaryColor }} />
-              <span>{lang === 'en' ? 'اردو' : 'English'}</span>
-            </button>
-
             {/* Header Cart Button */}
             <button
               id="menu-navbar-cart-button"
@@ -771,7 +722,7 @@ export default function CustomerMenuPage() {
 
                             {isSoldOut ? (
                               <span className="text-[10px] font-bold text-[#E5484D] bg-[#FDECEC] border border-[#F9C3C5] px-2.5 py-0.5 rounded-lg shadow-2xs">
-                                {lang === 'ur' ? 'ختم ہو چکا' : 'Sold Out'}
+                                Sold Out
                               </span>
                             ) : hasVariants ? (
                               <span className="text-[10px] font-semibold text-[#7A6A5C] bg-[#FFF9F2] border border-[#F0E4D7] px-2.5 py-0.5 rounded-lg flex items-center gap-1 shrink-0">
@@ -856,7 +807,7 @@ export default function CustomerMenuPage() {
                             disabled
                             className="px-4 py-2 rounded-xl font-bold text-xs bg-[#FFF9F2] text-[#9E8E81] cursor-not-allowed border border-[#F0E4D7]"
                           >
-                            {lang === 'ur' ? 'ختم ہو چکا' : 'Sold Out'}
+                            Sold Out
                           </button>
                         ) : (
                           <button
@@ -865,7 +816,7 @@ export default function CustomerMenuPage() {
                             className="px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer text-white shadow-xs hover:shadow-md hover:opacity-95 active:scale-[0.98]"
                           >
                             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>{itemIsDeal ? (lang === 'ur' ? 'ڈیل منتخب کریں' : 'Choose Deal') : hasVariants ? t.choose_options : t.add}</span>
+                            <span>{itemIsDeal ? 'Choose Deal' : hasVariants ? t.choose_options : t.add}</span>
                           </button>
                         )}
                       </div>

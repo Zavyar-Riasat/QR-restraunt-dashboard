@@ -38,7 +38,6 @@
 
   --font-heading: 'Poppins', 'Nunito', system-ui, -apple-system, sans-serif;
   --font-sans: 'Poppins', 'Nunito', system-ui, -apple-system, sans-serif;
-  --font-urdu: 'Noto Nastaliq Urdu', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
 }
 
 @theme {
@@ -68,7 +67,6 @@
 
   --font-heading: var(--font-heading);
   --font-sans: var(--font-sans);
-  --font-urdu: var(--font-urdu);
 }
 
 @layer base {
@@ -87,11 +85,6 @@
 
   h1, h2, h3, h4, .font-heading {
     font-family: var(--font-heading);
-  }
-
-  .font-urdu, [lang="ur"] {
-    font-family: var(--font-urdu);
-    line-height: 1.8;
   }
 }
 

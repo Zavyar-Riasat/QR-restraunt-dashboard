@@ -35,7 +35,6 @@ import {
   X,
   Settings,
   Check,
-  Globe,
   Receipt,
   Truck,
   RotateCcw,
@@ -59,7 +58,7 @@ export default function CustomerAccountPage() {
     toggleFavorite,
   } = useCustomerAuth();
 
-  const { t, language, isUrdu, isRTL, toggleLanguage, setLanguage } = useLanguage();
+  const { t } = useLanguage();
 
   // Query Param Tab Support (e.g. /account?tab=favorites)
   const searchParams = new URLSearchParams(location.search);
@@ -114,10 +113,10 @@ export default function CustomerAccountPage() {
         name: customer.name || '',
         email: customer.email || '',
         avatar: customer.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customer.name || 'Guest')}`,
-        preferred_language: customer.preferred_language || language || 'en',
+        preferred_language: 'en',
       });
     }
-  }, [customer, language]);
+  }, [customer]);
 
   // Load favorites, orders, and dues
   const loadAccountData = async () => {
@@ -190,9 +189,6 @@ export default function CustomerAccountPage() {
     try {
       setIsSavingProfile(true);
       await updateProfile(profileForm);
-      if (profileForm.preferred_language && profileForm.preferred_language !== language) {
-        setLanguage(profileForm.preferred_language);
-      }
       setProfileSaveSuccess(true);
       setTimeout(() => setProfileSaveSuccess(false), 3000);
     } catch (err) {
@@ -287,10 +283,7 @@ export default function CustomerAccountPage() {
   if (!isCustomerAuthenticated) {
     return (
       <div
-        dir={isRTL ? 'rtl' : 'ltr'}
-        className={`min-h-screen bg-[#FFF9F2] dark:bg-[#17110C] text-[#2B2118] dark:text-[#FFF9F2] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 ${
-          isUrdu ? 'font-urdu' : 'font-sans'
-        }`}
+        className="min-h-screen bg-[#FFF9F2] dark:bg-[#17110C] text-[#2B2118] dark:text-[#FFF9F2] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans"
       >
         <CustomerAuthModal
           isOpen={true}
@@ -304,7 +297,7 @@ export default function CustomerAccountPage() {
             to="/"
             className="inline-flex items-center gap-1.5 min-h-[48px] text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#F26B1D] transition"
           >
-            <ArrowLeft className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
+            <ArrowLeft className="w-4 h-4" />
             <span>{t('exploreRestaurants')}</span>
           </Link>
         </div>
@@ -317,12 +310,9 @@ export default function CustomerAccountPage() {
   // -------------------------------------------------------------
   return (
     <div
-      dir={isRTL ? 'rtl' : 'ltr'}
-      className={`min-h-screen bg-[#FFF9F2] dark:bg-[#17110C] text-[#2B2118] dark:text-[#FFF9F2] pb-24 md:pb-16 transition-colors duration-200 ${
-        isUrdu ? 'font-urdu' : 'font-sans'
-      }`}
+      className="min-h-screen bg-[#FFF9F2] dark:bg-[#17110C] text-[#2B2118] dark:text-[#FFF9F2] pb-24 md:pb-16 transition-colors duration-200 font-sans"
     >
-      {/* Top Sticky Header with Language Switcher */}
+      {/* Top Sticky Header */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#1E1611]/95 backdrop-blur-md border-b border-[#F0E4D7] dark:border-[#382B20] shadow-xs">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2 group min-h-[48px] min-w-[48px] justify-center">
@@ -340,22 +330,11 @@ export default function CustomerAccountPage() {
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Header Language Switcher */}
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              className="flex items-center gap-1.5 px-3 py-2 min-h-[48px] rounded-2xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] transition cursor-pointer shadow-2xs group"
-              title="Toggle language"
-            >
-              <Globe className="w-4 h-4 text-[#F26B1D] group-hover:rotate-45 transition-transform duration-300" />
-              <span>{language === 'en' ? 'اردو' : 'EN'}</span>
-            </button>
-
             <Link
               to="/"
               className="hidden sm:flex items-center gap-1.5 px-3 py-2 min-h-[48px] text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#F26B1D] transition"
             >
-              <ArrowLeft className={`w-3.5 h-3.5 ${isRTL ? 'rotate-180' : ''}`} />
+              <ArrowLeft className="w-3.5 h-3.5" />
               <span>{t('exploreRestaurants')}</span>
             </Link>
 
@@ -401,10 +380,6 @@ export default function CustomerAccountPage() {
                     <span>{customer.email}</span>
                   </span>
                 )}
-                <span className="flex items-center gap-1 uppercase tracking-wider text-[10px] font-bold bg-[#FFF9F2] dark:bg-[#2D2018] px-2 py-0.5 rounded-md border border-[#F0E4D7] dark:border-[#382B20]">
-                  <Globe className="w-3 h-3 text-[#F26B1D]" />
-                  <span>{customer.preferred_language === 'ur' ? 'اردو' : 'English'}</span>
-                </span>
               </div>
             </div>
           </div>
@@ -592,7 +567,7 @@ export default function CustomerAccountPage() {
                     dir="ltr"
                     className="w-full px-4 py-3 min-h-[48px] rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] bg-slate-100 dark:bg-[#1E1712] text-xs sm:text-sm font-mono font-bold text-[#7A6A5C] dark:text-[#8E7A6B] cursor-not-allowed"
                   />
-                  <span className={`absolute top-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-600 flex items-center gap-1 ${isRTL ? 'left-3' : 'right-3'}`}>
+                  <span className="absolute top-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-600 flex items-center gap-1 right-3">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Verified</span>
                   </span>
@@ -636,46 +611,6 @@ export default function CustomerAccountPage() {
                     className="px-4 py-2 min-h-[48px] rounded-2xl bg-[#FFF9F2] hover:bg-[#FFF1E6] dark:bg-[#281D16] dark:hover:bg-[#35251C] text-xs font-bold text-[#F26B1D] border border-[#F0E4D7] dark:border-[#382B20] shrink-0 cursor-pointer"
                   >
                     {t('generateRandom')}
-                  </button>
-                </div>
-              </div>
-
-              {/* Preferred Language Toggle: English / Urdu */}
-              <div>
-                <label className="block text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] uppercase tracking-wider mb-1.5">
-                  {t('preferredLang')}
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileForm({ ...profileForm, preferred_language: 'en' });
-                      setLanguage('en');
-                    }}
-                    className={`min-h-[48px] py-2.5 px-4 rounded-2xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
-                      profileForm.preferred_language === 'en'
-                        ? 'bg-[#2B2118] dark:bg-[#F26B1D] text-white border-[#2B2118] dark:border-[#F26B1D]'
-                        : 'bg-[#FFF9F2] dark:bg-[#281D16] text-[#7A6A5C] dark:text-[#CBB8A8] border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D]'
-                    }`}
-                  >
-                    <span>{t('englishLang')}</span>
-                    {profileForm.preferred_language === 'en' && <Check className="w-4 h-4 stroke-[3]" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileForm({ ...profileForm, preferred_language: 'ur' });
-                      setLanguage('ur');
-                    }}
-                    className={`min-h-[48px] py-2.5 px-4 rounded-2xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
-                      profileForm.preferred_language === 'ur'
-                        ? 'bg-[#2B2118] dark:bg-[#F26B1D] text-white border-[#2B2118] dark:border-[#F26B1D]'
-                        : 'bg-[#FFF9F2] dark:bg-[#281D16] text-[#7A6A5C] dark:text-[#CBB8A8] border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D]'
-                    }`}
-                  >
-                    <span>{t('urduLang')}</span>
-                    {profileForm.preferred_language === 'ur' && <Check className="w-4 h-4 stroke-[3]" />}
                   </button>
                 </div>
               </div>
@@ -1161,7 +1096,7 @@ export default function CustomerAccountPage() {
                           className="min-h-[48px] px-4 py-2 rounded-2xl bg-[#2B2118] dark:bg-[#F26B1D] hover:bg-[#F26B1D] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                         >
                           <span>{t('orderMenu')}</span>
-                          <ChevronRight className={`w-3.5 h-3.5 ${isRTL ? 'rotate-180' : ''}`} />
+                          <ChevronRight className="w-3.5 h-3.5" />
                         </Link>
                       </div>
                     </div>

@@ -36,44 +36,44 @@ import {
 
 // Cuisine categories for Restaurants mode
 const RESTAURANT_CUISINES = [
-  { id: 'ALL', labelEn: 'All Cuisines', labelUr: 'تمام کھانے', icon: '🍽️' },
-  { id: 'Burgers', labelEn: 'Burgers', labelUr: 'برگرز', icon: '🍔' },
-  { id: 'Pizza', labelEn: 'Pizza', labelUr: 'پیزا', icon: '🍕' },
-  { id: 'Desi', labelEn: 'Desi', labelUr: 'دیسی', icon: '🥘' },
-  { id: 'BBQ', labelEn: 'BBQ', labelUr: 'باربی کیو', icon: '🍢' },
-  { id: 'Chinese', labelEn: 'Chinese', labelUr: 'چائنیز', icon: '🥡' },
-  { id: 'Desserts', labelEn: 'Desserts', labelUr: 'میٹھے', icon: '🍦' },
+  { id: 'ALL', labelEn: 'All Cuisines', icon: '🍽️' },
+  { id: 'Burgers', labelEn: 'Burgers', icon: '🍔' },
+  { id: 'Pizza', labelEn: 'Pizza', icon: '🍕' },
+  { id: 'Desi', labelEn: 'Desi', icon: '🥘' },
+  { id: 'BBQ', labelEn: 'BBQ', icon: '🍢' },
+  { id: 'Chinese', labelEn: 'Chinese', icon: '🥡' },
+  { id: 'Desserts', labelEn: 'Desserts', icon: '🍦' },
 ];
 
 const MORE_RESTAURANT_CUISINES = [
-  { id: 'Fast Food', labelEn: 'Fast Food', labelUr: 'فاسٹ فوڈ', icon: '🍟' },
-  { id: 'Cafe', labelEn: 'Cafe & Bakery', labelUr: 'کیفے و بیکری', icon: '☕' },
-  { id: 'Salads', labelEn: 'Healthy & Bowls', labelUr: 'سلاد و باؤلز', icon: '🥗' },
+  { id: 'Fast Food', labelEn: 'Fast Food', icon: '🍟' },
+  { id: 'Cafe', labelEn: 'Cafe & Bakery', icon: '☕' },
+  { id: 'Salads', labelEn: 'Healthy & Bowls', icon: '🥗' },
 ];
 
 // Food categories for Food mode:
 // Burgers, Pizza, Biryani, Karahi, BBQ, Shakes, Desserts, Drinks, Sides, Deals
 const FOOD_CATEGORIES = [
-  { id: 'ALL', labelEn: 'All Food', labelUr: 'تمام کھانا', icon: '🍽️' },
-  { id: 'Burgers', labelEn: 'Burgers', labelUr: 'برگرز', icon: '🍔' },
-  { id: 'Pizza', labelEn: 'Pizza', labelUr: 'پیزا', icon: '🍕' },
-  { id: 'Biryani', labelEn: 'Biryani', labelUr: 'بریانی', icon: '🍚' },
-  { id: 'Karahi', labelEn: 'Karahi', labelUr: 'کڑاہی', icon: '🥘' },
-  { id: 'BBQ', labelEn: 'BBQ', labelUr: 'باربی کیو', icon: '🍢' },
-  { id: 'Shakes', labelEn: 'Shakes', labelUr: 'شیکس', icon: '🥤' },
-  { id: 'Desserts', labelEn: 'Desserts', labelUr: 'میٹھے', icon: '🍨' },
-  { id: 'Drinks', labelEn: 'Drinks', labelUr: 'مشروبات', icon: '🧃' },
-  { id: 'Sides', labelEn: 'Sides', labelUr: 'سائیڈز', icon: '🍟' },
-  { id: 'Deals', labelEn: 'Deals', labelUr: 'ڈیلز', icon: '🏷️' },
+  { id: 'ALL', labelEn: 'All Food', icon: '🍽️' },
+  { id: 'Burgers', labelEn: 'Burgers', icon: '🍔' },
+  { id: 'Pizza', labelEn: 'Pizza', icon: '🍕' },
+  { id: 'Biryani', labelEn: 'Biryani', icon: '🍚' },
+  { id: 'Karahi', labelEn: 'Karahi', icon: '🥘' },
+  { id: 'BBQ', labelEn: 'BBQ', icon: '🍢' },
+  { id: 'Shakes', labelEn: 'Shakes', icon: '🥤' },
+  { id: 'Desserts', labelEn: 'Desserts', icon: '🍨' },
+  { id: 'Drinks', labelEn: 'Drinks', icon: '🧃' },
+  { id: 'Sides', labelEn: 'Sides', icon: '🍟' },
+  { id: 'Deals', labelEn: 'Deals', icon: '🏷️' },
 ];
 
 const MORE_FOOD_CATEGORIES = [
-  { id: 'Sides', labelEn: 'Sides & Fries', labelUr: 'سائیڈز', icon: '🍟' },
-  { id: 'Deals', labelEn: 'Deals & Combos', labelUr: 'ڈیلز', icon: '🏷️' },
-  { id: 'Shakes', labelEn: 'Shakes & Chillers', labelUr: 'شیکس', icon: '🥤' },
-  { id: 'Fast Food', labelEn: 'Fast Food', labelUr: 'فاسٹ فوڈ', icon: '🍗' },
-  { id: 'Pasta', labelEn: 'Pastas & Italian', labelUr: 'پاستا', icon: '🍝' },
-  { id: 'Salads', labelEn: 'Healthy Bowls', labelUr: 'سلاد', icon: '🥗' },
+  { id: 'Sides', labelEn: 'Sides & Fries', icon: '🍟' },
+  { id: 'Deals', labelEn: 'Deals & Combos', icon: '🏷️' },
+  { id: 'Shakes', labelEn: 'Shakes & Chillers', icon: '🥤' },
+  { id: 'Fast Food', labelEn: 'Fast Food', icon: '🍗' },
+  { id: 'Pasta', labelEn: 'Pastas & Italian', icon: '🍝' },
+  { id: 'Salads', labelEn: 'Healthy Bowls', icon: '🥗' },
 ];
 
 const formatCuisineWords = (store) => {
@@ -90,7 +90,7 @@ export default function MarketplaceHomePage() {
   const navigate = useNavigate();
   const { customer, favorites, toggleFavorite, addresses, isCustomerAuthenticated, saveAddress } = useCustomerAuth();
   const { user } = useAuth();
-  const { t, language, isUrdu, isRTL, toggleLanguage } = useLanguage();
+  const { t } = useLanguage();
   const searchInputRef = useRef(null);
   const morePopoverRef = useRef(null);
   const moreButtonRef = useRef(null);
@@ -756,18 +756,12 @@ export default function MarketplaceHomePage() {
   // Dynamic search placeholder reacting directly to mode
   const currentSearchPlaceholder =
     homeMode === 'food'
-      ? isUrdu
-        ? 'کھانے تلاش کریں، جیسے بریانی، زنگر...'
-        : 'Search food, e.g. biryani, zinger...'
-      : isUrdu
-      ? 'ریسٹورنٹس تلاش کریں...'
+      ? 'Search food, e.g. biryani, zinger...'
       : 'Search restaurants...';
 
   return (
     <div
-      className={`min-h-screen bg-[#FFF9F2] dark:bg-[#1A120B] text-[#2B2118] dark:text-[#FFF9F2] font-sans antialiased pb-20 md:pb-12 ${
-        isRTL ? 'rtl' : 'ltr'
-      }`}
+      className="min-h-screen bg-[#FFF9F2] dark:bg-[#1A120B] text-[#2B2118] dark:text-[#FFF9F2] font-sans antialiased pb-20 md:pb-12"
     >
       {/* ========================================================
           1. CLEAN STICKY HEADER (One row, sticky, not clipped)
@@ -874,16 +868,6 @@ export default function MarketplaceHomePage() {
                 )}
               </button>
 
-              {/* Language Switcher */}
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className="flex items-center gap-1 px-2.5 py-2 min-h-[40px] rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] hover:border-[#F26B1D] transition cursor-pointer shadow-2xs"
-                title="Toggle language"
-              >
-                <Globe className="w-3.5 h-3.5 text-[#F26B1D]" />
-                <span>{language === 'en' ? 'اردو' : 'EN'}</span>
-              </button>
 
               {/* Account / Sign In */}
               {isCustomerAuthenticated ? (
@@ -1044,7 +1028,7 @@ export default function MarketplaceHomePage() {
               }`}
             >
               <Store className="w-4 h-4" />
-              <span>{isUrdu ? 'ریسٹورنٹس' : 'Restaurants'}</span>
+              <span>Restaurants</span>
             </button>
             <button
               id="mode-pill-food"
@@ -1057,7 +1041,7 @@ export default function MarketplaceHomePage() {
               }`}
             >
               <UtensilsCrossed className="w-4 h-4" />
-              <span>{isUrdu ? 'کھانا' : 'Food'}</span>
+              <span>Food</span>
             </button>
           </div>
         </section>
@@ -1075,11 +1059,7 @@ export default function MarketplaceHomePage() {
                 {debouncedSearch
                   ? `Results for "${debouncedSearch}"`
                   : homeMode === 'food'
-                  ? isUrdu
-                    ? 'آپ کے قریب مقبول کھانا'
-                    : 'Popular food near you'
-                  : isUrdu
-                  ? 'آپ کے قریب ریسٹورنٹس'
+                  ? 'Popular food near you'
                   : 'Restaurants near you'}
               </h2>
             </div>

@@ -926,7 +926,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
                 </button>
 
                 <p className="text-[11px] text-[#7A6A5C]">
-                  Sends sample ticket with kitchen items, Urdu font test, and QR code.
+                  Sends sample ticket with kitchen items and QR code.
                 </p>
 
                 {testError && (

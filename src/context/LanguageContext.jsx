@@ -103,15 +103,14 @@ export const TRANSLATIONS = {
 
     // Profile Tab
     profileTitle: 'Customer Profile',
-    profileSubtitle: 'Manage your name, contact email, avatar, and preferred language',
+    profileSubtitle: 'Manage your name, contact email, and avatar',
     fullName: 'Full Name',
     phoneNumber: 'Phone Number (Verified)',
     emailAddress: 'Email Address',
     avatarUrl: 'Avatar Photo URL',
     generateRandom: 'Generate Random',
-    preferredLang: 'Preferred Language (ترجیحی زبان)',
-    englishLang: 'English (US/UK)',
-    urduLang: 'اردو (Urdu)',
+    preferredLang: 'Language',
+    englishLang: 'English',
     saveChanges: 'Save Profile Changes',
     saving: 'Saving...',
     profileUpdated: 'Profile updated successfully!',
@@ -189,250 +188,40 @@ export const TRANSLATIONS = {
     mapAttribution: '© OpenStreetMap contributors',
     osmAttributionTooltip: 'Map attribution: © OpenStreetMap',
   },
-
-  ur: {
-    // Navigation & Common
-    appName: 'ڈائن فلو',
-    marketplace: 'مارکیٹ پلیس',
-    home: 'ہوم',
-    search: 'تلاش',
-    favorites: 'پسندیدہ',
-    orders: 'آرڈرز',
-    account: 'اکاؤنٹ',
-    signIn: 'سائن ان',
-    signOut: 'لاگ آؤٹ',
-    switchLanguage: 'زبان',
-    setLocation: 'مقام سیٹ کریں',
-    storeAdmin: 'اسٹور ایڈمن',
-    loading: 'لوڈ ہو رہا ہے...',
-
-    // Hero Section
-    heroBadge: 'قریبی کچنز اور ریسٹورنٹس',
-    heroTitlePrefix: 'ڈلیور کرنے والے ریسٹورنٹس برائے',
-    heroTitleDefault: 'مشہور ریسٹورنٹس دریافت کریں',
-    heroSubtitle: 'باورچی خانے سے سیدھا تازہ کھانا اور رائیڈر کی لائیو ٹریکنگ۔',
-    setMyLocationBtn: 'میرا مقام منتخب کریں',
-    changeLocation: 'مقام تبدیل کریں',
-    locationNoticeTitle: 'سب سے قریبی ریسٹورنٹ دیکھنے کے لیے اپنا مقام منتخب کریں',
-    locationNoticeSubtitle: 'شہر کے لحاظ سے ریسٹورنٹس دکھائے جا رہے ہیں۔ درست فاصلے اور وقت کے لیے اپنا علاقہ پن کریں۔',
-
-    // Search & Filters
-    searchPlaceholder: 'ریسٹورنٹ، ڈش یا کھانا تلاش کریں...',
-    searchRestaurantsPlaceholder: 'ریسٹورنٹ، کھانے کی قسم یا علاقہ تلاش کریں...',
-    searchFoodPlaceholder: 'پکوان تلاش کریں (مثال: برگر، پیزا، کڑاہی، چائے)...',
-    searchBothPlaceholder: 'ریسٹورینٹس یا کھانے تلاش کریں...',
-    nearestToYou: 'آپ کے قریب ترین',
-    filters: 'فلٹرز',
-    moreCuisines: 'مزید',
-    applyFilters: 'فلٹرز لگائیں',
-    orderType: 'آرڈر کی قسم',
-    restaurantsTab: 'ریسٹورنٹس',
-    foodsTab: 'کھانا',
-    food: 'کھانا',
-    restaurantsNearYou: 'آپ کے قریب ریسٹورنٹس',
-    popularFoodNearYou: 'آپ کے قریب مقبول کھانا',
-    orderDish: 'آرڈر کریں',
-    viewDish: 'دیکھیں',
-    fromRestaurant: 'از',
-    loadMoreFood: 'مزید کھانے دیکھیں',
-    noFoodFoundTitle: 'تلاش کے مطابق کوئی ڈش نہیں ملی',
-    noFoodFoundSubtitle: 'تلاش میں تبدیلی کریں، کوئی اور قسم منتخب کریں یا تمام ریسٹورینٹس دیکھیں۔',
-    sortBy: 'ترتیب دیں:',
-    sortPopular: 'مقبول ترین کھانے',
-    sortNearest: 'سب سے قریب',
-    sortOpenNow: 'کھلا ہوا پہلے',
-    sortFee: 'کم ترین ڈلیوری فیس',
-    sortRating: 'بہترین ریٹنگ',
-    sortPriceAsc: 'قیمت: کم سے زیادہ',
-    sortPriceDesc: 'قیمت: زیادہ سے کم',
-    deliversToMe: 'مجھے ڈلیور کرتا ہے',
-    openNow: 'ابھی کھلا ہے',
-    freeDelivery: 'مفت ڈلیوری',
-    pickup: 'پک اپ',
-    dineIn: 'ڈائن ان',
-    allCuisines: 'تمام کھانے',
-    clearFilters: 'تمام فلٹرز ختم کریں',
-
-    // Restaurant Card Badges
-    badgeOpen: 'کھلا ہے',
-    badgeClosed: 'بند ہے',
-    badgeDelivers: 'آپ کو ڈلیور کرتا ہے',
-    badgeOutside: 'ڈلیوری کی حد سے باہر',
-    deliveryFee: 'ڈلیوری',
-    free: 'مفت',
-    minOrder: 'کم از کم آرڈر',
-    km: 'کلومیٹر',
-    prepTime: '20–30 منٹ',
-    loadMore: 'مزید ریسٹورنٹس دیکھیں',
-
-    // Empty & Error States
-    emptyNearbyTitle: 'اس وقت قریبی علاقے میں کوئی ریسٹورنٹ دستیاب نہیں',
-    emptyNearbySubtitle: 'ہم تیزی سے اس علاقے میں سروس بڑھا رہے ہیں! کوئی دوسرا علاقہ منتخب کریں یا فلٹر تبدیل کریں۔',
-    searchAnotherArea: 'دوسرا علاقہ تلاش کریں',
-    saveFavoritesPromptTitle: 'اپنے پسندیدہ ریسٹورنٹس محفوظ کریں',
-    saveFavoritesPromptSubtitle: 'اپنے پسندیدہ مقامات کو بک مارک کرنے اور ایک کلک میں دوبارہ آرڈر کرنے کے لیے سائن ان کریں۔',
-    signInToAccount: 'اکاؤنٹ میں سائن ان کریں',
-    maybeLater: 'بعد میں',
-
-    // Customer Account
-    myAccount: 'میرا اکاؤنٹ',
-    exploreRestaurants: 'ریسٹورنٹس دیکھیں',
-    verifiedAccount: 'تصدیق شدہ اکاؤنٹ',
-    addNewAddress: 'نیا پتہ شامل کریں',
-
-    // Account Tabs
-    tabOrders: 'میرے آرڈرز',
-    tabAddresses: 'محفوظ شدہ پتے',
-    tabFavorites: 'پسندیدہ',
-    tabDues: 'ادائیگیاں / کھاتہ',
-    tabProfile: 'پروفائل',
-    tabSettings: 'سیٹنگز',
-
-    // Profile Tab
-    profileTitle: 'کسٹمر پروفائل',
-    profileSubtitle: 'اپنا نام، ای میل، تصویر اور ترجیحی زبان کا انتظام کریں',
-    fullName: 'پورا نام',
-    phoneNumber: 'فون نمبر (تصدیق شدہ)',
-    emailAddress: 'ای میل ایڈریس',
-    avatarUrl: 'تصویر کا لنک',
-    generateRandom: 'بے ترتیب بنائیں',
-    preferredLang: 'ترجیحی زبان',
-    englishLang: 'English (انگریزی)',
-    urduLang: 'اردو (Urdu)',
-    saveChanges: 'تبدیلیاں محفوظ کریں',
-    saving: 'محفوظ ہو رہا ہے...',
-    profileUpdated: 'پروفائل کامیابی سے تبدیل ہو گیا!',
-
-    // Addresses Tab
-    addressesTitle: 'محفوظ شدہ ڈلیوری پتے',
-    addressesSubtitle: 'آپ کا بنیادی پتہ خودکار طور پر چیک آؤٹ میں درج ہو جاتا ہے اور درست ڈلیوری فاصلہ ناپتا ہے۔',
-    noAddressesTitle: 'ابھی تک کوئی پتہ محفوظ نہیں ہوا',
-    noAddressesSubtitle: 'اپنے گھر، دفتر یا دوستوں کا پتہ محفوظ کریں تاکہ آرڈر براہ راست آپ کے دروازے پر پہنچ سکے۔',
-    addFirstAddress: 'پہلا پتہ شامل کریں',
-    defaultAddress: 'بنیادی پتہ',
-    setAsDefault: 'بنیادی پتہ بنائیں',
-    edit: 'تبدیل کریں',
-    delete: 'حذف کریں',
-    landmark: 'نشان دہی',
-    note: 'ہدایت',
-
-    // Orders Tab
-    ordersTitle: 'آرڈرز کی تاریخ اور لائیو صورتحال',
-    ordersSubtitle: 'ڈائن ایچ کیو کے لائیو آرڈر ٹریکنگ ٹکٹس اور پرانی رسیدیں',
-    filterToday: 'آج',
-    filterYesterday: 'کل',
-    filterMonth: 'اس ماہ',
-    filterCustom: 'اپنی مرضی',
-    from: 'شروع:',
-    to: 'اختتام:',
-    noOrdersTitle: 'اس مدت کے دوران کوئی آرڈر نہیں ملا',
-    noOrdersSubtitle: 'جب بھی آپ ڈائن ایچ کیو کے کسی ریسٹورنٹ سے آرڈر کریں گے تو لائیو ٹکٹ اور رسید یہاں نظر آئے گی۔',
-    startOrdering: 'آرڈر شروع کریں',
-    liveOrderTracking: 'لائیو آرڈر ٹریکنگ',
-    stepPlaced: 'موصول',
-    stepCooking: 'تیار ہو رہا ہے',
-    stepOnWay: 'راستے میں',
-    stepDelivered: 'پہنچ گیا',
-    totalBill: 'کل رقم',
-    details: 'تفصیلات',
-    reorder: 'دوبارہ آرڈر',
-    orderDetails: 'آرڈر کی تفصیلات',
-    itemsOrdered: 'آرڈر کیے گئے آئٹمز:',
-    subtotal: 'ذیلی کل',
-    close: 'بند کریں',
-
-    // Favorites Tab
-    favoritesTitle: 'محفوظ شدہ پسندیدہ ریسٹورنٹس',
-    exploreMore: 'مزید ریسٹورنٹس دریافت کریں ←',
-    noFavoritesTitle: 'کوئی پسندیدہ مقام محفوظ نہیں',
-    noFavoritesSubtitle: 'کسی بھی ریسٹورنٹ کے دل کے آئیکن پر کلک کر کے اسے فوری آرڈر کے لیے یہاں محفوظ کریں۔',
-    orderMenu: 'مینو سے آرڈر کریں',
-
-    // Dues Tab
-    duesTitle: 'ریسٹورنٹ ادائیگیاں اور کھاتہ',
-    duesSubtitle: 'صرف پڑھنے کے لیے کھاتہ اسٹیٹمنٹ جو ریسٹورنٹ کاؤنٹر سے براہ راست اپ ڈیٹ ہوتا ہے۔',
-    totalOutstanding: 'کل واجب الادا رقم',
-    settlePrompt: 'براہ کرم واجب الادا رقم براہ راست ریسٹورنٹ کاؤنٹر پر یا اگلی ڈلیوری پر ادا کریں۔',
-    allClear: 'کوئی بقایا نہیں! ڈائن ایچ کیو نیٹ ورک کے کسی ریسٹورنٹ پر آپ کا کوئی واجب الادا بل نہیں ہے۔',
-    noDues: 'آپ کے فون نمبر کے لیے کوئی بقایا کھاتہ ریکارڈ نہیں پایا گیا۔',
-    totalOrdersCount: 'کل آرڈرز',
-    currentDue: 'موجودہ بقایا',
-    ledgerHistory: 'کھاتہ کی تاریخ (ڈیبٹ اور ادائیگیاں):',
-
-    // Settings Tab
-    settingsTitle: 'اکاؤنٹ سیٹنگز',
-    settingsSubtitle: 'سیشن کی معلومات اور ذاتی ڈیٹا کا خاتمہ',
-    signOutDevice: 'اس ڈیوائس سے لاگ آؤٹ کریں',
-    signOutDeviceSubtitle: 'آپ کسی بھی وقت اپنے فون کے او ٹی پی کے ذریعے دوبارہ سائن ان کر سکتے ہیں۔',
-    dangerZone: 'خطرہ: اکاؤنٹ ختم کریں',
-    dangerZoneSubtitle: 'ڈائن ایچ کیو سے آپ کے محفوظ پتے، پسندیدہ مقامات اور ریکارڈز ہمیشہ کے لیے ختم ہو جائیں گے۔',
-    deleteAccountBtn: 'میرا اکاؤنٹ ختم کریں',
-    deleteConfirmTitle: 'کسٹمر اکاؤنٹ ختم کریں؟',
-    deleteConfirmSubtitle: 'اس سے آپ کا اکاؤنٹ، محفوظ پتے اور پسندیدہ مقامات مستقل طور پر ختم ہو جائیں گے۔ یہ عمل واپس نہیں ہو سکتا۔',
-    yesDeleteAccount: 'ہاں، میرا اکاؤنٹ ختم کریں',
-    cancel: 'منسوخ کریں',
-
-    // Map & Attribution
-    mapAttribution: '© اوپن اسٹریٹ میپ تعاون کنندگان',
-    osmAttributionTooltip: 'نقشہ کریڈٹ: اوپن اسٹریٹ میپ',
-  },
 };
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguageState] = useState(() => {
-    try {
-      const saved = localStorage.getItem('dinehq_lang');
-      if (saved === 'ur' || saved === 'en') return saved;
-    } catch {
-      // ignore
-    }
-    return 'en';
-  });
+  const language = 'en';
 
   // Apply lang and dir attributes to root document
   useEffect(() => {
     try {
-      document.documentElement.setAttribute('lang', language);
-      document.documentElement.setAttribute('dir', language === 'ur' ? 'rtl' : 'ltr');
-      if (language === 'ur') {
-        document.documentElement.classList.add('font-urdu');
-      } else {
-        document.documentElement.classList.remove('font-urdu');
-      }
-      localStorage.setItem('dinehq_lang', language);
+      document.documentElement.setAttribute('lang', 'en');
+      document.documentElement.setAttribute('dir', 'ltr');
+      document.documentElement.classList.remove('font-urdu');
+      localStorage.setItem('dinehq_lang', 'en');
     } catch {
       // ignore
     }
-  }, [language]);
-
-  const setLanguage = useCallback((lang) => {
-    if (lang === 'ur' || lang === 'en') {
-      setLanguageState(lang);
-    }
   }, []);
 
-  const toggleLanguage = useCallback(() => {
-    setLanguageState((prev) => (prev === 'ur' ? 'en' : 'ur'));
-  }, []);
+  const setLanguage = useCallback(() => {}, []);
+  const toggleLanguage = useCallback(() => {}, []);
 
-  const t = useCallback(
-    (key) => {
-      const dict = TRANSLATIONS[language] || TRANSLATIONS.en;
-      return dict[key] || TRANSLATIONS.en[key] || key;
-    },
-    [language]
-  );
+  const t = useCallback((key) => {
+    return TRANSLATIONS.en[key] || key;
+  }, []);
 
   const value = useMemo(
     () => ({
-      language,
-      isUrdu: language === 'ur',
-      isRTL: language === 'ur',
+      language: 'en',
+      isUrdu: false,
+      isRTL: false,
       setLanguage,
       toggleLanguage,
       t,
     }),
-    [language, setLanguage, toggleLanguage, t]
+    [setLanguage, toggleLanguage, t]
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

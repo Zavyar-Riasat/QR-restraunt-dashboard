@@ -478,38 +478,10 @@ function TemplateQrSlot({
  */
 function DualLangText({
   englishText,
-  urduText,
-  language = 'en',
   enClass = '',
-  urClass = '',
   className = '',
 }) {
-  if (language === 'en') {
-    return <span className={enClass || className}>{englishText}</span>;
-  }
-  if (language === 'ur') {
-    return (
-      <span
-        dir="rtl"
-        style={{ fontFamily: 'system-ui, "Noto Nastaliq Urdu", "Urdu Typesetting", sans-serif' }}
-        className={urClass || className}
-      >
-        {urduText}
-      </span>
-    );
-  }
-  return (
-    <div className={`space-y-1 ${className}`}>
-      <div className={enClass}>{englishText}</div>
-      <div
-        dir="rtl"
-        style={{ fontFamily: 'system-ui, "Noto Nastaliq Urdu", "Urdu Typesetting", sans-serif' }}
-        className={`opacity-90 ${urClass || enClass}`}
-      >
-        {urduText}
-      </div>
-    </div>
-  );
+  return <span className={enClass || className}>{englishText}</span>;
 }
 
 /**
@@ -1411,15 +1383,6 @@ function InteractiveTemplateHeadline({
       >
         {text || 'Scan to Order'}
       </span>
-      {language !== 'en' && urduText && (
-        <span
-          dir="rtl"
-          style={{ fontFamily: 'system-ui, "Noto Nastaliq Urdu", "Urdu Typesetting", sans-serif' }}
-          className="text-xs font-bold opacity-90 block text-center mt-0.5 pointer-events-none"
-        >
-          {urduText}
-        </span>
-      )}
 
       {/* Word-style Corner & Height/Width Drag Resize Handles */}
       {isSelected && !isEditing && (

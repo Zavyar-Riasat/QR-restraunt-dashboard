@@ -10,12 +10,13 @@ import OrdersFeed from '../components/OrdersFeed';
 import { restaurantService } from '../services/restaurantService';
 import { orderService, playKitchenChime, playLoudKitchenAlarm, unlockAudioContext } from '../services/orderService';
 import { useAuth } from '../context/AuthContext';
-import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users, CheckCircle2 } from 'lucide-react';
+import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users, CheckCircle2, Wallet } from 'lucide-react';
 import PrinterSetupWizard from '../components/Printer/PrinterSetupWizard';
 import { printerService } from '../services/printer/printerService';
 import NewOrderModal from '../components/POS/NewOrderModal';
 import TableManager from '../components/TableManagement/TableManager';
 import CustomerManager from '../components/Customers/CustomerManager';
+import CashFlowManager from '../components/CashFlow/CashFlowManager';
 import { customerKhataService } from '../services/customerKhataService';
 import PrinterReconnectBanner from '../components/Printer/PrinterReconnectBanner';
 import OfflineBanner from '../components/PWA/OfflineBanner';
@@ -708,6 +709,17 @@ export default function OwnerDashboardPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('cashflow')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'cashflow'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+              }`}
+          >
+            <Wallet className="w-4 h-4" />
+            <span>Cash In / Out</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('items')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'items'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
@@ -853,6 +865,13 @@ export default function OwnerDashboardPage() {
               onViewOrder={(orderId) => {
                 setActiveTab('orders');
               }}
+            />
+          )}
+
+          {activeTab === 'cashflow' && (
+            <CashFlowManager
+              restaurant={restaurant}
+              currentUser={user}
             />
           )}
 

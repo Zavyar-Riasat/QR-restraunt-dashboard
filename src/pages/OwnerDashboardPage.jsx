@@ -635,7 +635,7 @@ export default function OwnerDashboardPage() {
   const completedOrdersCount = orders.filter((o) => o.status === 'completed').length;
 
   return (
-    <div className="min-h-screen bg-[#FFF9F2] text-[#2B2118] flex flex-col font-sans selection:bg-[#F26B1D] selection:text-white">
+    <div className="min-h-screen bg-[#FFF9F2] text-[#2B2118] flex flex-col font-sans overflow-x-hidden max-w-[100vw] selection:bg-[#F26B1D] selection:text-white">
       {/* Offline Alert & Push Notification Permission Banners */}
       <div className="no-print">
         <OfflineBanner />
@@ -960,7 +960,7 @@ export default function OwnerDashboardPage() {
         id="fab-new-order-mobile-btn"
         type="button"
         onClick={() => handleOpenNewOrder(null, 'dine_in')}
-        className="lg:hidden fixed bottom-5 right-5 z-40 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-[#F26B1D] to-[#F5A623] text-white shadow-xl shadow-orange-500/35 hover:scale-105 active:scale-95 transition cursor-pointer border border-amber-300/40"
+        className="lg:hidden fixed bottom-5 right-4 z-40 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-[#F26B1D] to-[#F5A623] text-white shadow-xl shadow-orange-500/35 hover:scale-105 active:scale-95 transition cursor-pointer border border-amber-300/40"
         title="Create New Order (POS)"
       >
         <Plus className="w-6 h-6 stroke-[3]" />

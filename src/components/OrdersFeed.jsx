@@ -444,7 +444,7 @@ export default function OrdersFeed({
   );
 
   return (
-    <div className={`bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6 ${printingOrder ? 'print:p-0 print:border-none print:shadow-none print:bg-transparent print:space-y-0' : ''}`}>
+    <div className={`bg-white border border-[#F0E4D7] rounded-3xl p-4 sm:p-7 shadow-xs space-y-6 overflow-hidden ${printingOrder ? 'print:p-0 print:border-none print:shadow-none print:bg-transparent print:space-y-0' : ''}`}>
       {/* Background Feed Content (Hidden when printing KOT modal) */}
       <div className={`space-y-6 ${printingOrder ? 'no-print' : ''}`}>
 
@@ -724,7 +724,7 @@ export default function OrdersFeed({
 
               {/* Category / Status Tabs */}
               {feedMode === 'completed' ? (
-                <div className="flex rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
+                <div className="flex flex-wrap rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
                   <button
                     type="button"
                     onClick={() => setFilter('all')}
@@ -764,7 +764,7 @@ export default function OrdersFeed({
                 </div>
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
+                  <div className="flex flex-wrap rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
                     <button
                       type="button"
                       onClick={() => setFilter('all')}
@@ -849,7 +849,7 @@ export default function OrdersFeed({
 
           {/* Sub-toolbar Below: Counter Printer, Bell ON / Muted, and Test Bell */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F0E4D7]/60">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               {/* Printer Status Badge (Counter) */}
               {onOpenPrinterSettings && (
                 <PrinterStatusBadge onOpenSettings={onOpenPrinterSettings} />

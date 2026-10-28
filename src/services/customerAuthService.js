@@ -270,82 +270,31 @@ export const customerAuthService = {
   },
 
   /**
-   * Sign in with Google (OAuth or simulated one-click for dev/test)
+   * Sign in with Google via Supabase OAuth 2.0
    */
   async loginWithGoogle() {
-    // 1. If Supabase OAuth is configured, try Supabase Google Provider
     if (isSupabaseConfigured()) {
-      try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin + '/account',
-            skipBrowserRedirect: true,
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/account`,
+          queryParams: {
+            prompt: 'select_account',
           },
-        });
-        if (!error && data?.url) {
-          // Pre-check if the provider is enabled in Supabase to avoid navigating to a raw 400 error page
-          try {
-            const check = await fetch(data.url, { method: 'GET', redirect: 'manual' });
-            if (check.status >= 400) {
-              const body = await check.json().catch(() => ({}));
-              if (
-                check.status === 400 ||
-                body?.msg?.includes('provider is not enabled') ||
-                body?.error_code === 'validation_failed'
-              ) {
-                console.warn('[Dineflow] Supabase Google Provider is not enabled in dashboard. Falling back to Demo Google login.');
-                const demoGoogleUser = {
-                  name: 'Ahmed Khan (Google Demo)',
-                  email: 'ahmed.khan@gmail.com',
-                  phone: '03001234567',
-                  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80',
-                  preferred_language: 'en',
-                };
-                const customer = await customerService.loginOrRegister(demoGoogleUser);
-                return {
-                  success: true,
-                  customer,
-                  isFallback: true,
-                };
-              }
-            }
-          } catch (fetchErr) {
-            console.warn('[Dineflow] Could not verify Google OAuth endpoint, falling back to Demo Google login:', fetchErr);
-            const demoGoogleUser = {
-              name: 'Ahmed Khan (Google Demo)',
-              email: 'ahmed.khan@gmail.com',
-              phone: '03001234567',
-              avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80',
-              preferred_language: 'en',
-            };
-            const customer = await customerService.loginOrRegister(demoGoogleUser);
-            return {
-              success: true,
-              customer,
-              isFallback: true,
-            };
-          }
+        },
+      });
 
-          window.location.href = data.url;
-          return { redirecting: true };
-        }
-      } catch (err) {
-        console.warn('Supabase Google OAuth notice:', err.message);
+      if (error) {
+        throw new Error(error.message || 'Google Sign-In failed. Please verify Google provider settings in Supabase.');
       }
+
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+      return { redirecting: true };
     }
 
-    // 2. Simulated Google Account in development / demo mode
-    const demoGoogleUser = {
-      name: 'Ahmed Khan (Google)',
-      email: 'ahmed.khan@gmail.com',
-      phone: '03001234567',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80',
-      preferred_language: 'en',
-    };
-
-    const customer = await customerService.loginOrRegister(demoGoogleUser);
-    return { success: true, customer };
+    throw new Error('Supabase is not configured. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
   },
 
   /**

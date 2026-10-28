@@ -10,30 +10,45 @@ export function CustomerAuthProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialize customer session on mount
+  const syncSupabaseUser = async (supaUser) => {
+    if (!supaUser) return null;
+    const meta = supaUser.user_metadata || {};
+    const logged = await customerService.loginOrRegister({
+      id: supaUser.id,
+      name: meta.full_name || meta.name || supaUser.email?.split('@')[0] || 'Customer',
+      email: supaUser.email || '',
+      phone: supaUser.phone || meta.phone || '',
+      avatar: meta.avatar_url || meta.picture || null,
+    });
+    setCustomer(logged);
+    const [addrs, favs] = await Promise.all([
+      customerService.getAddresses(logged.id),
+      customerService.getFavorites(logged.id),
+    ]);
+    setAddresses(addrs);
+    setFavorites(favs);
+    return logged;
+  };
+
+  // Initialize customer session on mount & listen for Google OAuth callback events
   useEffect(() => {
+    let authListener = null;
+
     async function initCustomer() {
       try {
-        let current = customerService.getCurrentCustomer();
-
-        // If not in localStorage, check if Supabase has an active OAuth session (e.g. from Google redirect)
-        if (!current && isSupabaseConfigured()) {
+        if (isSupabaseConfigured()) {
           try {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
-              const meta = session.user.user_metadata || {};
-              current = await customerService.loginOrRegister({
-                name: meta.full_name || meta.name || session.user.email?.split('@')[0] || 'Customer',
-                email: session.user.email,
-                phone: session.user.phone || meta.phone || '',
-                avatar: meta.avatar_url || meta.picture || null,
-              });
+              await syncSupabaseUser(session.user);
+              return;
             }
           } catch (sessionErr) {
             console.warn('Error reading Supabase session for customer:', sessionErr);
           }
         }
 
+        const current = customerService.getCurrentCustomer();
         if (current) {
           setCustomer(current);
           const [addrs, favs] = await Promise.all([
@@ -51,6 +66,27 @@ export function CustomerAuthProvider({ children }) {
     }
 
     initCustomer();
+
+    if (isSupabaseConfigured()) {
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+          await syncSupabaseUser(session.user);
+          setLoading(false);
+        } else if (event === 'SIGNED_OUT') {
+          customerService.logout();
+          setCustomer(null);
+          setAddresses([]);
+          setFavorites([]);
+        }
+      });
+      authListener = data?.subscription;
+    }
+
+    return () => {
+      if (authListener) {
+        authListener.unsubscribe();
+      }
+    };
   }, []);
 
   const loginCustomer = async (customerData) => {
@@ -65,11 +101,18 @@ export function CustomerAuthProvider({ children }) {
     return loggedCustomer;
   };
 
-  const logoutCustomer = () => {
+  const logoutCustomer = async () => {
     customerService.logout();
     setCustomer(null);
     setAddresses([]);
     setFavorites([]);
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Supabase signOut warning:', err);
+      }
+    }
   };
 
   const updateProfile = async (updates) => {
@@ -85,6 +128,11 @@ export function CustomerAuthProvider({ children }) {
     setCustomer(null);
     setAddresses([]);
     setFavorites([]);
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.signOut();
+      } catch (_) {}
+    }
   };
 
   const saveAddress = async (addressData) => {

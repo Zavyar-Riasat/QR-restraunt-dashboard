@@ -64,29 +64,55 @@ export const customerService = {
   },
 
   /**
-   * Customer Login / Register using phone or email
+   * Customer Login / Register using phone or email (including Google OAuth)
    */
-  async loginOrRegister({ name, phone, email, avatar = null, preferred_language = 'en' }) {
+  async loginOrRegister({ id = null, name, phone, email, avatar = null, preferred_language = 'en' }) {
     const cleanPhone = (phone || '').replace(/\D/g, '');
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanName = (name || 'Guest Diner').trim();
+    const registryKey = cleanPhone || cleanEmail;
 
-    // Check existing registry entry to preserve profile details
-    const existing = this.findCustomerByPhone(cleanPhone);
+    // Check existing registry entry by phone or email to preserve profile details
+    let existing = cleanPhone ? this.findCustomerByPhone(cleanPhone) : null;
+    if (!existing && cleanEmail) {
+      try {
+        const current = this.getCurrentCustomer();
+        if (current && current.email && current.email.toLowerCase() === cleanEmail) {
+          existing = current;
+        } else {
+          const raw = localStorage.getItem(CUSTOMER_REGISTRY_KEY);
+          if (raw) {
+            const registry = JSON.parse(raw);
+            existing =
+              registry[cleanEmail] ||
+              Object.values(registry).find(
+                (c) => c?.email && c.email.toLowerCase() === cleanEmail
+              ) ||
+              null;
+          }
+        }
+      } catch (_) {}
+    }
+
+    const fallbackId = cleanPhone
+      ? `cust_${cleanPhone}`
+      : cleanEmail
+      ? `cust_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`
+      : `cust_${Date.now().toString(36)}`;
 
     const customerObj = {
-      id: existing?.id || `cust_${cleanPhone || Date.now().toString(36)}`,
+      id: existing?.id || id || fallbackId,
       name: existing?.name || cleanName || 'Guest Diner',
-      phone: cleanPhone,
-      email: existing?.email || cleanEmail || `${cleanPhone || 'guest'}@customer.dinehq.pk`,
-      avatar: existing?.avatar || avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanName)}`,
+      phone: cleanPhone || existing?.phone || '',
+      email: cleanEmail || existing?.email || `${cleanPhone || 'guest'}@customer.dinehq.pk`,
+      avatar: avatar || existing?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanName)}`,
       preferred_language: existing?.preferred_language || preferred_language || 'en',
       created_at: existing?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    // If Supabase is configured, upsert into customers table
-    if (isSupabaseConfigured()) {
+    // If Supabase is configured and phone is available, upsert into customers table
+    if (isSupabaseConfigured() && customerObj.phone) {
       try {
         const { data, error } = await supabase
           .from('customers')
@@ -115,11 +141,12 @@ export const customerService = {
     try {
       localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(customerObj));
 
-      // Update registry
-      const rawReg = localStorage.getItem(CUSTOMER_REGISTRY_KEY);
-      const registry = rawReg ? JSON.parse(rawReg) : {};
-      registry[cleanPhone] = customerObj;
-      localStorage.setItem(CUSTOMER_REGISTRY_KEY, JSON.stringify(registry));
+      if (registryKey) {
+        const rawReg = localStorage.getItem(CUSTOMER_REGISTRY_KEY);
+        const registry = rawReg ? JSON.parse(rawReg) : {};
+        registry[registryKey] = customerObj;
+        localStorage.setItem(CUSTOMER_REGISTRY_KEY, JSON.stringify(registry));
+      }
     } catch (e) {
       console.warn('Failed to save customer session:', e);
     }

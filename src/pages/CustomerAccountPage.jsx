@@ -139,7 +139,7 @@ export default function CustomerAccountPage() {
 
   // Load favorites, orders, and dues
   const loadAccountData = async () => {
-    if (!customer?.phone) return;
+    if (!customer?.id && !customer?.phone && !customer?.email) return;
     try {
       setLoadingExtras(true);
       // 1. Favorite restaurants
@@ -153,7 +153,9 @@ export default function CustomerAccountPage() {
       setCustomerOrders(orders);
 
       // 3. Customer Dues / Ledgers across all restaurants
-      const dues = customerKhataService.getCustomerDuesAcrossRestaurants(customer.phone);
+      const dues = customer.phone
+        ? customerKhataService.getCustomerDuesAcrossRestaurants(customer.phone)
+        : { totalBalanceDueRupees: 0, duesByRestaurant: [] };
       setCustomerDues(dues);
     } catch (err) {
       console.warn('Error loading customer account extras:', err);

@@ -33,6 +33,53 @@
         rel="stylesheet"
       />
     </noscript>
+    <script>
+      (function () {
+        try {
+          var isLocal =
+            location.hostname === 'localhost' ||
+            location.hostname === '127.0.0.1' ||
+            location.hostname.endsWith('.local');
+
+          if (isLocal && 'serviceWorker' in navigator) {
+            var hadController = Boolean(navigator.serviceWorker.controller);
+            Promise.all([
+              navigator.serviceWorker.getRegistrations().then(function (regs) {
+                return Promise.all(regs.map(function (r) { return r.unregister(); }));
+              }),
+              'caches' in window
+                ? caches.keys().then(function (names) {
+                    return Promise.all(names.map(function (n) { return caches.delete(n); }));
+                  })
+                : Promise.resolve(),
+            ]).then(function () {
+              if (hadController && sessionStorage.getItem('dineflow_local_sw_cleared') !== '1') {
+                sessionStorage.setItem('dineflow_local_sw_cleared', '1');
+                window.location.reload();
+              }
+            });
+          } else if ('caches' in window) {
+            var CURRENT_SW_VERSION = 'dineflow-pwa-v6';
+            var savedVersion = localStorage.getItem('dineflow_sw_version');
+            if (savedVersion !== CURRENT_SW_VERSION) {
+              localStorage.setItem('dineflow_sw_version', CURRENT_SW_VERSION);
+              caches.keys().then(function (names) {
+                return Promise.all(
+                  names
+                    .filter(function (n) { return n !== CURRENT_SW_VERSION; })
+                    .map(function (n) { return caches.delete(n); })
+                );
+              });
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  regs.forEach(function (r) { r.update(); });
+                });
+              }
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

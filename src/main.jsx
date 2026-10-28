@@ -15,6 +15,44 @@ try {
   }
 } catch (_) {}
 
+// Automatically recover from Vite chunk load errors after a new Vercel deployment
+function recoverFromChunkLoadError() {
+  try {
+    const lastReload = Number(sessionStorage.getItem('dineflow_chunk_reload_ts') || 0);
+    if (Date.now() - lastReload > 10000) {
+      sessionStorage.setItem('dineflow_chunk_reload_ts', String(Date.now()));
+      if ('caches' in window) {
+        caches
+          .keys()
+          .then((names) => Promise.all(names.map((n) => caches.delete(n))))
+          .finally(() => window.location.reload());
+      } else {
+        window.location.reload();
+      }
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  recoverFromChunkLoadError();
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const msg = String(event?.reason?.message || event?.reason || '');
+  if (
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed') ||
+    msg.includes('error loading dynamically imported module')
+  ) {
+    if (recoverFromChunkLoadError()) {
+      event.preventDefault();
+    }
+  }
+});
+
 window.addEventListener('error', (e) => {
   console.error('[Dineflow Global Error]', e.error || e.message);
   const root = document.getElementById('root');

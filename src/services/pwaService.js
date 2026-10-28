@@ -78,18 +78,38 @@ class PWAService {
   }
 
   /**
-   * Register Service Worker
+   * Register Service Worker (Production only — never cache Vite dev modules on localhost)
    */
   async registerServiceWorker() {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
       return null;
     }
 
+    const isLocalhost =
+      Boolean(import.meta?.env?.DEV) ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.endsWith('.local');
+
+    if (isLocalhost) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((reg) => reg.unregister()));
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((name) => caches.delete(name)));
+        }
+      } catch (_) {}
+      return null;
+    }
+
     try {
       const registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
+        updateViaCache: 'none',
       });
       this.swRegistration = registration;
+      registration.update().catch(() => {});
       console.info('[Dineflow PWA] Service Worker registered with scope:', registration.scope);
       return registration;
     } catch (err) {

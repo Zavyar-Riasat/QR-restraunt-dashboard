@@ -3,12 +3,10 @@
  * Fast offline App Shell caching + Live Network Only for Orders & API
  */
 
-const CACHE_NAME = 'dineflow-pwa-v4';
+const CACHE_NAME = 'dineflow-pwa-v6';
 
-// App shell and critical static assets to precache
+// Static icons & manifest to precache (never precache HTML or JS bundles at install time)
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/favicon.svg',
   '/apple-touch-icon.png',
@@ -17,10 +15,19 @@ const PRECACHE_ASSETS = [
   '/icons/icon-maskable-512.png',
 ];
 
+function isLocalhostOrigin() {
+  const host = self.location?.hostname || '';
+  return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+}
+
 // Domains and endpoints that must NEVER be cached (strictly Live / Network Only)
 const LIVE_NETWORK_PATTERNS = [
   'supabase.co',
   '/api/',
+  '/src/',
+  '/@vite/',
+  '/@react-refresh',
+  '/node_modules/',
   'nominatim.openstreetmap.org',
   'tile.openstreetmap.org',
   'carto.com',
@@ -33,41 +40,52 @@ function isLiveNetworkRequest(url) {
   return LIVE_NETWORK_PATTERNS.some((pattern) => urlStr.includes(pattern));
 }
 
-// 1. Install Event: Cache app shell
+// 1. Install Event: Cache static icons & skip waiting immediately
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  if (isLocalhostOrigin()) {
+    return;
+  }
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(PRECACHE_ASSETS);
-      })
-      .then(() => self.skipWaiting())
+      .then((cache) => cache.addAll(PRECACHE_ASSETS))
       .catch((err) => {
         console.warn('[Dineflow SW] Precaching notice:', err);
       })
   );
 });
 
-// 2. Activate Event: Clean up legacy caches & take immediate control
+// 2. Activate Event: Clean up legacy caches & unregister on localhost
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((cacheNames) => {
-        return Promise.all(
+      .then((cacheNames) =>
+        Promise.all(
           cacheNames.map((name) => {
-            if (name !== CACHE_NAME) {
+            if (isLocalhostOrigin() || name !== CACHE_NAME) {
               return caches.delete(name);
             }
           })
-        );
+        )
+      )
+      .then(async () => {
+        await self.clients.claim();
+        if (isLocalhostOrigin() && self.registration) {
+          await self.registration.unregister();
+        }
       })
-      .then(() => self.clients.claim())
   );
 });
 
 // 3. Fetch Event
 self.addEventListener('fetch', (event) => {
+  // Never intercept requests on localhost / dev server
+  if (isLocalhostOrigin()) {
+    return;
+  }
+
   const request = event.request;
   const url = new URL(request.url);
 
@@ -76,14 +94,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // RULE A: API calls, Supabase endpoints, orders, and geocoding MUST NEVER BE CACHED.
-  // Always fetch live from the network.
+  // RULE A: API calls, Supabase endpoints, dev modules, orders, and geocoding MUST NEVER BE CACHED.
   if (isLiveNetworkRequest(url)) {
     event.respondWith(
       fetch(request).catch(() => {
-        // Return a clean 503 response if network is down
         return new Response(
-          JSON.stringify({ error: 'Network offline. Live live-data could not be fetched.' }),
+          JSON.stringify({ error: 'Network offline. Live data could not be fetched.' }),
           {
             status: 503,
             statusText: 'Service Unavailable',
@@ -95,29 +111,57 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // RULE B: HTML Navigation requests (e.g. /dashboard, /) -> NetworkFirst with App Shell cache fallback
+  // RULE B: HTML Navigation requests (e.g. /dashboard, /) -> NetworkFirst with App Shell fallback
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
           if (response && response.status === 200) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
           }
           return response;
         })
         .catch(async () => {
-          // Offline fallback to app shell
-          const cachedResponse = await caches.match(request);
-          if (cachedResponse) return cachedResponse;
-          const shell = await caches.match('/index.html');
-          return shell || caches.match('/');
+          const cachedShell = await caches.match('/index.html');
+          return cachedShell || caches.match('/');
         })
     );
     return;
   }
 
-  // RULE C: Static Assets (JS, CSS, SVGs, PNGs, Fonts) -> Stale While Revalidate
+  // RULE C: JS / CSS Bundles & Static Assets -> NetworkFirst to guarantee fresh deployments
+  const isCodeAsset =
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.mjs') ||
+    url.pathname.endsWith('.css');
+
+  if (isCodeAsset) {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          const contentType = networkResponse.headers.get('content-type') || '';
+          // Never cache HTML fallback responses returned for missing JS/CSS chunks
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            !contentType.includes('text/html')
+          ) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(request);
+          return cachedResponse || Response.error();
+        })
+    );
+    return;
+  }
+
+  // RULE D: Images, Fonts, Icons -> Stale While Revalidate
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       const fetchPromise = fetch(request)
@@ -128,10 +172,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
-          // If offline and not in cache, fallback gracefully
-          return cachedResponse;
-        });
+        .catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
     })

@@ -249,7 +249,7 @@ export const customerAuthService = {
         pending.attempts = (pending.attempts || 0) + 1;
         try {
           localStorage.setItem(key, JSON.stringify(pending));
-        } catch (_) {}
+        } catch (_) { }
         const left = 5 - pending.attempts;
         throw new Error(`Incorrect verification code. ${left} attempts remaining.`);
       }

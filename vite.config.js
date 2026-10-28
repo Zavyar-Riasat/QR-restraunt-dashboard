@@ -141,42 +141,5 @@ export default defineConfig({
     target: 'es2020',
     cssCodeSplit: true,
     chunkSizeWarningLimit: 600,
-    rolldownOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (
-              id.includes('node_modules/react/') ||
-              id.includes('node_modules/react-dom/') ||
-              id.includes('node_modules/react-router') ||
-              id.includes('node_modules/scheduler/')
-            ) {
-              return 'vendor-react';
-            }
-            if (id.includes('@supabase/')) {
-              return 'vendor-supabase';
-            }
-            if (id.includes('@geoman-io')) {
-              return 'vendor-geoman';
-            }
-            if (id.includes('leaflet')) {
-              return 'vendor-leaflet';
-            }
-            if (id.includes('jspdf')) {
-              return 'vendor-jspdf';
-            }
-            if (id.includes('html2canvas')) {
-              return 'vendor-html2canvas';
-            }
-            if (id.includes('jsqr') || id.includes('canvg')) {
-              return 'vendor-qr-tools';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-icons';
-            }
-          }
-        },
-      },
-    },
   },
 });

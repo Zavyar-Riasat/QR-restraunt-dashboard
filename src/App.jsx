@@ -5,13 +5,35 @@ import { CustomerAuthProvider } from './context/CustomerAuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-const MarketplaceHomePage = lazy(() => import('./pages/MarketplaceHomePage'));
-const CustomerAccountPage = lazy(() => import('./pages/CustomerAccountPage'));
-const OwnerDashboardPage = lazy(() => import('./pages/OwnerDashboardPage'));
-const CustomerMenuPage = lazy(() => import('./pages/CustomerMenuPage'));
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const AdminPanelPage = lazy(() => import('./pages/AdminPanelPage'));
-const RiderDeliveryPage = lazy(() => import('./pages/RiderDeliveryPage'));
+function lazyWithRetry(importFn) {
+  return lazy(async () => {
+    try {
+      return await importFn();
+    } catch (error) {
+      try {
+        const lastReload = Number(sessionStorage.getItem('dineflow_lazy_reload_ts') || 0);
+        if (Date.now() - lastReload > 10000) {
+          sessionStorage.setItem('dineflow_lazy_reload_ts', String(Date.now()));
+          if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.all(names.map((n) => caches.delete(n)));
+          }
+          window.location.reload();
+          return new Promise(() => {});
+        }
+      } catch (_) {}
+      throw error;
+    }
+  });
+}
+
+const MarketplaceHomePage = lazyWithRetry(() => import('./pages/MarketplaceHomePage'));
+const CustomerAccountPage = lazyWithRetry(() => import('./pages/CustomerAccountPage'));
+const OwnerDashboardPage = lazyWithRetry(() => import('./pages/OwnerDashboardPage'));
+const CustomerMenuPage = lazyWithRetry(() => import('./pages/CustomerMenuPage'));
+const LoginPage = lazyWithRetry(() => import('./pages/LoginPage'));
+const AdminPanelPage = lazyWithRetry(() => import('./pages/AdminPanelPage'));
+const RiderDeliveryPage = lazyWithRetry(() => import('./pages/RiderDeliveryPage'));
 
 function PageLoader() {
   return (

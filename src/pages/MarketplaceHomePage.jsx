@@ -768,14 +768,14 @@ export default function MarketplaceHomePage() {
           Search box placeholder changes with active mode
           ======================================================== */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#1D150F]/95 backdrop-blur-md border-b border-[#F0E4D7] dark:border-[#382B20] transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-3 sm:gap-6 h-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-2 sm:gap-6 h-14 sm:h-16 min-w-0">
             {/* Left: Brand Logo & Name */}
-            <Link to="/" className="flex items-center gap-2.5 shrink-0 select-none group">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#F26B1D] to-[#E05307] text-white flex items-center justify-center shadow-xs">
+            <Link to="/" className="flex items-center gap-2 sm:gap-2.5 shrink-0 select-none group">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#F26B1D] to-[#E05307] text-white flex items-center justify-center shadow-xs shrink-0">
                 <UtensilsCrossed className="w-4 h-4" />
               </div>
-              <span className="font-heading font-extrabold text-lg sm:text-xl tracking-tight text-[#2B2118] dark:text-[#FFF9F2] leading-none">
+              <span className="font-heading font-extrabold text-base sm:text-xl tracking-tight text-[#2B2118] dark:text-[#FFF9F2] leading-none">
                 Dineflow
               </span>
             </Link>
@@ -806,17 +806,17 @@ export default function MarketplaceHomePage() {
               </div>
             </div>
 
-            {/* Right: Location Chip, Cart Button, Theme Toggle, Language Switch, Account */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Right: Location Chip, Cart Button, Theme Toggle, Account */}
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
               {/* Location Chip */}
               <button
                 type="button"
                 onClick={handleOpenManualLocationPicker}
-                className="flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl bg-[#FFF1E6] hover:bg-[#FFE6D4] dark:bg-[#382417] dark:hover:bg-[#482E1E] text-[#2B2118] dark:text-[#FFF9F2] text-xs font-bold border border-[#FCD8BF] dark:border-[#523522] transition cursor-pointer truncate max-w-[130px] sm:max-w-[200px]"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 h-9 sm:min-h-[40px] rounded-xl bg-[#FFF1E6] hover:bg-[#FFE6D4] dark:bg-[#382417] dark:hover:bg-[#482E1E] text-[#2B2118] dark:text-[#FFF9F2] text-[11px] sm:text-xs font-bold border border-[#FCD8BF] dark:border-[#523522] transition cursor-pointer min-w-0 shrink max-w-[115px] xs:max-w-[135px] sm:max-w-[200px]"
                 title="Change delivery location"
               >
                 <MapPin className="w-3.5 h-3.5 text-[#F26B1D] shrink-0" />
-                <span className="truncate">{customerLocation?.name || 'Set Location'}</span>
+                <span className="truncate">{customerLocation?.name || 'Location'}</span>
                 <ChevronDown className="w-3 h-3 text-[#7A6A5C] dark:text-[#A8988B] shrink-0" />
               </button>
 
@@ -825,7 +825,7 @@ export default function MarketplaceHomePage() {
                 id="navbar-cart-button"
                 type="button"
                 onClick={() => setIsCartDrawerOpen(true)}
-                className="relative flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 min-h-[40px] rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D] dark:hover:border-[#F26B1D] text-[#2B2118] dark:text-[#FFF9F2] text-xs font-bold transition cursor-pointer shadow-2xs group"
+                className="relative flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:px-3 sm:min-h-[40px] rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D] dark:hover:border-[#F26B1D] text-[#2B2118] dark:text-[#FFF9F2] text-xs font-bold transition cursor-pointer shadow-2xs group shrink-0"
                 title={totalCartCount > 0 ? `Cart (${totalCartCount} item${totalCartCount > 1 ? 's' : ''})` : 'Shopping Cart'}
                 aria-label="Shopping Cart"
               >
@@ -849,7 +849,7 @@ export default function MarketplaceHomePage() {
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="flex items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#F26B1D] dark:hover:text-[#F26B1D] transition cursor-pointer shadow-2xs"
+                className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#F26B1D] dark:hover:text-[#F26B1D] transition cursor-pointer shadow-2xs shrink-0"
                 title={theme === 'dark' ? 'Switch to warm light theme' : 'Switch to dark theme'}
                 aria-label="Toggle theme"
               >
@@ -860,13 +860,12 @@ export default function MarketplaceHomePage() {
                 )}
               </button>
 
-
               {/* Account / Sign In */}
               {isCustomerAuthenticated ? (
                 <Link
                   to="/account?tab=profile"
                   title="View & edit your profile and avatar"
-                  className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1.5 min-h-[40px] rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] transition shadow-2xs"
+                  className="flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:px-2.5 sm:py-1.5 sm:min-h-[40px] rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] transition shadow-2xs shrink-0"
                 >
                   <img
                     src={
@@ -889,9 +888,9 @@ export default function MarketplaceHomePage() {
               ) : (
                 <Link
                   to="/account"
-                  className="flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] hover:text-[#F26B1D] transition shadow-2xs"
+                  className="flex items-center justify-center gap-1 px-2.5 sm:px-3 h-9 sm:min-h-[40px] rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D] text-[11px] sm:text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] hover:text-[#F26B1D] transition shadow-2xs shrink-0 whitespace-nowrap"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-[#F26B1D]" />
+                  <LogIn className="w-3.5 h-3.5 text-[#F26B1D] shrink-0" />
                   <span>{t('signIn') || 'Sign in'}</span>
                 </Link>
               )}

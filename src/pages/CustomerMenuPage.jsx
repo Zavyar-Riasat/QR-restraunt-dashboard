@@ -399,8 +399,8 @@ export default function CustomerMenuPage() {
     >
       {/* Top Storefront Web Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-[#F0E4D7] shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <div className="flex items-center gap-3 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-4 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 shrink">
             {/* Back button to "/" (Nearby restaurants) - Hidden if arrived via table QR with open dine-in order */}
             {!hideHeaderBackButton && (
               <button
@@ -415,12 +415,12 @@ export default function CustomerMenuPage() {
               </button>
             )}
 
-            <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {restaurant.logo_url ? (
                 <img
                   src={restaurant.logo_url}
                   alt={restaurant.name}
-                  className="w-10 h-10 rounded-xl object-contain bg-white border border-[#F0E4D7] shadow-2xs p-0.5 shrink-0"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-contain bg-white border border-[#F0E4D7] shadow-2xs p-0.5 shrink-0"
                 />
               ) : (
                 <div
@@ -430,8 +430,8 @@ export default function CustomerMenuPage() {
                   <UtensilsCrossed className="w-4 h-4" />
                 </div>
               )}
-              <div>
-                <h1 className="font-heading font-extrabold text-[#2B2118] text-base sm:text-lg tracking-tight leading-tight">
+              <div className="min-w-0">
+                <h1 className="font-heading font-extrabold text-[#2B2118] text-sm sm:text-lg tracking-tight leading-tight truncate">
                   {restaurant.name}
                 </h1>
                 <div className="text-[11px] text-[#7A6A5C] flex flex-wrap items-center gap-1.5 sm:gap-2">

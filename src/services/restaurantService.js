@@ -1156,6 +1156,7 @@ export const restaurantService = {
       show_prep_time: true,
       prep_time: '20–30 mins',
       logo_url: restaurant.logo_url || null,
+      primary_color: restaurant.primary_color || '#f97316',
     };
     try {
       const saved = localStorage.getItem(key);
@@ -1164,11 +1165,42 @@ export const restaurantService = {
       }
     } catch (e) {}
     return {
-      ...extended,
       ...restaurant,
+      ...extended,
+      logo_url: extended.logo_url || restaurant.logo_url || null,
+      primary_color: extended.primary_color || restaurant.primary_color || '#f97316',
       phone,
       whatsapp_number: phone,
     };
+  },
+
+  /**
+   * Synchronously resolve a restaurant by id or slug from local storage or seed data
+   */
+  getRestaurant(idOrSlug = 'rest-101') {
+    const target = String(idOrSlug || 'rest-101').trim();
+    // 1. Check localStorage saved states
+    try {
+      const byTargetKey = localStorage.getItem(`${STORAGE_KEY}_${target}`);
+      if (byTargetKey) {
+        const parsed = JSON.parse(byTargetKey);
+        if (parsed?.restaurant) return this.mergeExtendedSettings(parsed.restaurant);
+      }
+    } catch (_) {}
+
+    // 2. Check seed restaurants by slug or id
+    if (ALL_SEED_RESTAURANTS[target]?.restaurant) {
+      return this.mergeExtendedSettings(ALL_SEED_RESTAURANTS[target].restaurant);
+    }
+    const foundSeed = Object.values(ALL_SEED_RESTAURANTS).find(
+      (r) => r.restaurant?.id === target || r.restaurant?.slug === target
+    );
+    if (foundSeed?.restaurant) {
+      return this.mergeExtendedSettings(foundSeed.restaurant);
+    }
+
+    // 3. Fallback to default seed restaurant
+    return this.mergeExtendedSettings(ALL_SEED_RESTAURANTS.burgersmoke.restaurant);
   },
 
   /**
@@ -1212,6 +1244,16 @@ export const restaurantService = {
       }
     }
 
+    return this.getInitialStateSync(filter);
+  },
+
+  /**
+   * Synchronously resolve initial restaurant, categories, and menuItems from local storage or seed data
+   * Enables zero-latency First Contentful Paint (FCP) & Largest Contentful Paint (LCP) on dashboard mount
+   */
+  getInitialStateSync(filter = {}) {
+    const { restaurantId, slug } = filter;
+
     // Determine target seed data from ALL_SEED_RESTAURANTS
     let targetSeed = ALL_SEED_RESTAURANTS.burgersmoke;
     if (slug && ALL_SEED_RESTAURANTS[slug]) {
@@ -1222,23 +1264,25 @@ export const restaurantService = {
     }
 
     // Local Sandbox persistence (keyed by restaurantId or slug if provided)
-    const specificKey = slug ? `${STORAGE_KEY}_${slug}` : (restaurantId ? `${STORAGE_KEY}_${restaurantId}` : STORAGE_KEY);
-    const saved = localStorage.getItem(specificKey);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const sanitized = sanitizeMenuData({
-          categories: parsed.categories || [],
-          menuItems: parsed.menuItems || [],
-        });
-        return {
-          ...parsed,
-          categories: sanitized.categories,
-          menuItems: sanitized.menuItems,
-          restaurant: this.mergeExtendedSettings(parsed.restaurant),
-          isLive: false,
-        };
-      } catch (e) {}
+    if (typeof localStorage !== 'undefined') {
+      const specificKey = slug ? `${STORAGE_KEY}_${slug}` : (restaurantId ? `${STORAGE_KEY}_${restaurantId}` : STORAGE_KEY);
+      const saved = localStorage.getItem(specificKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const sanitized = sanitizeMenuData({
+            categories: parsed.categories || [],
+            menuItems: parsed.menuItems || [],
+          });
+          return {
+            ...parsed,
+            categories: sanitized.categories,
+            menuItems: sanitized.menuItems,
+            restaurant: this.mergeExtendedSettings(parsed.restaurant),
+            isLive: false,
+          };
+        } catch (e) {}
+      }
     }
 
     const sanitizedSeed = sanitizeMenuData({
@@ -1284,6 +1328,7 @@ export const restaurantService = {
       const updatedSettings = {
         ...existingSettings,
         ...(updates.logo_url !== undefined ? { logo_url: updates.logo_url } : {}),
+        ...(updates.primary_color !== undefined ? { primary_color: updates.primary_color } : {}),
         ...(updates.is_open !== undefined ? { is_open: updates.is_open } : {}),
         ...(updates.delivery_mode !== undefined ? { delivery_mode: updates.delivery_mode } : {}),
         ...(updates.delivery_fee !== undefined ? { delivery_fee: Number(updates.delivery_fee) } : {}),

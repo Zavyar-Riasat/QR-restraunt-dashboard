@@ -28,7 +28,7 @@ import { format12HourTime } from '../utils/dateUtils';
 import { buildGoogleMapsNavUrl, buildOsmNavUrl } from '../config/mapConfig';
 import { restaurantService } from '../services/restaurantService';
 
-import LeafletMap from '../components/Map/LeafletMap.jsx';
+const LeafletMap = lazy(() => import('../components/Map/LeafletMap.jsx'));
 
 export default function RiderDeliveryPage() {
   const { token } = useParams();

@@ -116,8 +116,11 @@ export default function CustomerAuthModal({
       const res = await customerAuthService.verifyOtp(phone, otpCode.trim());
       if (res.success && res.customer) {
         await loginCustomer(res.customer);
-        if (onSuccess) onSuccess(res.customer);
-        if (onClose) onClose();
+        if (onSuccess) {
+          onSuccess(res.customer);
+        } else if (onClose) {
+          onClose();
+        }
       }
     } catch (err) {
       setErrorMsg(err.message || 'Verification failed. Please check the code.');
@@ -135,8 +138,11 @@ export default function CustomerAuthModal({
       if (res.redirecting) return;
       if (res.success && res.customer) {
         await loginCustomer(res.customer);
-        if (onSuccess) onSuccess(res.customer);
-        if (onClose) onClose();
+        if (onSuccess) {
+          onSuccess(res.customer);
+        } else if (onClose) {
+          onClose();
+        }
       }
     } catch (err) {
       setErrorMsg(err.message || 'Google sign in failed.');
@@ -155,8 +161,11 @@ export default function CustomerAuthModal({
         phone: '03001234567',
         email: 'ahmed.khan@example.com',
       });
-      if (onSuccess) onSuccess(logged);
-      if (onClose) onClose();
+      if (onSuccess) {
+        onSuccess(logged);
+      } else if (onClose) {
+        onClose();
+      }
     } catch (err) {
       setErrorMsg(err.message || 'Demo sign in failed.');
     } finally {

@@ -192,9 +192,9 @@ export default function EditOrderItemsModal({
                 <span className="font-mono text-xs font-black bg-[#2B2118] text-white px-2 py-0.5 rounded-md">
                   #{order.id}
                 </span>
-                {order.table && (
+                {(order.table_number || order.table) && (
                   <span className="text-[11px] font-bold bg-[#F26B1D] text-white px-2 py-0.5 rounded-full">
-                    Table {order.table}
+                    Table {order.table_number || order.table}
                   </span>
                 )}
               </div>

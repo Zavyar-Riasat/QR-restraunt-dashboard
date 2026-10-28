@@ -38,6 +38,7 @@ import { DRIVER_IDS, PAPER_SIZE_SPECS } from '../services/printer/printerTypes';
 import PrintersSection from './Printer/PrintersSection';
 import PrintTemplatesSection from './Printer/PrintTemplatesSection';
 import LocationDeliverySection from './LocationDeliverySection';
+import { compressImageFile } from '../utils/imageUtils';
 
 const BRAND_PRESET_COLORS = [
   { name: 'Warm Orange (Default)', value: '#F26B1D' },
@@ -101,6 +102,18 @@ export default function StoreSettings({
   useEffect(() => {
     return printerService.subscribe((cfg) => setPrinterConfig(cfg));
   }, []);
+
+  useEffect(() => {
+    const restId = restaurant?.id || 'rest-101';
+    setRiders(riderService.getRiders(restId));
+    const handleRidersChanged = (e) => {
+      if (!e.detail?.restaurantId || e.detail.restaurantId === restId) {
+        setRiders(e.detail?.riders || riderService.getRiders(restId));
+      }
+    };
+    window.addEventListener('dinehq_riders_updated', handleRidersChanged);
+    return () => window.removeEventListener('dinehq_riders_updated', handleRidersChanged);
+  }, [restaurant?.id]);
 
   const handleTestPrint = async () => {
     try {
@@ -263,18 +276,20 @@ export default function StoreSettings({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleLogoUpload = (e) => {
+  const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Logo image file must be smaller than 2MB.');
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Logo image file must be smaller than 5MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({ ...prev, logo_url: reader.result }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImageFile(file);
+      setFormData((prev) => ({ ...prev, logo_url: compressed }));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Failed to process logo image.');
+    }
   };
 
   const handleStoreSubmit = async (e) => {

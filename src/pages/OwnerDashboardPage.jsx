@@ -1,28 +1,43 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ExecutiveKPIs from '../components/ExecutiveKPIs';
-import StoreSettings from '../components/StoreSettings';
-import CategoryManager from '../components/CategoryManager';
-import MenuItemManager from '../components/MenuItemManager';
-import QRCodeManager from '../components/QRCodeManager';
 import OrdersFeed from '../components/OrdersFeed';
 import { restaurantService } from '../services/restaurantService';
 import { orderService, playKitchenChime, playLoudKitchenAlarm, unlockAudioContext } from '../services/orderService';
 import { useAuth } from '../context/AuthContext';
 import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users, CheckCircle2, Wallet, UtensilsCrossed } from 'lucide-react';
-import PrinterSetupWizard from '../components/Printer/PrinterSetupWizard';
 import { printerService } from '../services/printer/printerService';
-import NewOrderModal from '../components/POS/NewOrderModal';
-import TableManager from '../components/TableManagement/TableManager';
-import CustomerManager from '../components/Customers/CustomerManager';
-import CashFlowManager from '../components/CashFlow/CashFlowManager';
 import { customerKhataService } from '../services/customerKhataService';
 import PrinterReconnectBanner from '../components/Printer/PrinterReconnectBanner';
 import OfflineBanner from '../components/PWA/OfflineBanner';
 import NotificationPromptBanner from '../components/PWA/NotificationPromptBanner';
 import { pwaService } from '../services/pwaService';
-import TodaySalesSummaryModal from '../components/Reports/TodaySalesSummaryModal';
+
+// Lazy-loaded Dashboard Tabs & Heavy Modals to keep initial Dashboard bundle minimal
+const StoreSettings = lazy(() => import('../components/StoreSettings'));
+const CategoryManager = lazy(() => import('../components/CategoryManager'));
+const MenuItemManager = lazy(() => import('../components/MenuItemManager'));
+const QRCodeManager = lazy(() => import('../components/QRCodeManager'));
+const TableManager = lazy(() => import('../components/TableManagement/TableManager'));
+const CustomerManager = lazy(() => import('../components/Customers/CustomerManager'));
+const CashFlowManager = lazy(() => import('../components/CashFlow/CashFlowManager'));
+const NewOrderModal = lazy(() => import('../components/POS/NewOrderModal'));
+const PrinterSetupWizard = lazy(() => import('../components/Printer/PrinterSetupWizard'));
+const TodaySalesSummaryModal = lazy(() => import('../components/Reports/TodaySalesSummaryModal'));
+
+function TabPanelSkeleton() {
+  return (
+    <div className="bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-8 shadow-xs animate-pulse space-y-4">
+      <div className="h-6 w-48 bg-slate-200 rounded-lg" />
+      <div className="h-4 w-72 bg-slate-100 rounded-md" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        <div className="h-36 bg-slate-100 rounded-2xl" />
+        <div className="h-36 bg-slate-100 rounded-2xl" />
+      </div>
+    </div>
+  );
+}
 
 export default function OwnerDashboardPage() {
   const navigate = useNavigate();
@@ -47,15 +62,37 @@ export default function OwnerDashboardPage() {
       setActiveTabState(tab);
     }
   }, [searchParams, activeTab]);
-  const [restaurant, setRestaurant] = useState(null);
+
+  // Synchronously hydrate initial state on first render for instant FCP & LCP (zero loading spinner shift)
+  const initialSyncData = useMemo(() => {
+    const filter = {};
+    if (restaurantSlug) {
+      filter.slug = restaurantSlug;
+    } else if (user?.restaurant_id) {
+      filter.restaurantId = user.restaurant_id;
+    } else if (user?.restaurant_slug) {
+      filter.slug = user.restaurant_slug;
+    }
+    const syncState = restaurantService.getInitialStateSync(filter);
+    const restId = syncState.restaurant?.id || 'rest-101';
+    const initialOrders = orderService.getOrders(restId);
+    const initialStats = orderService.getOrderStats(restId);
+    return {
+      ...syncState,
+      orders: initialOrders,
+      orderStats: initialStats,
+    };
+  }, []);
+
+  const [restaurant, setRestaurant] = useState(() => initialSyncData.restaurant);
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [selectedRestaurantId, setSelectedRestaurantId] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [menuItems, setMenuItems] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [orderStats, setOrderStats] = useState(null);
-  const [isLive, setIsLive] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState(() => initialSyncData.categories || []);
+  const [menuItems, setMenuItems] = useState(() => initialSyncData.menuItems || []);
+  const [orders, setOrders] = useState(() => initialSyncData.orders || []);
+  const [orderStats, setOrderStats] = useState(() => initialSyncData.orderStats || null);
+  const [isLive, setIsLive] = useState(() => Boolean(initialSyncData.isLive));
+  const [loading, setLoading] = useState(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('dinehq_sound_enabled') !== 'false';
@@ -213,18 +250,23 @@ export default function OwnerDashboardPage() {
   }, [orders, soundEnabled, mutedOrderIds]);
 
   // Background polling fallback (every 8 seconds) so incoming orders update reliably across multiple devices
+  // Reference check avoids re-rendering when localStorage has not changed
   useEffect(() => {
     if (!restaurant?.id) return;
     const interval = setInterval(() => {
       const refreshed = orderService.getOrders(restaurant.id);
-      setOrders(refreshed);
-      setOrderStats(orderService.getOrderStats(restaurant.id));
+      setOrders((prev) => {
+        if (prev === refreshed) return prev;
+        setOrderStats(orderService.getOrderStats(restaurant.id));
+        return refreshed;
+      });
     }, 8000);
     return () => clearInterval(interval);
   }, [restaurant?.id]);
 
-  // Load all restaurants for admin switcher
+  // Load all restaurants for admin switcher (only needed for superadmin role)
   useEffect(() => {
+    if (user?.role !== 'admin') return;
     async function loadRestaurantsList() {
       try {
         const list = await restaurantService.getAllRestaurants();
@@ -234,13 +276,13 @@ export default function OwnerDashboardPage() {
       }
     }
     loadRestaurantsList();
-  }, []);
+  }, [user?.role]);
 
-  // Load data for the active restaurant tenant
+  // Load data for the active restaurant tenant (hydrates live Supabase data if configured)
   useEffect(() => {
+    let isMounted = true;
     async function loadData() {
       try {
-        setLoading(true);
         const filter = {};
         if (restaurantSlug) {
           filter.slug = restaurantSlug;
@@ -253,6 +295,7 @@ export default function OwnerDashboardPage() {
         }
 
         const data = await restaurantService.getInitialState(filter);
+        if (!isMounted) return;
         setRestaurant(data.restaurant);
         setCategories(data.categories || []);
         setMenuItems(data.menuItems || []);
@@ -262,17 +305,20 @@ export default function OwnerDashboardPage() {
         if (data.restaurant?.id) {
           const loadedOrders = orderService.getOrders(data.restaurant.id);
           const stats = orderService.getOrderStats(data.restaurant.id);
-          setOrders(loadedOrders);
+          setOrders((prev) => (prev === loadedOrders ? prev : loadedOrders));
           setOrderStats(stats);
         }
       } catch (err) {
         console.error('Error loading initial data:', err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
     loadData();
+    return () => {
+      isMounted = false;
+    };
   }, [user, selectedRestaurantId, restaurantSlug]);
 
   // Real-time synchronization of incoming orders and audio notifications
@@ -822,70 +868,92 @@ export default function OwnerDashboardPage() {
           )}
 
           {activeTab === 'tables' && (
-            <TableManager
-              restaurant={restaurant}
-              orders={orders}
-              currentUser={user}
-              onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
-              menuItems={menuItems}
-            />
+            <Suspense fallback={<TabPanelSkeleton />}>
+              <TableManager
+                restaurant={restaurant}
+                orders={orders}
+                currentUser={user}
+                onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
+                menuItems={menuItems}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'items' && (
-            <MenuItemManager
-              categories={categories}
-              menuItems={menuItems}
-              onCreateMenuItem={handleCreateMenuItem}
-              onUpdateMenuItem={handleUpdateMenuItem}
-              onDeleteMenuItem={handleDeleteMenuItem}
-            />
+            <Suspense fallback={<TabPanelSkeleton />}>
+              <MenuItemManager
+                categories={categories}
+                menuItems={menuItems}
+                onCreateMenuItem={handleCreateMenuItem}
+                onUpdateMenuItem={handleUpdateMenuItem}
+                onDeleteMenuItem={handleDeleteMenuItem}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'qr' && (
-            <QRCodeManager
-              restaurant={restaurant}
-              onNavigateToSettings={() => setActiveTab('settings')}
-            />
+            <Suspense fallback={<TabPanelSkeleton />}>
+              <QRCodeManager
+                restaurant={restaurant}
+                onNavigateToSettings={() => setActiveTab('settings')}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'categories' && (
-            <CategoryManager
-              categories={categories}
-              menuItems={menuItems}
-              onCreateCategory={handleCreateCategory}
-              onUpdateCategory={handleUpdateCategory}
-              onDeleteCategory={handleDeleteCategory}
-            />
+            <Suspense fallback={<TabPanelSkeleton />}>
+              <CategoryManager
+                categories={categories}
+                menuItems={menuItems}
+                onCreateCategory={handleCreateCategory}
+                onUpdateCategory={handleUpdateCategory}
+                onDeleteCategory={handleDeleteCategory}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'customers' && (
-            <CustomerManager
-              restaurant={restaurant}
-              currentUser={user}
-              orders={orders}
-              initialFilter={khataFilter}
-              onViewOrder={(orderId) => {
-                setActiveTab('orders');
-              }}
-            />
+            <Suspense fallback={<TabPanelSkeleton />}>
+              <CustomerManager
+                restaurant={restaurant}
+                currentUser={user}
+                orders={orders}
+                initialFilter={khataFilter}
+                onViewOrder={(orderOrId) => {
+                  const targetOrder =
+                    typeof orderOrId === 'object' && orderOrId !== null
+                      ? orderOrId
+                      : orders.find((o) => o.id === orderOrId);
+                  if (targetOrder?.status === 'completed') {
+                    setActiveTab('completed');
+                  } else {
+                    setActiveTab('orders');
+                  }
+                }}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'cashflow' && (
-            <CashFlowManager
-              restaurant={restaurant}
-              currentUser={user}
-            />
+            <Suspense fallback={<TabPanelSkeleton />}>
+              <CashFlowManager
+                restaurant={restaurant}
+                currentUser={user}
+              />
+            </Suspense>
           )}
 
           {activeTab === 'settings' && (
-            <StoreSettings
-              restaurant={restaurant}
-              categories={categories}
-              orders={orders}
-              onUpdate={handleUpdateRestaurant}
-              onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
-              onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
-            />
+            <Suspense fallback={<TabPanelSkeleton />}>
+              <StoreSettings
+                restaurant={restaurant}
+                categories={categories}
+                orders={orders}
+                onUpdate={handleUpdateRestaurant}
+                onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
+                onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
+              />
+            </Suspense>
           )}
         </div>
       </main>
@@ -901,50 +969,60 @@ export default function OwnerDashboardPage() {
         <Plus className="w-6 h-6 stroke-[3]" />
       </button>
 
-      {/* POS In-Store New Order Modal */}
-      <NewOrderModal
-        isOpen={isNewOrderModalOpen}
-        onClose={() => {
-          setIsNewOrderModalOpen(false);
-          setPosInitialAppendOrderId(null);
-        }}
-        restaurant={restaurant}
-        categories={categories}
-        menuItems={menuItems}
-        orders={orders}
-        currentUser={user}
-        initialTable={posInitialTable}
-        initialOrderType={posInitialOrderType}
-        initialAppendOrderId={posInitialAppendOrderId}
-        onOrderCreated={() => {
-          if (restaurant?.id) {
-            const refreshed = orderService.getOrders(restaurant.id);
-            setOrders(refreshed);
-            setOrderStats(orderService.getOrderStats(restaurant.id));
-          }
-          refreshKhataSummary();
-        }}
-      />
+      {/* POS In-Store New Order Modal (Lazy-mounted only when open) */}
+      {isNewOrderModalOpen && (
+        <Suspense fallback={null}>
+          <NewOrderModal
+            isOpen={isNewOrderModalOpen}
+            onClose={() => {
+              setIsNewOrderModalOpen(false);
+              setPosInitialAppendOrderId(null);
+            }}
+            restaurant={restaurant}
+            categories={categories}
+            menuItems={menuItems}
+            orders={orders}
+            currentUser={user}
+            initialTable={posInitialTable}
+            initialOrderType={posInitialOrderType}
+            initialAppendOrderId={posInitialAppendOrderId}
+            onOrderCreated={() => {
+              if (restaurant?.id) {
+                const refreshed = orderService.getOrders(restaurant.id);
+                setOrders(refreshed);
+                setOrderStats(orderService.getOrderStats(restaurant.id));
+              }
+              refreshKhataSummary();
+            }}
+          />
+        </Suspense>
+      )}
 
+      {/* Printer Setup Wizard Modal (Lazy-mounted only when open) */}
+      {isPrinterModalOpen && (
+        <Suspense fallback={null}>
+          <PrinterSetupWizard
+            isOpen={isPrinterModalOpen}
+            onClose={() => setIsPrinterModalOpen(false)}
+            categories={categories}
+          />
+        </Suspense>
+      )}
 
-
-      {/* Printer Setup Wizard Modal */}
-      <PrinterSetupWizard
-        isOpen={isPrinterModalOpen}
-        onClose={() => setIsPrinterModalOpen(false)}
-        categories={categories}
-      />
-
-      {/* Executive PDF-style Daily & Period Sales Summary Report Modal */}
-      <TodaySalesSummaryModal
-        isOpen={isSalesSummaryModalOpen}
-        onClose={() => setIsSalesSummaryModalOpen(false)}
-        restaurant={restaurant}
-        summaryData={currentSummaryData}
-        onPrintThermal={handlePrintThermalSummary}
-        orders={orders}
-        menuItems={menuItems}
-      />
+      {/* Executive PDF-style Daily & Period Sales Summary Report Modal (Lazy-mounted only when open) */}
+      {isSalesSummaryModalOpen && (
+        <Suspense fallback={null}>
+          <TodaySalesSummaryModal
+            isOpen={isSalesSummaryModalOpen}
+            onClose={() => setIsSalesSummaryModalOpen(false)}
+            restaurant={restaurant}
+            summaryData={currentSummaryData}
+            onPrintThermal={handlePrintThermalSummary}
+            orders={orders}
+            menuItems={menuItems}
+          />
+        </Suspense>
+      )}
 
       {/* Footer */}
       <footer className="no-print mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-500 bg-white space-y-2">

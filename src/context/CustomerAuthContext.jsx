@@ -53,8 +53,8 @@ export function CustomerAuthProvider({ children }) {
     initCustomer();
   }, []);
 
-  const loginCustomer = async ({ name, phone, email }) => {
-    const loggedCustomer = await customerService.loginOrRegister({ name, phone, email });
+  const loginCustomer = async (customerData) => {
+    const loggedCustomer = await customerService.loginOrRegister(customerData);
     setCustomer(loggedCustomer);
     const [addrs, favs] = await Promise.all([
       customerService.getAddresses(loggedCustomer.id),

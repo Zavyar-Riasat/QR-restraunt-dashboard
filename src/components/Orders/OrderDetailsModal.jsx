@@ -24,7 +24,7 @@ import { buildGoogleMapsNavUrl, buildOsmNavUrl } from '../../config/mapConfig';
 import SendToRiderMenu from './SendToRiderMenu';
 import { TEMPLATE_TYPES } from '../../services/printer/printerTypes';
 
-import LeafletMap from '../Map/LeafletMap.jsx';
+const LeafletMap = lazy(() => import('../Map/LeafletMap.jsx'));
 
 export default function OrderDetailsModal({
   order,
@@ -66,28 +66,28 @@ export default function OrderDetailsModal({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono font-extrabold text-[#2B2118] text-lg">
-                Order #{order.id}
+                Order #{currentOrder.id}
               </span>
               <span
                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
-                  order.status === 'new'
+                  currentOrder.status === 'new'
                     ? 'bg-red-100 text-red-800 border border-red-200'
-                    : order.status === 'preparing'
+                    : currentOrder.status === 'preparing'
                     ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                    : order.status === 'out_for_delivery' || order.status === 'ready'
+                    : currentOrder.status === 'out_for_delivery' || currentOrder.status === 'ready'
                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                     : 'bg-slate-100 text-slate-700 border border-slate-200'
                 }`}
               >
-                {order.status === 'new'
+                {currentOrder.status === 'new'
                   ? 'New Order'
-                  : order.status === 'preparing'
+                  : currentOrder.status === 'preparing'
                   ? 'Preparing in Kitchen'
-                  : order.status === 'out_for_delivery'
+                  : currentOrder.status === 'out_for_delivery'
                   ? 'Out for Delivery'
-                  : order.status === 'ready'
+                  : currentOrder.status === 'ready'
                   ? 'Ready for Counter Pickup'
-                  : order.status === 'completed'
+                  : currentOrder.status === 'completed'
                   ? 'Completed'
                   : 'Cancelled'}
               </span>
@@ -96,9 +96,9 @@ export default function OrderDetailsModal({
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-extrabold border border-amber-200">
                   🛵 Delivery
                 </span>
-              ) : order.order_type === 'dine_in' ? (
+              ) : currentOrder.order_type === 'dine_in' ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 text-xs font-extrabold border border-purple-200">
-                  🍽️ Dine-In {order.table_number ? `• Table ${order.table_number}` : ''}
+                  🍽️ Dine-In {(currentOrder.table_number || currentOrder.table) ? `• Table ${currentOrder.table_number || currentOrder.table}` : ''}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 text-xs font-extrabold border border-blue-200">
@@ -117,9 +117,22 @@ export default function OrderDetailsModal({
             {/* Delivery Order: Send to Rider Button in Order Details */}
             {isDelivery && (
               <SendToRiderMenu
-                order={order}
+                order={currentOrder}
                 restaurant={restaurant}
                 buttonSize="default"
+                onRiderAssigned={(_ordId, rider) => {
+                  const nextAssigned = rider
+                    ? {
+                        id: rider.id,
+                        name: rider.name,
+                        phone: rider.phone,
+                        assigned_at: new Date().toISOString(),
+                      }
+                    : null;
+                  const nextOrder = { ...currentOrder, assigned_rider: nextAssigned };
+                  setActiveOrder(nextOrder);
+                  if (onOrderUpdated) onOrderUpdated(nextOrder);
+                }}
               />
             )}
 
@@ -136,7 +149,7 @@ export default function OrderDetailsModal({
         {/* Scrollable Content */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
           {/* Assigned Rider Banner (if assigned) */}
-          {order.assigned_rider && (
+          {currentOrder.assigned_rider && (
             <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -147,14 +160,14 @@ export default function OrderDetailsModal({
                     Assigned Delivery Rider
                   </div>
                   <div className="text-xs sm:text-sm font-bold text-emerald-950">
-                    {order.assigned_rider.name}
+                    {currentOrder.assigned_rider.name}
                   </div>
                 </div>
               </div>
 
-              {order.assigned_rider.phone && (
+              {currentOrder.assigned_rider.phone && (
                 <a
-                  href={`tel:${order.assigned_rider.phone}`}
+                  href={`tel:${currentOrder.assigned_rider.phone}`}
                   className="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-emerald-800 text-xs font-bold hover:bg-emerald-100 transition flex items-center gap-1.5"
                 >
                   <Phone className="w-3.5 h-3.5 text-emerald-600" />
@@ -170,40 +183,40 @@ export default function OrderDetailsModal({
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-[#F26B1D]" />
                 <span className="font-bold text-sm text-[#2B2118]">
-                  {order.customer_name || 'Walk-in Guest'}
+                  {currentOrder.customer_name || 'Walk-in Guest'}
                 </span>
               </div>
 
-              {order.customer_phone && (
+              {currentOrder.customer_phone && (
                 <a
-                  href={`tel:+${order.customer_phone.replace(/\D/g, '')}`}
+                  href={`tel:+${currentOrder.customer_phone.replace(/\D/g, '')}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white border border-[#F0E4D7] text-emerald-700 font-mono text-xs font-bold hover:bg-emerald-50 transition"
                 >
                   <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>+{order.customer_phone}</span>
+                  <span>+{currentOrder.customer_phone}</span>
                 </a>
               )}
             </div>
 
             {/* Address */}
-            {order.customer_address && (
+            {currentOrder.customer_address && (
               <div className="pt-2 border-t border-[#F0E4D7]/70 space-y-1">
                 <div className="flex items-start gap-1.5 text-xs text-[#2B2118]">
                   <MapPin className="w-4 h-4 text-[#F26B1D] shrink-0 mt-0.5" />
                   <div className="space-y-0.5 flex-1">
                     <p className="font-semibold leading-relaxed">
-                      {order.customer_address}
+                      {currentOrder.customer_address}
                     </p>
-                    {(order.house_flat || order.area_landmark) && (
+                    {(currentOrder.house_flat || currentOrder.area_landmark) && (
                       <div className="flex items-center gap-2 flex-wrap text-[11px] text-[#7A6A5C] pt-0.5">
-                        {order.house_flat && (
+                        {currentOrder.house_flat && (
                           <span className="bg-white px-2 py-0.5 rounded border border-[#F0E4D7]">
-                            House/Flat: {order.house_flat}
+                            House/Flat: {currentOrder.house_flat}
                           </span>
                         )}
-                        {order.area_landmark && (
+                        {currentOrder.area_landmark && (
                           <span className="bg-white px-2 py-0.5 rounded border border-[#F0E4D7]">
-                            Landmark: {order.area_landmark}
+                            Landmark: {currentOrder.area_landmark}
                           </span>
                         )}
                       </div>
@@ -215,7 +228,7 @@ export default function OrderDetailsModal({
                 {isDelivery && (
                   <div className="flex items-center gap-2 pt-2">
                     <a
-                      href={buildGoogleMapsNavUrl(order)}
+                      href={buildGoogleMapsNavUrl(currentOrder)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-[#F26B1D] text-[#F26B1D] text-xs font-bold hover:bg-[#FFF1E6] transition shadow-2xs"
@@ -242,10 +255,10 @@ export default function OrderDetailsModal({
             )}
 
             {/* Delivery Note */}
-            {(order.delivery_notes || order.customer_notes) && (
+            {(currentOrder.delivery_notes || currentOrder.customer_notes) && (
               <div className="p-2.5 rounded-xl bg-[#FEF3D9] border border-[#FCE1A8] text-xs text-[#2B2118]">
                 <strong className="text-[#F5A623]">Delivery / Kitchen Note: </strong>
-                <span>{order.delivery_notes || order.customer_notes}</span>
+                <span>{currentOrder.delivery_notes || currentOrder.customer_notes}</span>
               </div>
             )}
           </div>
@@ -258,9 +271,9 @@ export default function OrderDetailsModal({
                   <MapPin className="w-3.5 h-3.5 text-[#F26B1D]" />
                   <span>Pin: {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}</span>
                 </span>
-                {order.accuracy && (
+                {currentOrder.accuracy && (
                   <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Accuracy: ±{Math.round(order.accuracy)}m
+                    Accuracy: ±{Math.round(currentOrder.accuracy)}m
                   </span>
                 )}
               </div>
@@ -278,7 +291,7 @@ export default function OrderDetailsModal({
                     draggable={false}
                     interactive={true}
                     height="176px"
-                    popupText={order.customer_address}
+                    popupText={currentOrder.customer_address}
                   />
                 </Suspense>
               </div>
@@ -288,10 +301,10 @@ export default function OrderDetailsModal({
           {/* Items Summary */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold text-[#7A6A5C] uppercase tracking-wider">
-              Ordered Items ({order.items?.length || 0})
+              Ordered Items ({currentOrder.items?.length || 0})
             </h4>
             <div className="divide-y divide-slate-100 rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden">
-              {(order.items || []).map((item, idx) => (
+              {(currentOrder.items || []).map((item, idx) => (
                 <div key={idx} className="p-3 flex items-start justify-between gap-3 bg-white">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -377,7 +390,7 @@ export default function OrderDetailsModal({
               <>
                 <button
                   type="button"
-                  onClick={() => onPrintTicket(order, TEMPLATE_TYPES.KOT)}
+                  onClick={() => onPrintTicket(currentOrder, TEMPLATE_TYPES.KOT)}
                   className="px-2.5 py-1.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-xs font-bold hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
                 >
                   <ChefHat className="w-3.5 h-3.5 text-amber-500" />
@@ -385,7 +398,7 @@ export default function OrderDetailsModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onPrintTicket(order, TEMPLATE_TYPES.BILL)}
+                  onClick={() => onPrintTicket(currentOrder, TEMPLATE_TYPES.BILL)}
                   className="px-2.5 py-1.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-xs font-bold hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-blue-500" />
@@ -394,7 +407,7 @@ export default function OrderDetailsModal({
                 {isDelivery && (
                   <button
                     type="button"
-                    onClick={() => onPrintTicket(order, TEMPLATE_TYPES.DELIVERY)}
+                    onClick={() => onPrintTicket(currentOrder, TEMPLATE_TYPES.DELIVERY)}
                     className="px-2.5 py-1.5 rounded-xl bg-white border border-[#F0E4D7] text-[#2B2118] text-xs font-bold hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
                   >
                     <Truck className="w-3.5 h-3.5 text-emerald-600" />
@@ -407,11 +420,11 @@ export default function OrderDetailsModal({
 
           {/* Workflow Action Button */}
           <div className="flex items-center gap-2">
-            {order.status === 'new' && onUpdateStatus && (
+            {currentOrder.status === 'new' && onUpdateStatus && (
               <button
                 type="button"
                 onClick={() => {
-                  onUpdateStatus(order.id, 'preparing');
+                  onUpdateStatus(currentOrder.id, 'preparing');
                   onClose();
                 }}
                 className="px-4 py-2 rounded-xl bg-[#F26B1D] text-white font-bold text-xs hover:bg-[#D95A12] transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-orange-500/20"
@@ -420,11 +433,11 @@ export default function OrderDetailsModal({
                 <span>Accept & Prepare</span>
               </button>
             )}
-            {order.status === 'preparing' && onUpdateStatus && (
+            {currentOrder.status === 'preparing' && onUpdateStatus && (
               <button
                 type="button"
                 onClick={() => {
-                  onUpdateStatus(order.id, isDelivery ? 'out_for_delivery' : 'ready');
+                  onUpdateStatus(currentOrder.id, isDelivery ? 'out_for_delivery' : 'ready');
                   onClose();
                 }}
                 className="px-4 py-2 rounded-xl bg-[#F5A623] text-white font-bold text-xs hover:bg-[#D98E16] transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20"
@@ -433,11 +446,11 @@ export default function OrderDetailsModal({
                 <span>{isDelivery ? 'Dispatch for Delivery' : 'Mark Ready'}</span>
               </button>
             )}
-            {(order.status === 'out_for_delivery' || order.status === 'ready') && onUpdateStatus && (
+            {(currentOrder.status === 'out_for_delivery' || currentOrder.status === 'ready') && onUpdateStatus && (
               <button
                 type="button"
                 onClick={() => {
-                  onUpdateStatus(order.id, 'completed');
+                  onUpdateStatus(currentOrder.id, 'completed');
                   onClose();
                 }}
                 className="px-4 py-2 rounded-xl bg-[#1F9D55] text-white font-bold text-xs hover:bg-[#188044] transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-green-500/20"

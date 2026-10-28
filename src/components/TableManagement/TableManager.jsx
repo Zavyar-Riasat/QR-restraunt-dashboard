@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Plus,
@@ -38,6 +38,19 @@ export default function TableManager({
   const [tables, setTables] = useState(() => {
     return tableService.getTables(restaurant?.id || 'rest-101');
   });
+
+  useEffect(() => {
+    const restId = restaurant?.id || 'rest-101';
+    setTables(tableService.getTables(restId));
+
+    const handleTablesUpdated = (e) => {
+      if (!e.detail?.restaurantId || e.detail.restaurantId === restId) {
+        setTables(tableService.getTables(restId));
+      }
+    };
+    window.addEventListener('dinehq_tables_updated', handleTablesUpdated);
+    return () => window.removeEventListener('dinehq_tables_updated', handleTablesUpdated);
+  }, [restaurant?.id]);
 
   const [activeSectionFilter, setActiveSectionFilter] = useState('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -745,7 +758,7 @@ export default function TableManager({
             setEditingOrderItems(null);
           }}
           onPrintBill={async (updatedOrder, templateType) => {
-            const table = updatedOrder?.table;
+            const table = updatedOrder?.table_number || updatedOrder?.table;
             const origin = typeof window !== 'undefined' ? window.location.origin : '';
             const params = new URLSearchParams();
             if (table) params.set('table', table);
@@ -767,7 +780,8 @@ export default function TableManager({
           onOpenPosForOrder={(ord) => {
             setEditingOrderItems(null);
             if (onOpenPosForTable) {
-              const tableObj = ord.table ? { table_number: ord.table } : null;
+              const tblNum = ord.table_number || ord.table;
+              const tableObj = tblNum ? { table_number: tblNum } : null;
               onOpenPosForTable(tableObj, ord.id);
             }
           }}

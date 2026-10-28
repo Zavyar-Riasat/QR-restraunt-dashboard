@@ -79,12 +79,58 @@ export default function LeafletMap({
   const markerRef = useRef(null);
   const isDraggingRef = useRef(false);
   const [isAttributionOpen, setIsAttributionOpen] = useState(false);
+  const [shouldInitMap, setShouldInitMap] = useState(() => Boolean(interactive));
 
   const activeLat = Number(center?.lat ?? DEFAULT_FALLBACK_COORDS.lat);
   const activeLng = Number(center?.lng ?? DEFAULT_FALLBACK_COORDS.lng);
 
+  // Defer static map thumbnail initialization until visible in viewport and browser is idle
+  useEffect(() => {
+    if (shouldInitMap) return;
+    const el = mapContainerRef.current;
+    if (!el) return;
+
+    let idleId = null;
+    let timeoutId = null;
+
+    const triggerIdleInit = () => {
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        idleId = window.requestIdleCallback(() => setShouldInitMap(true), { timeout: 600 });
+      } else {
+        timeoutId = setTimeout(() => setShouldInitMap(true), 180);
+      }
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      triggerIdleInit();
+      return () => {
+        if (idleId && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId);
+        if (timeoutId) clearTimeout(timeoutId);
+      };
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          triggerIdleInit();
+        }
+      },
+      { rootMargin: '120px' }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      if (idleId && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [shouldInitMap]);
+
   // Initialize Map
   useEffect(() => {
+    if (!shouldInitMap) return;
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return; // already initialized
 
@@ -173,14 +219,12 @@ export default function LeafletMap({
       resizeObserver.observe(mapContainerRef.current);
     }
 
-    // 2. Staggered timers to catch modal transition animations (fade-in, scale, slide)
-    const timerIds = [50, 150, 300, 500, 1000].map((ms) =>
-      setTimeout(() => {
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.invalidateSize({ pan: false });
-        }
-      }, ms)
-    );
+    // 2. Single fallback timer for modal transition completion (avoids repeated forced reflows)
+    const timerId = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ pan: false });
+      }
+    }, 200);
 
     // 3. Listen to window resize and visibilitychange
     const handleWindowChange = () => {
@@ -192,7 +236,7 @@ export default function LeafletMap({
     document.addEventListener('visibilitychange', handleWindowChange);
 
     return () => {
-      timerIds.forEach(clearTimeout);
+      clearTimeout(timerId);
       if (resizeObserver) resizeObserver.disconnect();
       window.removeEventListener('resize', handleWindowChange);
       document.removeEventListener('visibilitychange', handleWindowChange);
@@ -200,7 +244,7 @@ export default function LeafletMap({
       mapInstanceRef.current = null;
       markerRef.current = null;
     };
-  }, []);
+  }, [shouldInitMap]);
 
   // Update map view & marker when center coordinates change externally (without jumping)
   useEffect(() => {

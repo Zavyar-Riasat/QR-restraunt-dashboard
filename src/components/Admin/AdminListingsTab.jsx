@@ -35,6 +35,8 @@ export default function AdminListingsTab() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected' | 'hidden'
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 12;
 
   // Remove Modal State
   const [deletingRestaurant, setDeletingRestaurant] = useState(null);
@@ -171,6 +173,17 @@ export default function AdminListingsTab() {
     return true;
   });
 
+  // Reset page when filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginatedListings = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   const pendingCount = restaurants.filter((r) => r.listing_status === 'pending').length;
   const approvedCount = restaurants.filter((r) => r.listing_status === 'approved').length;
 
@@ -282,9 +295,10 @@ export default function AdminListingsTab() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          {filtered.map((store) => {
-            const status = store.listing_status || (store.listed_publicly ? 'approved' : 'hidden');
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            {paginatedListings.map((store) => {
+              const status = store.listing_status || (store.listed_publicly ? 'approved' : 'hidden');
 
             return (
               <div
@@ -448,6 +462,37 @@ export default function AdminListingsTab() {
               </div>
             );
           })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-5 py-3.5 rounded-2xl border border-[#F0E4D7] text-xs">
+              <span className="text-[#7A6A5C] font-semibold">
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of{' '}
+                <strong className="text-[#2B2118]">{filtered.length}</strong> listings
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] hover:bg-[#FFF1E6] font-bold text-[#2B2118] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="font-mono font-bold text-[#2B2118] px-2">
+                  Page {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] hover:bg-[#FFF1E6] font-bold text-[#2B2118] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

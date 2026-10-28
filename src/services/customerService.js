@@ -76,11 +76,11 @@ export const customerService = {
 
     const customerObj = {
       id: existing?.id || `cust_${cleanPhone || Date.now().toString(36)}`,
-      name: cleanName || existing?.name || 'Guest Diner',
+      name: existing?.name || cleanName || 'Guest Diner',
       phone: cleanPhone,
-      email: cleanEmail || existing?.email || `${cleanPhone || 'guest'}@customer.dinehq.pk`,
-      avatar: avatar || existing?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanName)}`,
-      preferred_language: preferred_language || existing?.preferred_language || 'en',
+      email: existing?.email || cleanEmail || `${cleanPhone || 'guest'}@customer.dinehq.pk`,
+      avatar: existing?.avatar || avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanName)}`,
+      preferred_language: existing?.preferred_language || preferred_language || 'en',
       created_at: existing?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

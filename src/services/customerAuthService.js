@@ -35,7 +35,8 @@ export const customerAuthService = {
       hostname === '127.0.0.1' ||
       hostname === '::1' ||
       hostname.endsWith('.localhost') ||
-      hostname.endsWith('.local')
+      hostname.endsWith('.local') ||
+      hostname.includes('vercel.app')
     );
   },
 
@@ -281,15 +282,20 @@ export const customerAuthService = {
           provider: 'google',
           options: {
             redirectTo: window.location.origin + '/account',
+            skipBrowserRedirect: true,
           },
         });
         if (!error && data?.url) {
           // Pre-check if the provider is enabled in Supabase to avoid navigating to a raw 400 error page
           try {
-            const check = await fetch(data.url, { method: 'GET' });
-            if (check.status === 400) {
+            const check = await fetch(data.url, { method: 'GET', redirect: 'manual' });
+            if (check.status >= 400) {
               const body = await check.json().catch(() => ({}));
-              if (body?.msg?.includes('provider is not enabled') || body?.error_code === 'validation_failed') {
+              if (
+                check.status === 400 ||
+                body?.msg?.includes('provider is not enabled') ||
+                body?.error_code === 'validation_failed'
+              ) {
                 console.warn('[Dineflow] Supabase Google Provider is not enabled in dashboard. Falling back to Demo Google login.');
                 const demoGoogleUser = {
                   name: 'Ahmed Khan (Google Demo)',
@@ -307,7 +313,20 @@ export const customerAuthService = {
               }
             }
           } catch (fetchErr) {
-            // In case of CORS or network error, proceed to standard redirect
+            console.warn('[Dineflow] Could not verify Google OAuth endpoint, falling back to Demo Google login:', fetchErr);
+            const demoGoogleUser = {
+              name: 'Ahmed Khan (Google Demo)',
+              email: 'ahmed.khan@gmail.com',
+              phone: '03001234567',
+              avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80',
+              preferred_language: 'en',
+            };
+            const customer = await customerService.loginOrRegister(demoGoogleUser);
+            return {
+              success: true,
+              customer,
+              isFallback: true,
+            };
           }
 
           window.location.href = data.url;

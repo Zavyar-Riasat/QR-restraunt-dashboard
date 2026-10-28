@@ -9,6 +9,7 @@ import CustomerCartDrawer from '../components/CustomerCartDrawer';
 import CustomerOrderTracker from '../components/CustomerOrderTracker';
 import DirectOrderCheckout from '../components/DirectOrderCheckout';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { useCustomerAuth } from '../context/CustomerAuthContext';
 import { formatPKR } from '../utils/currencyUtils';
 import {
   UtensilsCrossed,
@@ -27,6 +28,7 @@ import {
   Truck,
   ArrowRight,
   X,
+  User,
 } from 'lucide-react';
 import {
   isDeal,
@@ -78,6 +80,7 @@ const UI_TRANSLATIONS = {
 
 export default function CustomerMenuPage() {
   const navigate = useNavigate();
+  const { customer, isCustomerAuthenticated } = useCustomerAuth();
   const { restaurantSlug, slug } = useParams();
   const effectiveSlug = restaurantSlug || slug || 'burgersmoke';
 
@@ -459,6 +462,41 @@ export default function CustomerMenuPage() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Customer Account / Avatar Pill */}
+            {isCustomerAuthenticated && customer ? (
+              <Link
+                to="/account?tab=profile"
+                title="View & edit your profile and avatar"
+                className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] border border-[#F0E4D7] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] transition shadow-2xs"
+              >
+                <img
+                  src={
+                    customer.avatar ||
+                    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customer.name || 'Guest')}`
+                  }
+                  alt={customer.name || 'Customer'}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                      customer.name || 'Guest'
+                    )}`;
+                  }}
+                  className="w-6 h-6 rounded-lg object-cover border border-[#FCD8BF] bg-[#FFF1E6]"
+                />
+                <span className="hidden sm:inline">
+                  {customer.name ? customer.name.split(' ')[0] : 'Account'}
+                </span>
+              </Link>
+            ) : (
+              <Link
+                to="/account"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] border border-[#F0E4D7] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] transition shadow-2xs"
+              >
+                <User className="w-3.5 h-3.5 text-[#F26B1D]" />
+                <span className="hidden sm:inline">Sign In</span>
+              </Link>
+            )}
+
             {/* Header Cart Button */}
             <button
               id="menu-navbar-cart-button"

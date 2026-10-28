@@ -316,6 +316,14 @@ export const SEED_DELIVERY_AREAS = [
   },
 ];
 
+// Pre-indexed O(1) lookup map for seeded delivery areas (avoids O(N) scans & N+1 queries)
+const SEED_DELIVERY_AREAS_MAP = new Map();
+for (const area of SEED_DELIVERY_AREAS) {
+  const existing = SEED_DELIVERY_AREAS_MAP.get(area.restaurant_id) || [];
+  existing.push(area);
+  SEED_DELIVERY_AREAS_MAP.set(area.restaurant_id, existing);
+}
+
 export const marketplaceService = {
   /**
    * High-Precision Haversine Formula (Kilometers)
@@ -462,6 +470,42 @@ export const marketplaceService = {
   },
 
   /**
+   * Read listing overrides once per batch instead of parsing JSON per restaurant (O(1) vs O(N^2))
+   */
+  _readListingOverridesOnce() {
+    try {
+      if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+        const raw = localStorage.getItem('dinehq_listing_overrides');
+        if (raw) {
+          return JSON.parse(raw) || {};
+        }
+      }
+    } catch (_) {}
+    return {};
+  },
+
+  /**
+   * Synchronous O(1) delivery area resolver for batch operations (eliminates N+1 network queries)
+   */
+  _resolveDeliveryAreasSync(restaurant) {
+    if (Array.isArray(restaurant?.delivery_areas) && restaurant.delivery_areas.length > 0) {
+      return restaurant.delivery_areas;
+    }
+    if (restaurant?.id) {
+      try {
+        if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+          const stored = localStorage.getItem(`dinehq_delivery_areas_${restaurant.id}`);
+          if (stored) {
+            return JSON.parse(stored);
+          }
+        }
+      } catch (_) {}
+      return SEED_DELIVERY_AREAS_MAP.get(restaurant.id) || [];
+    }
+    return [];
+  },
+
+  /**
    * Get public restaurants for the marketplace home page.
    * STRICT FILTER: Only restaurants with listing_status = 'approved' AND listed_publicly = true
    */
@@ -491,17 +535,30 @@ export const marketplaceService = {
     ) {
       rawRestaurants = this._publicRestaurantsCache.data;
     } else {
-      // 1. Query Supabase if configured
+      const overridesMap = this._readListingOverridesOnce();
+
+      // 1. Query Supabase if configured (single joined query with delivery_areas to avoid N+1)
       if (isSupabaseConfigured()) {
         try {
-          const { data, error } = await supabase
+          let { data, error } = await supabase
             .from('restaurants')
-            .select('*')
+            .select('*, delivery_areas(*)')
             .eq('listing_status', 'approved')
             .eq('listed_publicly', true);
 
+          if (error) {
+            // Fallback if delivery_areas foreign key relation is not yet in PostgREST cache
+            const fallbackRes = await supabase
+              .from('restaurants')
+              .select('*')
+              .eq('listing_status', 'approved')
+              .eq('listed_publicly', true);
+            data = fallbackRes.data;
+            error = fallbackRes.error;
+          }
+
           if (!error && Array.isArray(data) && data.length > 0) {
-            rawRestaurants = data.map((r) => this._normalizeRestaurant(r));
+            rawRestaurants = data.map((r) => this._normalizeRestaurant(r, overridesMap));
           }
         } catch (err) {
           console.warn('Supabase marketplace fetch notice:', err.message);
@@ -510,26 +567,41 @@ export const marketplaceService = {
 
       // 2. Fallback / Merge with Seeded Verified Restaurants
       if (rawRestaurants.length === 0) {
-        rawRestaurants = SEED_MARKETPLACE_RESTAURANTS.map((r) => this._normalizeRestaurant(r));
+        rawRestaurants = SEED_MARKETPLACE_RESTAURANTS.map((r) => this._normalizeRestaurant(r, overridesMap));
       } else {
         const existingSlugs = new Set(rawRestaurants.map((r) => r.slug));
         SEED_MARKETPLACE_RESTAURANTS.forEach((sr) => {
           if (!existingSlugs.has(sr.slug)) {
-            rawRestaurants.push(this._normalizeRestaurant(sr));
+            rawRestaurants.push(this._normalizeRestaurant(sr, overridesMap));
           }
         });
       }
 
-      // 3. Merge custom stored restaurants from registered owners
+      // 3. Merge custom stored restaurants from registered owners (O(1) index map)
       const customList = this._getCustomStoredRestaurants();
-      customList.forEach((cr) => {
-        const idx = rawRestaurants.findIndex((r) => r.id === cr.id || (cr.slug && r.slug === cr.slug));
-        if (idx >= 0) {
-          rawRestaurants[idx] = this._normalizeRestaurant({ ...rawRestaurants[idx], ...cr });
-        } else {
-          rawRestaurants.push(this._normalizeRestaurant(cr));
-        }
-      });
+      if (customList.length > 0) {
+        const idIndexMap = new Map();
+        const slugIndexMap = new Map();
+        rawRestaurants.forEach((r, idx) => {
+          if (r.id) idIndexMap.set(r.id, idx);
+          if (r.slug) slugIndexMap.set(r.slug, idx);
+        });
+
+        customList.forEach((cr) => {
+          const idx =
+            (cr.id && idIndexMap.has(cr.id) ? idIndexMap.get(cr.id) : undefined) ??
+            (cr.slug && slugIndexMap.has(cr.slug) ? slugIndexMap.get(cr.slug) : -1);
+          if (idx >= 0) {
+            rawRestaurants[idx] = this._normalizeRestaurant({ ...rawRestaurants[idx], ...cr }, overridesMap);
+          } else {
+            const norm = this._normalizeRestaurant(cr, overridesMap);
+            const newIdx = rawRestaurants.length;
+            rawRestaurants.push(norm);
+            if (norm.id) idIndexMap.set(norm.id, newIdx);
+            if (norm.slug) slugIndexMap.set(norm.slug, newIdx);
+          }
+        });
+      }
 
       // Cache raw list for 60 seconds
       this._publicRestaurantsCache = {
@@ -543,36 +615,35 @@ export const marketplaceService = {
       (r) => !r.deleted && r.listing_status === 'approved' && r.listed_publicly === true
     );
 
-    // 4. Attach dynamically computed is_open_now, distance_km, and delivers_to_user
+    // 4. Attach dynamically computed is_open_now, distance_km, and delivers_to_user synchronously in O(N) (zero N+1 queries)
     const now = new Date();
     const customerLocation =
       userLat != null && userLng != null ? { lat: Number(userLat), lng: Number(userLng) } : null;
 
-    restaurants = await Promise.all(
-      restaurants.map(async (r) => {
-        const isOpen = this.computeIsOpenNow(r.opening_hours, now);
-        let distanceKm = null;
-        if (customerLocation && r.latitude != null && r.longitude != null) {
-          distanceKm = this.haversineDistanceKm(
-            customerLocation.lat,
-            customerLocation.lng,
-            r.latitude,
-            r.longitude
-          );
-        }
+    restaurants = restaurants.map((r) => {
+      const isOpen = this.computeIsOpenNow(r.opening_hours, now);
+      let distanceKm = null;
+      if (customerLocation && r.latitude != null && r.longitude != null) {
+        distanceKm = this.haversineDistanceKm(
+          customerLocation.lat,
+          customerLocation.lng,
+          r.latitude,
+          r.longitude
+        );
+      }
 
-        const areas = r.delivery_areas || (await this.getDeliveryAreas(r.id));
-        const coverage = checkRestaurantDeliveryCoverage(customerLocation, r, areas);
+      const areas = this._resolveDeliveryAreasSync(r);
+      const coverage = checkRestaurantDeliveryCoverage(customerLocation, r, areas);
 
-        return {
-          ...r,
-          is_open_now: isOpen,
-          distance_km: distanceKm,
-          delivers_to_user: coverage.deliversToUser,
-          delivery_fee_effective: coverage.fee ?? r.delivery_fee,
-        };
-      })
-    );
+      return {
+        ...r,
+        delivery_areas: areas,
+        is_open_now: isOpen,
+        distance_km: distanceKm,
+        delivers_to_user: coverage.deliversToUser,
+        delivery_fee_effective: coverage.fee ?? r.delivery_fee,
+      };
+    });
 
     // 5. Filter by Cuisine Tag
     if (cuisine && cuisine !== 'ALL') {
@@ -998,16 +1069,23 @@ export const marketplaceService = {
 
   /**
    * Fetch all restaurants for Super Admin console (including pending, approved, rejected, hidden)
+   * Optimized to avoid N+1 delivery_areas queries and O(N^2) JSON parsing at 10,000+ restaurants
    */
   async getAllRestaurantsForAdmin() {
     let all = [];
+    const overridesMap = this._readListingOverridesOnce();
 
-    // 1. Try Supabase
+    // 1. Try Supabase with single joined query
     if (isSupabaseConfigured()) {
       try {
-        const { data, error } = await supabase.from('restaurants').select('*');
+        let { data, error } = await supabase.from('restaurants').select('*, delivery_areas(*)');
+        if (error) {
+          const fallbackRes = await supabase.from('restaurants').select('*');
+          data = fallbackRes.data;
+          error = fallbackRes.error;
+        }
         if (!error && Array.isArray(data) && data.length > 0) {
-          all = data.map((r) => this._normalizeRestaurant(r));
+          all = data.map((r) => this._normalizeRestaurant(r, overridesMap));
         }
       } catch (e) {
         console.warn('Error fetching admin restaurants from Supabase:', e.message);
@@ -1017,32 +1095,47 @@ export const marketplaceService = {
     // 2. Fallback / Merge with Seeded list
     const existingIds = new Set(all.map((r) => r.id));
     if (all.length === 0) {
-      all = SEED_MARKETPLACE_RESTAURANTS.map((r) => this._normalizeRestaurant(r));
+      all = SEED_MARKETPLACE_RESTAURANTS.map((r) => this._normalizeRestaurant(r, overridesMap));
       all.forEach((r) => existingIds.add(r.id));
     } else {
       SEED_MARKETPLACE_RESTAURANTS.forEach((sr) => {
         if (!existingIds.has(sr.id)) {
-          all.push(this._normalizeRestaurant(sr));
+          all.push(this._normalizeRestaurant(sr, overridesMap));
           existingIds.add(sr.id);
         }
       });
     }
 
-    // 3. Merge custom stored restaurants from registered owners
+    // 3. Merge custom stored restaurants from registered owners (O(1) index map)
     const customList = this._getCustomStoredRestaurants();
-    customList.forEach((cr) => {
-      const idx = all.findIndex((r) => r.id === cr.id || (cr.slug && r.slug === cr.slug));
-      if (idx >= 0) {
-        all[idx] = this._normalizeRestaurant({ ...all[idx], ...cr });
-      } else {
-        all.push(this._normalizeRestaurant(cr));
-        existingIds.add(cr.id);
-      }
-    });
+    if (customList.length > 0) {
+      const idIdxMap = new Map();
+      const slugIdxMap = new Map();
+      all.forEach((r, idx) => {
+        if (r.id) idIdxMap.set(r.id, idx);
+        if (r.slug) slugIdxMap.set(r.slug, idx);
+      });
 
-    // 4. Attach delivery areas for each restaurant
+      customList.forEach((cr) => {
+        const idx =
+          (cr.id && idIdxMap.has(cr.id) ? idIdxMap.get(cr.id) : undefined) ??
+          (cr.slug && slugIdxMap.has(cr.slug) ? slugIdxMap.get(cr.slug) : -1);
+        if (idx >= 0) {
+          all[idx] = this._normalizeRestaurant({ ...all[idx], ...cr }, overridesMap);
+        } else {
+          const norm = this._normalizeRestaurant(cr, overridesMap);
+          const newIdx = all.length;
+          all.push(norm);
+          existingIds.add(norm.id);
+          if (norm.id) idIdxMap.set(norm.id, newIdx);
+          if (norm.slug) slugIdxMap.set(norm.slug, newIdx);
+        }
+      });
+    }
+
+    // 4. Resolve delivery areas in O(1) per restaurant without N+1 network requests
     for (const r of all) {
-      r.delivery_areas = await this.getDeliveryAreas(r.id);
+      r.delivery_areas = this._resolveDeliveryAreasSync(r);
     }
 
     return all.filter((r) => !r.deleted);
@@ -1179,7 +1272,7 @@ export const marketplaceService = {
   /**
    * Normalizer to ensure consistent field names across Supabase & local seed
    */
-  _normalizeRestaurant(r) {
+  _normalizeRestaurant(r, preloadedOverrides = null) {
     const openingHours = r.opening_hours && typeof r.opening_hours === 'object'
       ? r.opening_hours
       : DEFAULT_OPENING_HOURS;
@@ -1203,17 +1296,12 @@ export const marketplaceService = {
     let overrideReason = r.rejection_reason || '';
     let isDeleted = Boolean(r.deleted);
     try {
-      if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
-        const raw = localStorage.getItem('dinehq_listing_overrides');
-        if (raw) {
-          const overrides = JSON.parse(raw);
-          if (overrides[r.id]) {
-            if (overrides[r.id].deleted !== undefined) isDeleted = Boolean(overrides[r.id].deleted);
-            if (overrides[r.id].listing_status !== undefined) overrideStatus = overrides[r.id].listing_status;
-            if (overrides[r.id].listed_publicly !== undefined) overridePublic = overrides[r.id].listed_publicly;
-            if (overrides[r.id].rejection_reason !== undefined) overrideReason = overrides[r.id].rejection_reason;
-          }
-        }
+      const overrides = preloadedOverrides || this._readListingOverridesOnce();
+      if (overrides && overrides[r.id]) {
+        if (overrides[r.id].deleted !== undefined) isDeleted = Boolean(overrides[r.id].deleted);
+        if (overrides[r.id].listing_status !== undefined) overrideStatus = overrides[r.id].listing_status;
+        if (overrides[r.id].listed_publicly !== undefined) overridePublic = overrides[r.id].listed_publicly;
+        if (overrides[r.id].rejection_reason !== undefined) overrideReason = overrides[r.id].rejection_reason;
       }
     } catch (e) {
       console.warn('Error reading listing overrides in normalizer:', e);

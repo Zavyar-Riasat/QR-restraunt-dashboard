@@ -83,8 +83,15 @@ export default function NewOrderModal({
   });
   const [orderNotes, setOrderNotes] = useState('');
   const [deliveryFee, setDeliveryFee] = useState(
-    restaurant?.delivery_mode === 'free' ? 0 : Number(restaurant?.delivery_fee) || 150
+    restaurant?.delivery_mode === 'free' ? 0 : Number(restaurant?.delivery_fee ?? 150)
   );
+
+  // Sync default deliveryFee when restaurant changes
+  useEffect(() => {
+    setDeliveryFee(
+      restaurant?.delivery_mode === 'free' ? 0 : Number(restaurant?.delivery_fee ?? 150)
+    );
+  }, [restaurant?.id, restaurant?.delivery_mode, restaurant?.delivery_fee]);
 
   const handleDeliveryLocationChange = (newLoc) => {
     setDeliveryLocation(newLoc);
@@ -140,11 +147,12 @@ export default function NewOrderModal({
       const existing = orders.find((o) => o.id === initialAppendOrderId);
       if (existing) {
         if (existing.order_type) setOrderType(existing.order_type);
-        if (existing.table) {
+        const existingTblNum = existing.table_number || existing.table;
+        if (existingTblNum) {
           const matchingTable = tables.find(
-            (t) => String(t.table_number) === String(existing.table)
+            (t) => String(t.table_number) === String(existingTblNum)
           );
-          setSelectedTable(matchingTable || { table_number: existing.table });
+          setSelectedTable(matchingTable || { table_number: existingTblNum });
           setShowTablePicker(false);
         } else {
           setSelectedTable(null);
@@ -167,7 +175,8 @@ export default function NewOrderModal({
         initialTable.activeOrder ||
         orders.find(
           (o) =>
-            String(o.table) === String(initialTable.table_number) &&
+            String(o.table_number || o.table || '').replace(/^Table\s*/i, '').trim() ===
+              String(initialTable.table_number).trim() &&
             !['completed', 'cancelled', 'rejected'].includes(o.status)
         );
 
@@ -355,7 +364,8 @@ export default function NewOrderModal({
       tbl.activeOrder ||
       orders.find(
         (o) =>
-          String(o.table) === String(tbl.table_number) &&
+          String(o.table_number || o.table || '').replace(/^Table\s*/i, '').trim() ===
+            String(tbl.table_number).trim() &&
           !['completed', 'cancelled', 'rejected'].includes(o.status)
       );
 

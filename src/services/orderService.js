@@ -878,8 +878,29 @@ export const orderService = {
       change_due: customerDetails?.change_due != null ? Number(customerDetails.change_due) : null,
       subtotal: Number(subtotal) || 0,
       delivery_fee: Number(deliveryFee) || 0,
-      total_payable: Number(finalTotal) || ((Number(subtotal) || 0) + (Number(deliveryFee) || 0)),
-      total_payable_paisa: toPaisa(Number(finalTotal) || ((Number(subtotal) || 0) + (Number(deliveryFee) || 0))),
+      total_payable:
+        finalTotal != null && !Number.isNaN(Number(finalTotal))
+          ? Math.max(0, Number(finalTotal))
+          : Math.max(
+              0,
+              (Number(subtotal) || 0) -
+                (customerDetails?.discount_type === 'percent'
+                  ? ((Number(subtotal) || 0) * (Number(customerDetails?.discount) || 0)) / 100
+                  : Number(customerDetails?.discount) || 0) +
+                (Number(deliveryFee) || 0)
+            ),
+      total_payable_paisa: toPaisa(
+        finalTotal != null && !Number.isNaN(Number(finalTotal))
+          ? Math.max(0, Number(finalTotal))
+          : Math.max(
+              0,
+              (Number(subtotal) || 0) -
+                (customerDetails?.discount_type === 'percent'
+                  ? ((Number(subtotal) || 0) * (Number(customerDetails?.discount) || 0)) / 100
+                  : Number(customerDetails?.discount) || 0) +
+                (Number(deliveryFee) || 0)
+            )
+      ),
       estimated_prep_time: restaurant?.prep_time || '20–30 mins',
       status: customerDetails?.status || 'new', // new, preparing, out_for_delivery, completed, cancelled, held
       items: formattedItems,
@@ -1001,17 +1022,25 @@ export const orderService = {
   },
 
   /**
-   * Get all orders for a restaurant
+   * Get all orders for a restaurant (with in-memory reference-stable cache keyed by raw storage string)
    */
+  _ordersCache: new Map(),
+
   getOrders(restaurantId) {
     if (!restaurantId) return [];
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       return getStarterOrders(restaurantId);
     }
     const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
+    const nowStr = new Date().toDateString();
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
+        const cached = this._ordersCache.get(restaurantId);
+        if (cached && cached.raw === saved && cached.dayStr === nowStr) {
+          return cached.orders;
+        }
+
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Sanitize any existing orders by removing residual discounts and recalculating total
@@ -1021,7 +1050,15 @@ export const orderService = {
             delete copy.discount_percentage;
             delete copy.discount_amount;
             if (copy.subtotal != null) {
-              copy.total_payable = (Number(copy.subtotal) || 0) + (Number(copy.delivery_fee) || 0);
+              const sub = Number(copy.subtotal) || 0;
+              const delFee = Number(copy.delivery_fee) || 0;
+              const discVal = Number(copy.discount) || 0;
+              const discAmt =
+                copy.discount_type === 'percent'
+                  ? (sub * discVal) / 100
+                  : Math.min(sub, discVal);
+              copy.total_payable = Math.max(0, sub - discAmt + delFee);
+              copy.total_payable_paisa = toPaisa(copy.total_payable);
             }
             if (!copy.rider_token) {
               copy.rider_token = generateRiderToken();
@@ -1048,7 +1085,6 @@ export const orderService = {
           });
 
           // Check if dataset has any historical orders (older than today)
-          const nowStr = new Date().toDateString();
           const hasHistorical = cleaned.some((o) => {
             if (!o.created_at) return false;
             return new Date(o.created_at).toDateString() !== nowStr;
@@ -1064,11 +1100,18 @@ export const orderService = {
             hasMissingTokens = true;
           }
 
+          let finalRaw = saved;
           if (hasMissingTokens && typeof window !== 'undefined') {
             try {
-              localStorage.setItem(storageKey, JSON.stringify(cleaned));
+              finalRaw = JSON.stringify(cleaned);
+              localStorage.setItem(storageKey, finalRaw);
             } catch (_) {}
           }
+          this._ordersCache.set(restaurantId, {
+            raw: finalRaw,
+            dayStr: nowStr,
+            orders: cleaned,
+          });
           return cleaned;
         }
       }
@@ -1079,7 +1122,13 @@ export const orderService = {
     // Seed default starter orders for demonstration
     const starter = getStarterOrders(restaurantId);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(starter));
+      const starterRaw = JSON.stringify(starter);
+      localStorage.setItem(storageKey, starterRaw);
+      this._ordersCache.set(restaurantId, {
+        raw: starterRaw,
+        dayStr: nowStr,
+        orders: starter,
+      });
     } catch (e) {}
     return starter;
   },
@@ -1208,19 +1257,24 @@ export const orderService = {
   },
 
   /**
-   * Submit a customer rating and review for an order
+   * Submit or update a customer rating and review for an order
+   * @param {string} orderId
+   * @param {Object} ratingData - { rating: number (1-5), comment?: string, tags?: string[] }
+   * @param {string} [restaurantId]
    */
   async submitOrderRating(orderId, ratingData = { rating: 5, comment: '', tags: [] }, restaurantId = null) {
     if (!orderId) return null;
-    const ratingObj = {
-      rating: Number(ratingData.rating) || 5,
-      comment: ratingData.comment?.trim() || '',
-      tags: Array.isArray(ratingData.tags) ? ratingData.tags : [],
+    const cleanRating = {
+      order_id: orderId,
+      restaurant_id: restaurantId || null,
+      rating: Math.max(1, Math.min(5, Number(ratingData?.rating) || 5)),
+      comment: (ratingData?.comment || '').trim(),
+      tags: Array.isArray(ratingData?.tags) ? ratingData.tags : [],
       rated_at: new Date().toISOString(),
     };
 
-    // 1. Update in local storage
-    if (typeof window !== 'undefined') {
+    // 1. Update in localStorage across all restaurant order lists and dedicated rating key
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       try {
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -1231,11 +1285,14 @@ export const orderService = {
               if (Array.isArray(list)) {
                 const idx = list.findIndex((o) => o.id === orderId);
                 if (idx !== -1) {
+                  if (!cleanRating.restaurant_id) {
+                    cleanRating.restaurant_id = list[idx].restaurant_id || key.replace(ORDERS_STORAGE_PREFIX, '');
+                  }
                   list[idx] = {
                     ...list[idx],
-                    customer_rating: ratingObj,
-                    rating: ratingObj.rating,
-                    review: ratingObj.comment,
+                    customer_rating: cleanRating,
+                    rating: cleanRating.rating,
+                    review: cleanRating.comment,
                   };
                   localStorage.setItem(key, JSON.stringify(list));
                 }
@@ -1243,8 +1300,17 @@ export const orderService = {
             }
           }
         }
-        localStorage.setItem(`dinehq_rating_${orderId}`, JSON.stringify(ratingObj));
-        window.dispatchEvent(new CustomEvent('dinehq_order_rated', { detail: { orderId, rating: ratingObj } }));
+        localStorage.setItem(`dinehq_rating_${orderId}`, JSON.stringify(cleanRating));
+        window.dispatchEvent(
+          new CustomEvent('dinehq_order_rated', {
+            detail: {
+              orderId,
+              restaurantId: cleanRating.restaurant_id,
+              rating: cleanRating,
+              ratingData: cleanRating,
+            },
+          })
+        );
       } catch (e) {
         console.warn('Error saving rating to localStorage:', e);
       }
@@ -1255,21 +1321,21 @@ export const orderService = {
       try {
         await supabase
           .from('orders')
-          .update({ customer_rating: ratingObj })
+          .update({ customer_rating: cleanRating })
           .eq('id', orderId);
       } catch (e) {
         console.warn('Supabase rating update error:', e);
       }
     }
 
-    return ratingObj;
+    return cleanRating;
   },
 
   /**
    * Get rating for a specific order
    */
   getOrderRating(orderId) {
-    if (!orderId || typeof window === 'undefined') return null;
+    if (!orderId || typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
     try {
       const raw = localStorage.getItem(`dinehq_rating_${orderId}`);
       if (raw) return JSON.parse(raw);
@@ -1570,97 +1636,5 @@ export const orderService = {
       savedCommission,
       activeCount,
     };
-  },
-
-  /**
-   * Get rating submitted for an order
-   */
-  getOrderRating(orderId) {
-    if (!orderId) return null;
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const direct = localStorage.getItem(`dinehq_rating_${orderId}`);
-        if (direct) {
-          return JSON.parse(direct);
-        }
-      }
-    } catch (e) {
-      console.warn('Error reading order rating:', e);
-    }
-    return null;
-  },
-
-  /**
-   * Submit or update a customer rating for an order
-   * @param {string} orderId
-   * @param {Object} ratingData - { rating: number (1-5), comment?: string, tags?: string[] }
-   * @param {string} [restaurantId]
-   */
-  async submitOrderRating(orderId, ratingData, restaurantId = 'rest-demo-1') {
-    if (!orderId || !ratingData) throw new Error('Order ID and rating data are required');
-
-    const cleanRating = {
-      order_id: orderId,
-      restaurant_id: restaurantId,
-      rating: Math.max(1, Math.min(5, Number(ratingData.rating) || 5)),
-      comment: (ratingData.comment || '').trim(),
-      tags: Array.isArray(ratingData.tags) ? ratingData.tags : [],
-      rated_at: new Date().toISOString(),
-    };
-
-    // 1. Save directly under dedicated key
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(`dinehq_rating_${orderId}`, JSON.stringify(cleanRating));
-      }
-    } catch (e) {
-      console.warn('Failed to save rating to localStorage:', e);
-    }
-
-    // 2. Update within restaurant orders list if present
-    try {
-      if (restaurantId && typeof localStorage !== 'undefined') {
-        const storageKey = `dinehq_orders_${restaurantId}`;
-        const raw = localStorage.getItem(storageKey);
-        if (raw) {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list)) {
-            const updated = list.map((ord) =>
-              ord.id === orderId ? { ...ord, customer_rating: cleanRating } : ord
-            );
-            localStorage.setItem(storageKey, JSON.stringify(updated));
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to attach rating to order in list:', e);
-    }
-
-    // 3. Notify real-time listeners across browser / tabs
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('dinehq_order_rated', {
-          detail: {
-            orderId,
-            restaurantId,
-            ratingData: cleanRating,
-          },
-        })
-      );
-    }
-
-    // 4. Optionally write to Supabase if configured
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase
-          .from('orders')
-          .update({ customer_rating: cleanRating })
-          .eq('id', orderId);
-      } catch (err) {
-        console.warn('Supabase rating sync notice:', err);
-      }
-    }
-
-    return cleanRating;
   },
 };

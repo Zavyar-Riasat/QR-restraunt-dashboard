@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCustomerAuth } from '../context/CustomerAuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
@@ -6,6 +6,7 @@ import { customerService } from '../services/customerService.js';
 import { marketplaceService } from '../services/marketplaceService.js';
 import { customerKhataService } from '../services/customerKhataService.js';
 import { formatPKR } from '../utils/currencyUtils.js';
+import { compressImageFile } from '../utils/imageUtils.js';
 import CustomerAddressModal from '../components/Customer/CustomerAddressModal.jsx';
 import CustomerAuthModal from '../components/Customer/CustomerAuthModal.jsx';
 import CustomerBottomNav from '../components/Customer/CustomerBottomNav.jsx';
@@ -40,7 +41,22 @@ import {
   RotateCcw,
   Eye,
   Info,
+  Camera,
+  Upload,
+  Sparkles,
+  ZoomIn,
 } from 'lucide-react';
+
+const PRESET_AVATARS = [
+  'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix&backgroundColor=ffdfbf',
+  'https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka&backgroundColor=ffd5dc',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Zayan&backgroundColor=c0aede',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Ayesha&backgroundColor=d1d4f9',
+  'https://api.dicebear.com/7.x/lorelei/svg?seed=Hamza&backgroundColor=b6e3f4',
+  'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Foodie&backgroundColor=f5a623',
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=240&h=240&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&h=240&q=80',
+];
 
 export default function CustomerAccountPage() {
   const navigate = useNavigate();
@@ -86,6 +102,9 @@ export default function CustomerAccountPage() {
   });
   const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
+  const avatarInputRef = useRef(null);
 
   // Address Modal state
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -197,6 +216,56 @@ export default function CustomerAccountPage() {
       setIsSavingProfile(false);
     }
   };
+
+  // Handle instant avatar selection / randomize & save
+  const handleSelectAvatar = async (newAvatarUrl) => {
+    if (!newAvatarUrl) return;
+    setProfileForm((prev) => ({ ...prev, avatar: newAvatarUrl }));
+    if (customer?.id) {
+      try {
+        await updateProfile({ avatar: newAvatarUrl });
+        setProfileSaveSuccess(true);
+        setTimeout(() => setProfileSaveSuccess(false), 3000);
+      } catch (err) {
+        console.warn('Error auto-saving avatar:', err);
+      }
+    }
+  };
+
+  const handleRandomizeAvatar = () => {
+    const styles = ['adventurer', 'avataaars', 'lorelei', 'fun-emoji', 'bottts', ' initials'];
+    const style = styles[Math.floor(Math.random() * styles.length)].trim();
+    const seed = Math.random().toString(36).slice(2, 9);
+    const randomUrl = `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
+    handleSelectAvatar(randomUrl);
+  };
+
+  // Handle photo upload from device gallery or camera
+  const handleAvatarFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingAvatar(true);
+      const compressedDataUrl = await compressImageFile(file);
+      if (compressedDataUrl) {
+        await handleSelectAvatar(compressedDataUrl);
+      } else {
+        alert('Could not process the selected image. Please try another photo.');
+      }
+    } catch (err) {
+      console.warn('Avatar upload error:', err);
+      alert('Failed to upload photo. Please try again.');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const fallbackAvatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+    profileForm.name || customer?.name || 'Guest'
+  )}`;
+  const activeAvatarSrc = profileForm.avatar || customer?.avatar || fallbackAvatarUrl;
 
   // Address Handlers
   const handleSaveAddress = async (addrData) => {
@@ -350,16 +419,51 @@ export default function CustomerAccountPage() {
         </div>
       </header>
 
+      {/* Hidden File Input for Avatar Upload */}
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAvatarFileUpload}
+      />
+
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 space-y-6">
         {/* Profile Card Header Banner (16px Radius) */}
         <section className="bg-white dark:bg-[#221A14] rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img
-              src={customer.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customer.name || 'Guest')}`}
-              alt={customer.name}
-              className="w-16 h-16 rounded-2xl border-2 border-[#FCD8BF] dark:border-[#523522] shadow-md bg-[#FFF1E6] dark:bg-[#2C2018] object-cover"
-            />
+            <div className="relative group shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsAvatarPreviewOpen(true)}
+                className="relative block w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-[#FCD8BF] dark:border-[#523522] shadow-md bg-[#FFF1E6] dark:bg-[#2C2018] overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#F26B1D]"
+                title="Click to preview avatar"
+              >
+                <img
+                  src={activeAvatarSrc}
+                  alt={customer.name}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = fallbackAvatarUrl;
+                  }}
+                  className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                />
+                <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                  <ZoomIn className="w-5 h-5 drop-shadow" />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white shadow-md flex items-center justify-center border-2 border-white dark:border-[#221A14] transition-transform hover:scale-105 cursor-pointer"
+                title="Upload or change avatar photo"
+                aria-label="Change avatar"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-heading font-extrabold text-[#2B2118] dark:text-[#FFF9F2]">
@@ -380,6 +484,26 @@ export default function CustomerAccountPage() {
                     <span>{customer.email}</span>
                   </span>
                 )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="text-[11px] font-bold text-[#F26B1D] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Upload className="w-3 h-3" />
+                  <span>{isUploadingAvatar ? 'Uploading...' : 'Change Photo'}</span>
+                </button>
+                <span className="text-[#F0E4D7] dark:text-[#382B20]">•</span>
+                <button
+                  type="button"
+                  onClick={() => setIsAvatarPreviewOpen(true)}
+                  className="text-[11px] font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#F26B1D] flex items-center gap-1 cursor-pointer"
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>Preview Avatar</span>
+                </button>
               </div>
             </div>
           </div>
@@ -541,7 +665,128 @@ export default function CustomerAccountPage() {
               </div>
             )}
 
-            <form onSubmit={handleSaveProfile} className="space-y-4">
+            <form onSubmit={handleSaveProfile} className="space-y-5">
+              {/* Live Avatar Preview & Picker Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="relative group shrink-0 self-start">
+                    <button
+                      type="button"
+                      onClick={() => setIsAvatarPreviewOpen(true)}
+                      className="relative block w-20 h-20 rounded-2xl border-2 border-[#F26B1D] shadow-md bg-white dark:bg-[#1E1712] overflow-hidden cursor-pointer"
+                      title="Click to preview full-size avatar"
+                    >
+                      <img
+                        src={activeAvatarSrc}
+                        alt={profileForm.name || customer.name}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = fallbackAvatarUrl;
+                        }}
+                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                      <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <ZoomIn className="w-5 h-5" />
+                      </span>
+                    </button>
+                    <span className="mt-1 block text-center text-[10px] font-bold text-[#F26B1D]">
+                      Live Preview
+                    </span>
+                  </div>
+
+                  <div className="flex-1 space-y-2.5">
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold text-[#2B2118] dark:text-[#FFF9F2]">
+                        Profile Photo & Avatar
+                      </h3>
+                      <p className="text-[11px] text-[#7A6A5C] dark:text-[#CBB8A8]">
+                        Upload a photo from your device, choose a preset avatar below, or generate a random style. Changes preview immediately in the front.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        disabled={isUploadingAvatar}
+                        className="px-3.5 py-2 min-h-[40px] rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{isUploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleRandomizeAvatar}
+                        className="px-3.5 py-2 min-h-[40px] rounded-xl bg-white dark:bg-[#221A14] hover:bg-[#FFF1E6] dark:hover:bg-[#35251C] text-xs font-bold text-[#F26B1D] border border-[#F0E4D7] dark:border-[#382B20] transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>{t('generateRandom')}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsAvatarPreviewOpen(true)}
+                        className="px-3.5 py-2 min-h-[40px] rounded-xl bg-white dark:bg-[#221A14] hover:bg-[#FFF1E6] dark:hover:bg-[#35251C] text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] border border-[#F0E4D7] dark:border-[#382B20] transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-[#F26B1D]" />
+                        <span>Preview Full Size</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preset Avatars Row */}
+                <div className="pt-2 border-t border-[#F0E4D7] dark:border-[#382B20]">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#7A6A5C] dark:text-[#CBB8A8] mb-2">
+                    Quick-Select Preset Avatars
+                  </span>
+                  <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                    {PRESET_AVATARS.map((presetUrl, idx) => {
+                      const isSelected = activeAvatarSrc === presetUrl;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleSelectAvatar(presetUrl)}
+                          className={`relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-[#F26B1D] ring-2 ring-[#F26B1D]/30 scale-105'
+                              : 'border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D]/60 opacity-85 hover:opacity-100'
+                          }`}
+                          title={`Select preset avatar #${idx + 1}`}
+                        >
+                          <img
+                            src={presetUrl}
+                            alt={`Preset ${idx + 1}`}
+                            className="w-full h-full object-cover bg-white dark:bg-[#1E1712]"
+                          />
+                          {isSelected && (
+                            <span className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-[#F26B1D] text-white flex items-center justify-center shadow">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Image URL Input */}
+                <div className="pt-1">
+                  <label className="block text-[10px] font-bold text-[#7A6A5C] dark:text-[#CBB8A8] uppercase tracking-wider mb-1">
+                    {t('avatarUrl')} (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.avatar}
+                    onChange={(e) => setProfileForm({ ...profileForm, avatar: e.target.value })}
+                    placeholder="https://... or upload a photo above"
+                    className="w-full px-3.5 py-2.5 min-h-[42px] rounded-xl border border-[#F0E4D7] dark:border-[#382B20] bg-white dark:bg-[#221A14] text-xs text-[#2B2118] dark:text-[#FFF9F2] focus:outline-none focus:ring-2 focus:ring-[#F26B1D]"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] uppercase tracking-wider mb-1.5">
                   {t('fullName')}
@@ -585,34 +830,6 @@ export default function CustomerAccountPage() {
                   placeholder="e.g. yourname@example.com"
                   className="w-full px-4 py-3 min-h-[48px] rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] bg-[#FFF9F2]/50 dark:bg-[#281D16] text-xs sm:text-sm font-medium text-[#2B2118] dark:text-[#FFF9F2] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] focus:bg-white dark:focus:bg-[#201712]"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] uppercase tracking-wider mb-1.5">
-                  {t('avatarUrl')}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={profileForm.avatar}
-                    onChange={(e) => setProfileForm({ ...profileForm, avatar: e.target.value })}
-                    placeholder="https://..."
-                    className="flex-1 px-4 py-3 min-h-[48px] rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] bg-[#FFF9F2]/50 dark:bg-[#281D16] text-xs text-[#2B2118] dark:text-[#FFF9F2] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] focus:bg-white dark:focus:bg-[#201712]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const seed = Math.random().toString(36).slice(2, 8);
-                      setProfileForm({
-                        ...profileForm,
-                        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`,
-                      });
-                    }}
-                    className="px-4 py-2 min-h-[48px] rounded-2xl bg-[#FFF9F2] hover:bg-[#FFF1E6] dark:bg-[#281D16] dark:hover:bg-[#35251C] text-xs font-bold text-[#F26B1D] border border-[#F0E4D7] dark:border-[#382B20] shrink-0 cursor-pointer"
-                  >
-                    {t('generateRandom')}
-                  </button>
-                </div>
               </div>
 
               <div className="pt-3">
@@ -1431,6 +1648,93 @@ export default function CustomerAccountPage() {
                 className="w-full min-h-[48px] py-2 rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:bg-[#FFF9F2] transition cursor-pointer"
               >
                 {t('cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          Full-Size Avatar Preview & Quick Change Modal
+          ======================================================== */}
+      {isAvatarPreviewOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAvatarPreviewOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-fadeIn"
+        >
+          <div className="bg-white dark:bg-[#221A14] rounded-3xl border border-[#F0E4D7] dark:border-[#382B20] shadow-2xl max-w-sm w-full p-6 text-center space-y-5 relative">
+            <button
+              type="button"
+              onClick={() => setIsAvatarPreviewOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl text-[#9E8E81] hover:text-[#2B2118] dark:hover:text-white hover:bg-black/5 transition cursor-pointer"
+              aria-label="Close preview"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <h3 className="font-heading font-extrabold text-base text-[#2B2118] dark:text-[#FFF9F2]">
+                Avatar Preview
+              </h3>
+              <p className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8]">
+                {profileForm.name || customer.name}
+              </p>
+            </div>
+
+            <div className="w-48 h-48 mx-auto rounded-3xl border-4 border-[#FCD8BF] dark:border-[#523522] shadow-xl bg-[#FFF1E6] dark:bg-[#2C2018] overflow-hidden">
+              <img
+                src={activeAvatarSrc}
+                alt={customer.name}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = fallbackAvatarUrl;
+                }}
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Quick Preset Selector inside Preview Modal */}
+            <div>
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-[#7A6A5C] dark:text-[#CBB8A8] mb-2">
+                Try Another Avatar
+              </span>
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                {PRESET_AVATARS.slice(0, 6).map((presetUrl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectAvatar(presetUrl)}
+                    className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition cursor-pointer ${
+                      activeAvatarSrc === presetUrl
+                        ? 'border-[#F26B1D] ring-2 ring-[#F26B1D]/30 scale-105'
+                        : 'border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D]/60'
+                    }`}
+                  >
+                    <img src={presetUrl} alt={`Preset ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                className="flex-1 min-h-[44px] py-2.5 px-3 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>{isUploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleRandomizeAvatar}
+                className="min-h-[44px] py-2.5 px-3.5 rounded-2xl bg-[#FFF9F2] dark:bg-[#281D16] hover:bg-[#FFF1E6] text-[#F26B1D] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Random</span>
               </button>
             </div>
           </div>

@@ -100,11 +100,27 @@ export default function CustomerBottomNav({ onSearchClick }) {
             >
               {/* Icon Container with Badge */}
               <div className="relative">
-                <Icon
-                  className={`w-5 h-5 transition-transform duration-200 group-hover:scale-110 ${
-                    active ? 'stroke-[2.5]' : 'stroke-[1.75]'
-                  }`}
-                />
+                {item.id === 'account' && isCustomerAuthenticated && customer?.avatar ? (
+                  <img
+                    src={customer.avatar}
+                    alt={customer.name || 'Account'}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                        customer?.name || 'Guest'
+                      )}`;
+                    }}
+                    className={`w-5 h-5 rounded-full object-cover transition-transform duration-200 group-hover:scale-110 ${
+                      active ? 'ring-2 ring-[#F26B1D]' : 'border border-[#FCD8BF]'
+                    }`}
+                  />
+                ) : (
+                  <Icon
+                    className={`w-5 h-5 transition-transform duration-200 group-hover:scale-110 ${
+                      active ? 'stroke-[2.5]' : 'stroke-[1.75]'
+                    }`}
+                  />
+                )}
                 {item.badge && (
                   <span className="absolute -top-1 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#F26B1D] text-white text-[9px] font-black flex items-center justify-center shadow-xs">
                     {item.badge}

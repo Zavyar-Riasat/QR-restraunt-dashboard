@@ -46,6 +46,8 @@ export default function AdminPanelPage() {
   const [usersList, setUsersList] = useState(() => getRegisteredUsers());
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [usersPage, setUsersPage] = useState(1);
+  const USERS_PER_PAGE = 25;
   const [adminSection, setAdminSection] = useState('listings'); // 'listings' | 'users' | 'audit'
 
   // AES-256-GCM Password Reveal & Auto-hide states
@@ -399,6 +401,13 @@ export default function AdminPanelPage() {
     const matchesRole = roleFilter === 'all' ? true : u.role === roleFilter;
     return matchesSearch && matchesRole;
   });
+
+  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+  const safeUsersPage = Math.min(usersPage, totalUserPages);
+  const paginatedUsers = filteredUsers.slice(
+    (safeUsersPage - 1) * USERS_PER_PAGE,
+    safeUsersPage * USERS_PER_PAGE
+  );
 
   return (
     <div className="min-h-screen bg-[#FFF9F2] text-[#2B2118] flex flex-col font-sans selection:bg-[#F26B1D] selection:text-white">
@@ -839,14 +848,14 @@ export default function AdminPanelPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F0E4D7] font-medium">
-                {filteredUsers.length === 0 ? (
+                {paginatedUsers.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="px-6 py-12 text-center text-slate-400">
                       No accounts found matching your query.
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((account) => {
+                  paginatedUsers.map((account) => {
                     const slug = account.restaurant_slug || 'burgersmoke';
                     const menuLink = `${window.location.origin}/${slug}`;
                     const isProtectedMaster = account.email === 'admin@dineflow.pk' || account.email === 'admin@dinehq.pk';
@@ -1036,6 +1045,36 @@ export default function AdminPanelPage() {
               </tbody>
             </table>
           </div>
+
+          {totalUserPages > 1 && (
+            <div className="px-6 py-3.5 border-t border-[#F0E4D7] bg-[#FFF9F2]/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <span className="text-[#7A6A5C] font-semibold">
+                Showing {(safeUsersPage - 1) * USERS_PER_PAGE + 1}–{Math.min(safeUsersPage * USERS_PER_PAGE, filteredUsers.length)} of{' '}
+                <strong className="text-[#2B2118]">{filteredUsers.length}</strong> accounts
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={safeUsersPage <= 1}
+                  onClick={() => setUsersPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-white hover:bg-[#FFF1E6] font-bold text-[#2B2118] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="font-mono font-bold text-[#2B2118] px-2">
+                  Page {safeUsersPage} / {totalUserPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={safeUsersPage >= totalUserPages}
+                  onClick={() => setUsersPage((p) => Math.min(totalUserPages, p + 1))}
+                  className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-white hover:bg-[#FFF1E6] font-bold text-[#2B2118] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     )}

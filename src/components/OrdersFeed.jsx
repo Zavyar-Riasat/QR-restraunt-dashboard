@@ -45,15 +45,16 @@ import {
   buildGoogleMapsNavUrl,
   buildOsmNavUrl,
 } from '../config/mapConfig.js';
-import LeafletMap from './Map/LeafletMap.jsx';
 import { printerService } from '../services/printer/printerService';
 import { TEMPLATE_TYPES } from '../services/printer/printerTypes';
 import PrinterStatusBadge from './Printer/PrinterStatusBadge';
-import PrintTemplateRenderer from './Printer/PrintTemplateRenderer';
-import EditOrderItemsModal from './Orders/EditOrderItemsModal';
 import SendToRiderMenu from './Orders/SendToRiderMenu';
-import OrderDetailsModal from './Orders/OrderDetailsModal';
 import ErrorBoundary from './ErrorBoundary';
+
+const LeafletMap = lazy(() => import('./Map/LeafletMap.jsx'));
+const PrintTemplateRenderer = lazy(() => import('./Printer/PrintTemplateRenderer'));
+const EditOrderItemsModal = lazy(() => import('./Orders/EditOrderItemsModal'));
+const OrderDetailsModal = lazy(() => import('./Orders/OrderDetailsModal'));
 
 export default function OrdersFeed({
   orders = [],
@@ -102,6 +103,22 @@ export default function OrdersFeed({
   });
   const [dateFilter, setDateFilter] = useState('all');
   const [customFilterDate, setCustomFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [mapsHydrated, setMapsHydrated] = useState(false);
+
+  // Defer downloading and mounting heavy map chunks until after initial FCP/LCP paint
+  useEffect(() => {
+    let idleId = null;
+    let timerId = null;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(() => setMapsHydrated(true), { timeout: 800 });
+    } else {
+      timerId = setTimeout(() => setMapsHydrated(true), 350);
+    }
+    return () => {
+      if (idleId && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId);
+      if (timerId) clearTimeout(timerId);
+    };
+  }, []);
 
   const handleToggleViewMode = (mode) => {
     setViewMode(mode);
@@ -223,7 +240,7 @@ export default function OrdersFeed({
   const handlePrintTicket = async (order, templateType) => {
     try {
       setDirectPrintingId(order.id);
-      const table = order?.table;
+      const table = order?.table_number || order?.table;
       const params = new URLSearchParams();
       if (table) params.set('table', table);
       if (order?.id) params.set('order', order.id);
@@ -417,9 +434,15 @@ export default function OrdersFeed({
     window.open(`sms:+${cleanPhone}?body=${text}`, '_blank');
   };
 
-  const pendingNewOrders = feedMode === 'completed' ? [] : orders.filter((o) => o.status === 'new');
+  const pendingNewOrders = useMemo(
+    () => (feedMode === 'completed' ? [] : orders.filter((o) => o.status === 'new')),
+    [orders, feedMode]
+  );
   const latestNewOrder = pendingNewOrders[0];
-  const unmutedPendingCount = pendingNewOrders.filter((o) => !mutedOrderIds.includes(o.id)).length;
+  const unmutedPendingCount = useMemo(
+    () => pendingNewOrders.filter((o) => !mutedOrderIds.includes(o.id)).length,
+    [pendingNewOrders, mutedOrderIds]
+  );
 
   return (
     <div className={`bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-7 shadow-xs space-y-6 ${printingOrder ? 'print:p-0 print:border-none print:shadow-none print:bg-transparent print:space-y-0' : ''}`}>
@@ -1110,11 +1133,16 @@ export default function OrdersFeed({
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {filteredOrders.map((order) => {
+            {filteredOrders.map((order, cardIdx) => {
               const paymentState = computeOrderPaymentState(order);
               return (
                 <div
                   key={order.id}
+                  style={
+                    cardIdx >= 4
+                      ? { contentVisibility: 'auto', containIntrinsicSize: '0 420px' }
+                      : undefined
+                  }
                   className={`p-5 rounded-2xl border transition shadow-xs flex flex-col justify-between ${order.status === 'new'
                       ? `bg-[#FDECEC]/30 border-[#F9C3C5] ${!mutedOrderIds.includes(order.id) ? 'ring-2 ring-red-400 shadow-md shadow-red-500/10' : ''}`
                       : order.status === 'preparing'
@@ -1371,33 +1399,39 @@ export default function OrdersFeed({
                                 )}
                               </div>
                               <div className="relative w-full h-32 bg-slate-100">
-                                <ErrorBoundary
-                                  fallback={
-                                    <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[10px] text-slate-500">
-                                      Map preview unavailable
-                                    </div>
-                                  }
-                                >
-                                  <Suspense
+                                {mapsHydrated ? (
+                                  <ErrorBoundary
                                     fallback={
-                                      <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[10px] text-slate-400">
-                                        Loading Map...
+                                      <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[10px] text-slate-500">
+                                        Map preview unavailable
                                       </div>
                                     }
                                   >
-                                    <LeafletMap
-                                      center={{
-                                        lat: Number(order.latitude || order.location_coords.lat),
-                                        lng: Number(order.longitude || order.location_coords.lng),
-                                      }}
-                                      zoom={16}
-                                      draggable={false}
-                                      interactive={false}
-                                      height="128px"
-                                      popupText={order.customer_address}
-                                    />
-                                  </Suspense>
-                                </ErrorBoundary>
+                                    <Suspense
+                                      fallback={
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[10px] text-slate-400">
+                                          Loading Map...
+                                        </div>
+                                      }
+                                    >
+                                      <LeafletMap
+                                        center={{
+                                          lat: Number(order.latitude || order.location_coords.lat),
+                                          lng: Number(order.longitude || order.location_coords.lng),
+                                        }}
+                                        zoom={16}
+                                        draggable={false}
+                                        interactive={false}
+                                        height="128px"
+                                        popupText={order.customer_address}
+                                      />
+                                    </Suspense>
+                                  </ErrorBoundary>
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[10px] text-slate-400">
+                                    Loading Map...
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -1931,14 +1965,16 @@ export default function OrdersFeed({
               id="kot-thermal-receipt"
               className="p-4 overflow-y-auto max-h-[62vh] bg-slate-100 flex justify-center print:max-h-none print:overflow-visible print:bg-white print:p-0"
             >
-              <PrintTemplateRenderer
-                templateType={modalTemplateType}
-                paperSize={modalPaperSize}
-                order={printingOrder}
-                restaurant={restaurant}
-                settings={printerService.getTemplateSettings()}
-                isLivePrint={false}
-              />
+              <Suspense fallback={<div className="p-8 text-xs text-slate-500">Loading receipt preview...</div>}>
+                <PrintTemplateRenderer
+                  templateType={modalTemplateType}
+                  paperSize={modalPaperSize}
+                  order={printingOrder}
+                  restaurant={restaurant}
+                  settings={printerService.getTemplateSettings()}
+                  isLivePrint={false}
+                />
+              </Suspense>
             </div>
 
             {/* Actions (Hidden on Print) */}
@@ -1987,41 +2023,46 @@ export default function OrdersFeed({
 
       {/* Edit Order Items & Recalculate Bill Modal */}
       {editingOrderItems && (
-        <EditOrderItemsModal
-          isOpen={Boolean(editingOrderItems)}
-          onClose={() => setEditingOrderItems(null)}
-          order={editingOrderItems}
-          restaurant={restaurant}
-          menuItems={menuItems}
-          onOrderUpdated={(updated) => {
-            setEditingOrderItems(null);
-          }}
-          onPrintBill={(updatedOrder, templateType) => {
-            handlePrintTicket(updatedOrder, templateType);
-          }}
-          onOpenPosForOrder={(ord) => {
-            setEditingOrderItems(null);
-            if (onOpenNewOrder) {
-              const tableObj = ord.table ? { table_number: ord.table } : null;
-              onOpenNewOrder(tableObj, ord.order_type || 'dine_in', ord.id);
-            }
-          }}
-        />
+        <Suspense fallback={null}>
+          <EditOrderItemsModal
+            isOpen={Boolean(editingOrderItems)}
+            onClose={() => setEditingOrderItems(null)}
+            order={editingOrderItems}
+            restaurant={restaurant}
+            menuItems={menuItems}
+            onOrderUpdated={() => {
+              setEditingOrderItems(null);
+            }}
+            onPrintBill={(updatedOrder, templateType) => {
+              handlePrintTicket(updatedOrder, templateType);
+            }}
+            onOpenPosForOrder={(ord) => {
+              setEditingOrderItems(null);
+              if (onOpenNewOrder) {
+                const tblNum = ord.table_number || ord.table;
+                const tableObj = tblNum ? { table_number: tblNum } : null;
+                onOpenNewOrder(tableObj, ord.order_type || 'dine_in', ord.id);
+              }
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Order Details Modal with Send to Rider Menu */}
       {selectedOrderDetails && (
-        <OrderDetailsModal
-          isOpen={Boolean(selectedOrderDetails)}
-          onClose={() => setSelectedOrderDetails(null)}
-          order={selectedOrderDetails}
-          restaurant={restaurant}
-          onUpdateStatus={onUpdateStatus}
-          onPrintTicket={handlePrintTicket}
-          onOrderUpdated={(updated) => {
-            setSelectedOrderDetails(updated);
-          }}
-        />
+        <Suspense fallback={null}>
+          <OrderDetailsModal
+            isOpen={Boolean(selectedOrderDetails)}
+            onClose={() => setSelectedOrderDetails(null)}
+            order={selectedOrderDetails}
+            restaurant={restaurant}
+            onUpdateStatus={onUpdateStatus}
+            onPrintTicket={handlePrintTicket}
+            onOrderUpdated={(updated) => {
+              setSelectedOrderDetails(updated);
+            }}
+          />
+        </Suspense>
       )}
 
 

@@ -37,16 +37,21 @@ export default function SendToRiderMenu({
   const riderToken = order?.rider_token || order?.id;
   const riderUrl = `${origin}/rider/${riderToken}`;
 
-  // Keep riders updated if new riders are added in Settings
+  // Keep riders updated if restaurant changes or new riders are added in Settings
   useEffect(() => {
+    setRiders(riderService.getRiders(restId));
     const handleRidersChanged = (e) => {
-      if (e.detail?.riders) {
-        setRiders(e.detail.riders);
+      if (!e.detail?.restaurantId || e.detail.restaurantId === restId) {
+        if (e.detail?.riders) {
+          setRiders(e.detail.riders);
+        } else {
+          setRiders(riderService.getRiders(restId));
+        }
       }
     };
     window.addEventListener('dinehq_riders_updated', handleRidersChanged);
     return () => window.removeEventListener('dinehq_riders_updated', handleRidersChanged);
-  }, []);
+  }, [restId]);
 
   const showToast = (msg) => {
     setToastMessage(msg);

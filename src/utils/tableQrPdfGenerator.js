@@ -1,11 +1,10 @@
-import QRCode from 'qrcode';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+import { getAppBaseUrl } from '../config/appConfig.js';
 
 /**
  * Generate a high-resolution QR code data URL with an optional centered restaurant logo.
  */
 export async function generateTableQrDataUrl(tableUrl, logoUrl) {
+  const { default: QRCode } = await import('qrcode');
   const canvas = document.createElement('canvas');
   await QRCode.toCanvas(canvas, tableUrl, {
     errorCorrectionLevel: 'H',
@@ -67,13 +66,16 @@ export async function generateTableQrDataUrl(tableUrl, logoUrl) {
  * Generates and downloads a single high-quality PDF containing all table QRs,
  * with each table on its own standee card and table number printed large under the QR.
  */
-import { getAppBaseUrl } from '../config/appConfig.js';
-
 export async function downloadAllTableQrsPdf({ restaurant, tables, origin: customOrigin }) {
   if (!tables || tables.length === 0) {
     alert('No tables found to export.');
     return;
   }
+
+  const [{ jsPDF }, { default: html2canvas }] = await Promise.all([
+    import('jspdf'),
+    import('html2canvas'),
+  ]);
 
   const origin = customOrigin || getAppBaseUrl();
   const slug = restaurant?.slug || 'burgersmoke';

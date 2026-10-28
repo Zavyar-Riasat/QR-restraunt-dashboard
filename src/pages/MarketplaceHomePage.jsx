@@ -864,16 +864,23 @@ export default function MarketplaceHomePage() {
               {/* Account / Sign In */}
               {isCustomerAuthenticated ? (
                 <Link
-                  to="/account"
+                  to="/account?tab=profile"
+                  title="View & edit your profile and avatar"
                   className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1.5 min-h-[40px] rounded-xl bg-white dark:bg-[#241C16] border border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] dark:text-[#FFF9F2] transition shadow-2xs"
                 >
                   <img
                     src={
                       customer?.avatar ||
-                      `https://api.dicebear.com/7.x/initials/svg?seed=${customer?.name || 'Guest'}`
+                      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customer?.name || 'Guest')}`
                     }
                     alt={customer?.name || 'Customer'}
-                    className="w-7 h-7 rounded-lg object-cover border border-[#FCD8BF]"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                        customer?.name || 'Guest'
+                      )}`;
+                    }}
+                    className="w-7 h-7 rounded-lg object-cover border border-[#FCD8BF] bg-[#FFF1E6]"
                   />
                   <span className="hidden sm:inline">
                     {customer?.name ? customer.name.split(' ')[0] : 'Account'}

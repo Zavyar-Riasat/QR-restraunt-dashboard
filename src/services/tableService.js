@@ -166,25 +166,30 @@ export const tableService = {
   moveTable(restaurantId, fromTableNumber, toTableNumber, orderService) {
     if (!orderService) return false;
     const orders = orderService.getOrders(restaurantId);
-    const fromStr = String(fromTableNumber).trim();
-    const toStr = String(toTableNumber).trim();
+    const fromStr = String(fromTableNumber || '').replace(/^Table\s*/i, '').trim();
+    const toStr = String(toTableNumber || '').replace(/^Table\s*/i, '').trim();
 
     let updatedAny = false;
     orders.forEach((o) => {
+      const oTable = String(o.table_number || o.table || '').replace(/^Table\s*/i, '').trim();
       if (
         o.order_type === 'dine_in' &&
         o.status !== 'completed' &&
         o.status !== 'cancelled' &&
-        String(o.table_number || '').trim() === fromStr
+        oTable === fromStr
       ) {
-        orderService.updateOrderStatus(o.id, o.status, {
+        orderService.updateOrderStatus(restaurantId, o.id, o.status, {
           table_number: toStr,
+          table: toStr,
+          customer_address: `Dine-in (Table ${toStr})`,
           customer_notes: `${o.customer_notes || ''} (Moved from Table ${fromStr} to Table ${toStr})`.trim(),
         });
         updatedAny = true;
       }
     });
 
+    // Notify table listeners
+    this.saveTables(restaurantId, this.getTables(restaurantId));
     return updatedAny;
   },
 
@@ -194,17 +199,19 @@ export const tableService = {
   closeTable(restaurantId, tableNumber, orderService) {
     if (!orderService) return false;
     const orders = orderService.getOrders(restaurantId);
-    const tStr = String(tableNumber).trim();
+    const tStr = String(tableNumber || '').replace(/^Table\s*/i, '').trim();
 
     orders.forEach((o) => {
+      const oTable = String(o.table_number || o.table || '').replace(/^Table\s*/i, '').trim();
       if (
         o.order_type === 'dine_in' &&
         o.status !== 'completed' &&
         o.status !== 'cancelled' &&
-        String(o.table_number || '').trim() === tStr
+        oTable === tStr
       ) {
-        orderService.updateOrderStatus(o.id, 'completed', {
+        orderService.updateOrderStatus(restaurantId, o.id, 'completed', {
           closed_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
           payment_status: 'paid',
         });
       }

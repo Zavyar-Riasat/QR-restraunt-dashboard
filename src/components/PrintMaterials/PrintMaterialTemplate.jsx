@@ -513,8 +513,6 @@ function InteractiveTemplateText({
   customStyle = null,
   innerStyle = null,
 }) {
-  if (isFreelyMoved) return null;
-
   const containerRef = useRef(null);
   const textRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -594,6 +592,8 @@ function InteractiveTemplateText({
   };
 
   const Component = tag || 'span';
+
+  if (isFreelyMoved) return null;
 
   return (
     <div
@@ -1077,8 +1077,6 @@ function InteractiveTemplateHeadline({
   onChangeColor,
   onDuplicate,
 }) {
-  if (isFreelyMoved) return null;
-
   const containerRef = useRef(null);
   const textRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -1158,6 +1156,8 @@ function InteractiveTemplateHeadline({
       textRef.current && textRef.current.blur();
     }
   };
+
+  if (isFreelyMoved) return null;
 
   return (
     <div
@@ -1425,8 +1425,6 @@ function InteractiveTemplateSubtitle({
   onChangeColor,
   onDuplicate,
 }) {
-  if (isFreelyMoved || !text) return null;
-
   const containerRef = useRef(null);
   const textRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -1506,6 +1504,8 @@ function InteractiveTemplateSubtitle({
       textRef.current && textRef.current.blur();
     }
   };
+
+  if (isFreelyMoved || !text) return null;
 
   return (
     <div

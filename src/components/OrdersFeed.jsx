@@ -60,7 +60,6 @@ export default function OrdersFeed({
   orders = [],
   feedMode = 'active', // 'active' (orders page) | 'completed' (completed orders tab)
   onNavigateToCompleted,
-  onNavigateToOrders,
   onUpdateStatus,
   restaurant,
   soundEnabled = true,
@@ -669,22 +668,13 @@ export default function OrdersFeed({
               </div>
             </div>
 
-            {/* If in completed mode, show total revenue pill & shortcut to active orders */}
+            {/* If in completed mode, show total revenue pill */}
             {feedMode === 'completed' && (
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-1.5 shadow-2xs">
                   <Receipt className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Settled: {formatPKR(completedRevenue)}</span>
                 </div>
-                {onNavigateToOrders && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToOrders}
-                    className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-white hover:bg-[#FFF1E6] text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                  >
-                    <span>← Back to Active Orders</span>
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -1192,14 +1182,10 @@ export default function OrdersFeed({
                             <span>{order.customer_name || 'Walk-in / Direct Customer'}</span>
                           </button>
 
-                          {/* Order Source Label (Customer Menu vs Manager / POS) */}
-                          {order.order_source === 'manager' || order.source === 'manager' ? (
+                          {/* Order Source Label (Manager / POS only) */}
+                          {(order.order_source === 'manager' || order.source === 'manager') && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold">
                               🏪 Manager POS {order.staff_name ? `• ${order.staff_name}` : ''}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold">
-                              📱 Customer Menu
                             </span>
                           )}
 

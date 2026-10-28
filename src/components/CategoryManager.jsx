@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Layers, Plus, Trash2, Tag, FolderPlus, Edit2, Check, X } from 'lucide-react';
 
 export default function CategoryManager({
-  categories,
-  menuItems,
+  categories = [],
+  menuItems = [],
   onCreateCategory,
   onUpdateCategory,
   onDeleteCategory,
@@ -11,25 +11,36 @@ export default function CategoryManager({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const inputRef = useRef(null);
 
   // Editing state
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
 
   const handleAddCategory = async (e) => {
-    e.preventDefault();
-    if (!newCategoryName.trim()) return;
+    if (e) e.preventDefault();
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      inputRef.current?.focus();
+      setError('Please enter a category name (e.g. Beverages, Desserts) and click Add Category.');
+      return;
+    }
 
-    if (categories.some((c) => c.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
+    if (categories.some((c) => String(c.name || '').toLowerCase() === trimmed.toLowerCase())) {
       setError('A category with this name already exists.');
+      inputRef.current?.focus();
       return;
     }
 
     try {
       setIsSubmitting(true);
       setError('');
-      await onCreateCategory(newCategoryName.trim());
+      setSuccessMsg('');
+      await onCreateCategory(trimmed);
       setNewCategoryName('');
+      setSuccessMsg(`Category "${trimmed}" added successfully!`);
+      setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err) {
       setError(err.message || 'Failed to create category.');
     } finally {
@@ -81,30 +92,38 @@ export default function CategoryManager({
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-[#FDECEC] border border-[#E5484D]/30 text-[#D92D20] text-xs">
+        <div className="p-3 rounded-xl bg-[#FDECEC] border border-[#E5484D]/30 text-[#D92D20] text-xs font-semibold">
           {error}
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="p-3 rounded-xl bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-xs font-semibold flex items-center gap-2">
+          <Check className="w-4 h-4 shrink-0" />
+          <span>{successMsg}</span>
         </div>
       )}
 
       {/* Add Category Form */}
       <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-2.5 max-w-lg">
         <input
+          ref={inputRef}
           type="text"
           value={newCategoryName}
           onChange={(e) => {
             setNewCategoryName(e.target.value);
-            setError('');
+            if (error) setError('');
           }}
           placeholder="New category name (e.g. Smash Burgers, Drinks)..."
-          className="flex-1 px-3.5 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
+          className="flex-1 px-3.5 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] focus:ring-2 focus:ring-[#F26B1D]/20 focus:bg-white transition"
         />
         <button
           type="submit"
-          disabled={isSubmitting || !newCategoryName.trim()}
-          className="px-4 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white font-bold text-xs shadow-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+          disabled={isSubmitting}
+          className="px-4 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] active:scale-[0.98] text-white font-bold text-xs shadow-sm transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Add Category</span>
+          <span>{isSubmitting ? 'Adding...' : 'Add Category'}</span>
         </button>
       </form>
 

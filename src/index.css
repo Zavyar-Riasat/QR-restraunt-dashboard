@@ -446,4 +446,52 @@
     max-width: none !important;
     min-height: auto !important;
   }
+
+  /* Prevent fixed Sales Report Modal from repeating across 8 background dashboard pages on Ctrl+P */
+  body.sales-report-modal-open #root > div > header,
+  body.sales-report-modal-open #root > div > main,
+  body.sales-report-modal-open #root > div > footer,
+  body.sales-report-modal-open #fab-new-order-mobile-btn {
+    display: none !important;
+  }
+
+  #sales-report-modal-root {
+    position: static !important;
+    inset: auto !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  #sales-report-modal-dialog {
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+
+  #sales-report-modal-scroll {
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  #executive-sales-report-document {
+    max-width: 100% !important;
+    padding: 4mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
 }

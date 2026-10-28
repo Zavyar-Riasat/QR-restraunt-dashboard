@@ -190,7 +190,7 @@ export default function PrintersSection({ categories = [] }) {
             className="px-5 py-3 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] active:scale-[0.98] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-orange-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            <span>+ Add Printer</span>
+            <span>Add Printer</span>
           </button>
         </div>
       </div>

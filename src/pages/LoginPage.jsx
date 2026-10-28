@@ -97,8 +97,7 @@ export default function LoginPage() {
       window.location.hostname === '127.0.0.1' ||
       window.location.hostname.endsWith('.localhost') ||
       window.location.hostname.endsWith('.local') ||
-      window.location.hostname === '::1' ||
-      window.location.hostname.includes('vercel.app'));
+      window.location.hostname === '::1');
 
   const handleQuickLogin = async (quickEmail, quickPassword) => {
     setEmail(quickEmail);

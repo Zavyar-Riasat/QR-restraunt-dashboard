@@ -151,28 +151,6 @@ export default function CustomerAuthModal({
     }
   };
 
-  // Demo 1-Click Login
-  const handleDemoLogin = async () => {
-    try {
-      setLoading(true);
-      setErrorMsg('');
-      const logged = await loginCustomer({
-        name: 'Ahmed Khan',
-        phone: '03001234567',
-        email: 'ahmed.khan@example.com',
-      });
-      if (onSuccess) {
-        onSuccess(logged);
-      } else if (onClose) {
-        onClose();
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'Demo sign in failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -314,20 +292,6 @@ export default function CustomerAuthModal({
                 </svg>
                 <span>Continue with Google</span>
               </button>
-
-              {/* 1-Click Demo Shortcut (Localhost Only) */}
-              {isLocalhost && (
-                <div className="pt-2 text-center">
-                  <button
-                    type="button"
-                    onClick={handleDemoLogin}
-                    className="text-[11px] font-bold text-[#F26B1D] hover:underline cursor-pointer inline-flex items-center gap-1"
-                  >
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>Quick Demo: 1-Click Sign In as Ahmed Khan</span>
-                  </button>
-                </div>
-              )}
             </form>
           )}
 

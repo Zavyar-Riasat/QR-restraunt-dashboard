@@ -35,17 +35,15 @@ export const customerAuthService = {
       hostname === '127.0.0.1' ||
       hostname === '::1' ||
       hostname.endsWith('.localhost') ||
-      hostname.endsWith('.local') ||
-      hostname.includes('vercel.app')
+      hostname.endsWith('.local')
     );
   },
 
   /**
    * Check if running in development / test OTP mode
-   * Strictly limited to localhost / local development environment
    */
   isTestMode() {
-    return this.isLocalhost() && (SMS_PROVIDER === 'test' || Boolean(env.DEV));
+    return SMS_PROVIDER === 'test' || Boolean(env.DEV);
   },
 
   /**

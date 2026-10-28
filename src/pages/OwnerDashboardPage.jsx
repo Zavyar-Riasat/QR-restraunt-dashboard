@@ -408,13 +408,11 @@ export default function OwnerDashboardPage() {
   }, [restaurant?.id, soundEnabled]);
 
   const persistChanges = (newRest, newCats, newItems) => {
-    if (!isLive) {
-      restaurantService.saveLocalState({
-        restaurant: newRest || restaurant,
-        categories: newCats || categories,
-        menuItems: newItems || menuItems,
-      });
-    }
+    restaurantService.saveLocalState({
+      restaurant: newRest || restaurant,
+      categories: newCats || categories,
+      menuItems: newItems || menuItems,
+    });
   };
 
   const handleSelectRestaurant = (restId) => {
@@ -850,7 +848,6 @@ export default function OwnerDashboardPage() {
             <OrdersFeed
               orders={orders}
               feedMode="completed"
-              onNavigateToOrders={() => setActiveTab('orders')}
               onUpdateStatus={handleUpdateOrderStatus}
               restaurant={restaurant}
               soundEnabled={soundEnabled}

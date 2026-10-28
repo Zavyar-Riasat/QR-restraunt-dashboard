@@ -142,7 +142,7 @@ export default function CustomerManager({
             {formatPKR(toRupees(totalSpentPaisa))}
           </div>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">
-            All-time customer sales (paid in full)
+            All-time customer sales
           </p>
         </div>
 

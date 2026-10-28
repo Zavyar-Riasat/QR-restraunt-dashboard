@@ -320,7 +320,7 @@ export default function EditOrderItemsModal({
                 title="Open full POS with categories, dish images, and addon customization"
               >
                 <Plus className="w-5 h-5 stroke-[2.5]" />
-                <span>+ Add Another Dish in POS (Full Menu)</span>
+                <span>Add Another Dish in POS (Full Menu)</span>
               </button>
 
               <button

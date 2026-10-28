@@ -39,7 +39,19 @@ export default function CashFlowManager({
   const [entries, setEntries] = useState([]);
   const [activeTypeFilter, setActiveTypeFilter] = useState('all'); // 'all' | 'in' | 'out'
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'week' | 'month'
+  const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'specific_date' | 'custom_range'
+  const [specificDate, setSpecificDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [customEndDate, setCustomEndDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [search, setSearch] = useState('');
 
   // Modals state
@@ -91,14 +103,43 @@ export default function CashFlowManager({
     if (dateFilter !== 'all') {
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+      const yesterdayStart = todayStart - 24 * 3600 * 1000;
       const weekStart = todayStart - 7 * 24 * 3600 * 1000;
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
+      let specificStart = 0;
+      let specificEnd = Infinity;
+      if (dateFilter === 'specific_date' && specificDate) {
+        const [y, m, d] = specificDate.split('-').map(Number);
+        if (y && m && d) {
+          specificStart = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+          specificEnd = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+        }
+      } else if (dateFilter === 'custom_range') {
+        if (customStartDate) {
+          const [sy, sm, sd] = customStartDate.split('-').map(Number);
+          if (sy && sm && sd) {
+            specificStart = new Date(sy, sm - 1, sd, 0, 0, 0, 0).getTime();
+          }
+        }
+        if (customEndDate) {
+          const [ey, em, ed] = customEndDate.split('-').map(Number);
+          if (ey && em && ed) {
+            specificEnd = new Date(ey, em - 1, ed, 23, 59, 59, 999).getTime();
+          }
+        }
+      }
+
       result = result.filter((e) => {
         const t = new Date(e.date || e.created_at).getTime();
-        if (dateFilter === 'today') return t >= todayStart;
+        if (dateFilter === 'today') return t >= todayStart && t <= todayEnd;
+        if (dateFilter === 'yesterday') return t >= yesterdayStart && t < todayStart;
         if (dateFilter === 'week') return t >= weekStart;
         if (dateFilter === 'month') return t >= monthStart;
+        if (dateFilter === 'specific_date' || dateFilter === 'custom_range') {
+          return t >= specificStart && t <= specificEnd;
+        }
         return true;
       });
     }
@@ -117,7 +158,22 @@ export default function CashFlowManager({
     }
 
     return result;
-  }, [entries, activeTypeFilter, selectedCategory, dateFilter, search]);
+  }, [entries, activeTypeFilter, selectedCategory, dateFilter, specificDate, customStartDate, customEndDate, search]);
+
+  const filteredTotals = useMemo(() => {
+    let cashIn = 0;
+    let cashOut = 0;
+    for (const item of filteredEntries) {
+      const amt = Number(item.amount) || 0;
+      if (item.type === 'in') cashIn += amt;
+      else if (item.type === 'out') cashOut += amt;
+    }
+    return {
+      cashIn,
+      cashOut,
+      net: cashIn - cashOut,
+    };
+  }, [filteredEntries]);
 
   const handleOpenAdd = (type) => {
     setEntryToEdit(null);
@@ -320,19 +376,73 @@ export default function CashFlowManager({
             />
           </div>
 
-          {/* Date Filter */}
-          <div className="flex items-center gap-1 bg-[#FFF9F2] px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] text-xs">
-            <Calendar className="w-3.5 h-3.5 text-[#7A6A5C]" />
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="bg-transparent font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
-            >
-              <option value="all">Date: All Time</option>
-              <option value="today">Date: Today</option>
-              <option value="week">Date: Last 7 Days</option>
-              <option value="month">Date: This Month</option>
-            </select>
+          {/* Date Filter & Direct Date Picker */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1 bg-[#FFF9F2] px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] text-xs">
+              <Calendar className="w-3.5 h-3.5 text-[#7A6A5C]" />
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="bg-transparent font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
+              >
+                <option value="all">Date: All Time</option>
+                <option value="today">Date: Today</option>
+                <option value="yesterday">Date: Yesterday</option>
+                <option value="week">Date: Last 7 Days</option>
+                <option value="month">Date: This Month</option>
+                <option value="specific_date">Date: Specific Date</option>
+                <option value="custom_range">Date: Custom Range</option>
+              </select>
+            </div>
+
+            {dateFilter !== 'custom_range' && (
+              <div className="flex items-center gap-1 bg-[#FFF9F2] px-2.5 py-1 rounded-xl border border-[#F0E4D7] text-xs">
+                <span className="text-[10px] font-bold text-[#7A6A5C] uppercase">Pick Date:</span>
+                <input
+                  type="date"
+                  value={specificDate}
+                  onChange={(e) => {
+                    setSpecificDate(e.target.value);
+                    if (e.target.value) {
+                      setDateFilter('specific_date');
+                    } else {
+                      setDateFilter('all');
+                    }
+                  }}
+                  className="bg-transparent font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
+                />
+              </div>
+            )}
+
+            {dateFilter === 'custom_range' && (
+              <div className="flex items-center gap-1.5 bg-[#FFF9F2] px-2.5 py-1 rounded-xl border border-[#F0E4D7] text-xs flex-wrap">
+                <span className="text-[10px] font-bold text-[#7A6A5C] uppercase">From:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="bg-white px-2 py-0.5 rounded-lg border border-[#F0E4D7] font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
+                />
+                <span className="text-[10px] font-bold text-[#7A6A5C] uppercase">To:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="bg-white px-2 py-0.5 rounded-lg border border-[#F0E4D7] font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
+                />
+              </div>
+            )}
+
+            {dateFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setDateFilter('all')}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer"
+                title="Reset date filter to All Time"
+              >
+                Reset Date
+              </button>
+            )}
           </div>
 
           {/* Category Filter */}
@@ -361,6 +471,27 @@ export default function CashFlowManager({
             </select>
           </div>
         </div>
+
+        {/* Filtered Period Summary Banner when Date/Category/Search filter is active */}
+        {(dateFilter !== 'all' || selectedCategory !== 'all' || search.trim() !== '') && (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] text-xs">
+            <div className="flex items-center gap-2 font-bold text-[#2B2118]">
+              <Calendar className="w-3.5 h-3.5 text-[#F26B1D]" />
+              <span>
+                Showing {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
+                {dateFilter === 'specific_date' && specificDate ? ` for ${specificDate}` : ''}
+                {dateFilter === 'custom_range' ? ` (${customStartDate} to ${customEndDate})` : ''}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 font-mono text-xs font-bold flex-wrap">
+              <span className="text-emerald-700">In: +{formatPKR(filteredTotals.cashIn)}</span>
+              <span className="text-rose-700">Out: -{formatPKR(filteredTotals.cashOut)}</span>
+              <span className={filteredTotals.net >= 0 ? 'text-slate-900' : 'text-rose-700'}>
+                Net: {filteredTotals.net >= 0 ? `+${formatPKR(filteredTotals.net)}` : formatPKR(filteredTotals.net)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Transactions Table */}
         {filteredEntries.length === 0 ? (

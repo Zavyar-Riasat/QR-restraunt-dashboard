@@ -106,7 +106,7 @@ export default function CustomerDetailModal({
               {formatPKR(customer.total_spent)}
             </span>
             <span className="text-[10px] text-emerald-600 font-medium">
-              100% Paid in Full
+              Lifetime purchases
             </span>
           </div>
 
@@ -205,10 +205,6 @@ export default function CustomerDetailModal({
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
                       {ord.order_type}
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      <span>Paid Full</span>
-                    </span>
                     {ord.payment_method && (
                       <span className="text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
                         {ord.payment_method.toUpperCase()}
@@ -257,7 +253,7 @@ export default function CustomerDetailModal({
         {/* Footer */}
         <div className="p-4 border-t border-[#F0E4D7] bg-[#FFF9F2] flex items-center justify-between">
           <div className="text-xs text-[#7A6A5C]">
-            Customer profile & order history • All orders paid in full
+            Customer profile & order history
           </div>
           <button
             type="button"

@@ -142,6 +142,7 @@ export function filterOrdersByDate(orders = [], options = {}) {
   return {
     filteredOrders: filtered,
     label,
+    rangeLabel: label,
     startTimestamp,
     endTimestamp,
   };
@@ -227,12 +228,14 @@ export function generateFullReport(orders = [], rangeLabel = '', filterMeta = {}
 
   // Top Selling Items in this date range
   const itemMap = {};
+  let totalItemsSold = 0;
   for (const order of nonCancelledOrders) {
     if (Array.isArray(order.items)) {
       for (const item of order.items) {
         const key = item.title || 'Special Item';
         const qty = Number(item.quantity) || 1;
         const unit = Number(item.unitPrice) || 0;
+        totalItemsSold += qty;
         if (!itemMap[key]) {
           itemMap[key] = { title: key, quantity: 0, revenue: 0 };
         }
@@ -242,9 +245,11 @@ export function generateFullReport(orders = [], rangeLabel = '', filterMeta = {}
     }
   }
 
-  const topItems = Object.values(itemMap)
-    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
-    .slice(0, 8);
+  const allItemsRanked = Object.values(itemMap).sort(
+    (a, b) => b.quantity - a.quantity || b.revenue - a.revenue
+  );
+  const topItems = allItemsRanked.slice(0, 8);
+  const uniqueDishesCount = allItemsRanked.length;
 
   const now = new Date();
 
@@ -253,6 +258,8 @@ export function generateFullReport(orders = [], rangeLabel = '', filterMeta = {}
     grossSales,
     totalSales: grossSales,
     averageOrderValue,
+    totalItemsSold,
+    uniqueDishesCount,
     cashSales: {
       count: cashCount,
       total: cashTotal,

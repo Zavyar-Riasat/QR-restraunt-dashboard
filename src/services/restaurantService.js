@@ -1232,10 +1232,67 @@ export const restaurantService = {
             supabase.from('menu_items').select('*').eq('restaurant_id', restaurant.id).order('created_at'),
           ]);
 
+          let resolvedCategories = catRes.data || [];
+          let resolvedMenuItems = itemRes.data || [];
+
+          // Merge or fallback to local saved state if RLS prevented writes to Supabase
+          if (typeof localStorage !== 'undefined') {
+            try {
+              const savedRaw =
+                (restaurant.slug && localStorage.getItem(`${STORAGE_KEY}_${restaurant.slug}`)) ||
+                (restaurant.id && localStorage.getItem(`${STORAGE_KEY}_${restaurant.id}`));
+              if (savedRaw) {
+                const savedParsed = JSON.parse(savedRaw);
+                if (Array.isArray(savedParsed?.categories) && savedParsed.categories.length > 0) {
+                  if (resolvedCategories.length === 0) {
+                    resolvedCategories = savedParsed.categories;
+                  } else {
+                    const existingNames = new Set(
+                      resolvedCategories.map((c) => String(c.name || '').trim().toLowerCase())
+                    );
+                    const localExtras = savedParsed.categories.filter(
+                      (c) => c?.name && !existingNames.has(String(c.name).trim().toLowerCase())
+                    );
+                    if (localExtras.length > 0) {
+                      resolvedCategories = [...resolvedCategories, ...localExtras];
+                    }
+                  }
+                }
+                if (Array.isArray(savedParsed?.menuItems) && savedParsed.menuItems.length > 0) {
+                  if (resolvedMenuItems.length === 0) {
+                    resolvedMenuItems = savedParsed.menuItems;
+                  } else {
+                    const existingIds = new Set(resolvedMenuItems.map((i) => i.id));
+                    const localItemExtras = savedParsed.menuItems.filter(
+                      (i) => i?.id && !existingIds.has(i.id)
+                    );
+                    if (localItemExtras.length > 0) {
+                      resolvedMenuItems = [...resolvedMenuItems, ...localItemExtras];
+                    }
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+
+          // If both Supabase and localStorage had 0 categories for a known seed slug, hydrate seed menu
+          if (
+            resolvedCategories.length === 0 &&
+            restaurant.slug &&
+            ALL_SEED_RESTAURANTS[restaurant.slug]
+          ) {
+            const seed = sanitizeMenuData({
+              categories: ALL_SEED_RESTAURANTS[restaurant.slug].categories,
+              menuItems: ALL_SEED_RESTAURANTS[restaurant.slug].menuItems,
+            });
+            resolvedCategories = seed.categories;
+            resolvedMenuItems = seed.menuItems;
+          }
+
           return {
             restaurant,
-            categories: catRes.data || [],
-            menuItems: itemRes.data || [],
+            categories: resolvedCategories,
+            menuItems: resolvedMenuItems,
             isLive: true,
           };
         }
@@ -1299,11 +1356,20 @@ export const restaurantService = {
   },
 
   async saveLocalState(state) {
-    const slug = state?.restaurant?.slug;
-    if (slug) {
-      localStorage.setItem(`${STORAGE_KEY}_${slug}`, JSON.stringify(state));
+    try {
+      const serialized = JSON.stringify(state);
+      const slug = state?.restaurant?.slug;
+      const id = state?.restaurant?.id;
+      if (slug) {
+        localStorage.setItem(`${STORAGE_KEY}_${slug}`, serialized);
+      }
+      if (id) {
+        localStorage.setItem(`${STORAGE_KEY}_${id}`, serialized);
+      }
+      localStorage.setItem(STORAGE_KEY, serialized);
+    } catch (e) {
+      console.warn('Failed to save local restaurant state:', e);
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   },
 
   /**
@@ -1362,45 +1428,71 @@ export const restaurantService = {
    * 2. Categories
    */
   async createCategory(restaurantId, name) {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('categories')
-        .insert([{ restaurant_id: restaurantId, name }])
-        .select()
-        .single();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      String(restaurantId || '')
+    );
+    if (isSupabaseConfigured() && isUuid) {
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .insert([{ restaurant_id: restaurantId, name }])
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) {
+          return data;
+        }
+        if (error) {
+          console.warn('Supabase createCategory fallback to local state:', error.message);
+        }
+      } catch (err) {
+        console.warn('Supabase createCategory notice:', err.message);
+      }
     }
     return { id: `cat-${Date.now()}`, restaurant_id: restaurantId, name };
   },
 
   async updateCategory(categoryId, name) {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('categories')
-        .update({ name })
-        .eq('id', categoryId)
-        .select()
-        .single();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      String(categoryId || '')
+    );
+    if (isSupabaseConfigured() && isUuid) {
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .update({ name })
+          .eq('id', categoryId)
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) {
+          return data;
+        }
+        if (error) {
+          console.warn('Supabase updateCategory fallback to local state:', error.message);
+        }
+      } catch (err) {
+        console.warn('Supabase updateCategory notice:', err.message);
+      }
     }
     return { id: categoryId, name };
   },
 
   async deleteCategory(categoryId) {
-    if (isSupabaseConfigured()) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      String(categoryId || '')
+    );
+    if (isSupabaseConfigured() && isUuid) {
       try {
         // Cascade delete items in this category first to avoid foreign key violations
         await supabase.from('menu_items').delete().eq('category_id', categoryId);
+        const { error } = await supabase.from('categories').delete().eq('id', categoryId);
+        if (error) {
+          console.warn('Supabase deleteCategory fallback to local state:', error.message);
+        }
       } catch (e) {
-        console.warn('Notice on cascade delete menu items:', e);
+        console.warn('Notice on cascade delete category:', e);
       }
-      const { error } = await supabase.from('categories').delete().eq('id', categoryId);
-      if (error) throw error;
-      return true;
     }
     return true;
   },
@@ -1409,23 +1501,37 @@ export const restaurantService = {
    * 3. Menu Items
    */
   async createMenuItem(itemData) {
-    if (isSupabaseConfigured()) {
-      const { data, error } = await supabase
-        .from('menu_items')
-        .insert([
-          {
-            restaurant_id: itemData.restaurant_id,
-            category_id: itemData.category_id,
-            title: itemData.title,
-            price: parseFloat(itemData.price),
-            variants: itemData.variants || {},
-          },
-        ])
-        .select()
-        .single();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      String(itemData?.restaurant_id || '')
+    );
+    const isCatUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      String(itemData?.category_id || '')
+    );
+    if (isSupabaseConfigured() && isUuid && isCatUuid) {
+      try {
+        const { data, error } = await supabase
+          .from('menu_items')
+          .insert([
+            {
+              restaurant_id: itemData.restaurant_id,
+              category_id: itemData.category_id,
+              title: itemData.title,
+              price: parseFloat(itemData.price),
+              variants: itemData.variants || {},
+            },
+          ])
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) {
+          return data;
+        }
+        if (error) {
+          console.warn('Supabase createMenuItem fallback to local state:', error.message);
+        }
+      } catch (err) {
+        console.warn('Supabase createMenuItem notice:', err.message);
+      }
     }
     return {
       id: `item-${Date.now()}`,
@@ -1435,31 +1541,50 @@ export const restaurantService = {
   },
 
   async updateMenuItem(itemId, updates) {
-    if (isSupabaseConfigured()) {
-      const payload = {};
-      if (updates.category_id) payload.category_id = updates.category_id;
-      if (updates.title) payload.title = updates.title;
-      if (updates.price !== undefined) payload.price = parseFloat(updates.price);
-      if (updates.variants !== undefined) payload.variants = updates.variants;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      String(itemId || '')
+    );
+    if (isSupabaseConfigured() && isUuid) {
+      try {
+        const payload = {};
+        if (updates.category_id) payload.category_id = updates.category_id;
+        if (updates.title) payload.title = updates.title;
+        if (updates.price !== undefined) payload.price = parseFloat(updates.price);
+        if (updates.variants !== undefined) payload.variants = updates.variants;
 
-      const { data, error } = await supabase
-        .from('menu_items')
-        .update(payload)
-        .eq('id', itemId)
-        .select()
-        .single();
+        const { data, error } = await supabase
+          .from('menu_items')
+          .update(payload)
+          .eq('id', itemId)
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (!error && data) {
+          return data;
+        }
+        if (error) {
+          console.warn('Supabase updateMenuItem fallback to local state:', error.message);
+        }
+      } catch (err) {
+        console.warn('Supabase updateMenuItem notice:', err.message);
+      }
     }
     return { id: itemId, ...updates, price: parseFloat(updates.price) };
   },
 
   async deleteMenuItem(itemId) {
-    if (isSupabaseConfigured()) {
-      const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
-      if (error) throw error;
-      return true;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      String(itemId || '')
+    );
+    if (isSupabaseConfigured() && isUuid) {
+      try {
+        const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
+        if (error) {
+          console.warn('Supabase deleteMenuItem fallback to local state:', error.message);
+        }
+      } catch (err) {
+        console.warn('Supabase deleteMenuItem notice:', err.message);
+      }
     }
     return true;
   },

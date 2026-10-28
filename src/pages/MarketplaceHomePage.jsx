@@ -254,8 +254,8 @@ export default function MarketplaceHomePage() {
 
   const refreshActiveCart = useCallback(() => {
     try {
-      const slug = localStorage.getItem('dinehq_active_cart_slug');
-      const name = localStorage.getItem('dinehq_active_cart_name');
+      let slug = localStorage.getItem('dinehq_active_cart_slug');
+      let name = localStorage.getItem('dinehq_active_cart_name');
       if (slug) {
         const raw = localStorage.getItem(`dinehq_cart_${slug}`);
         if (raw) {
@@ -263,11 +263,36 @@ export default function MarketplaceHomePage() {
           if (Array.isArray(parsed) && parsed.length > 0) {
             setActiveCartItems(parsed);
             setActiveCartSlug(slug);
-            setActiveCartName(name || 'Restaurant');
+            setActiveCartName(name || localStorage.getItem(`dinehq_cart_name_${slug}`) || slug);
             return;
           }
         }
       }
+
+      // Fallback: scan localStorage for any dinehq_cart_<slug> with items
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('dinehq_cart_') && !key.startsWith('dinehq_cart_name_')) {
+          const candidateSlug = key.replace('dinehq_cart_', '');
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const candidateName =
+                localStorage.getItem(`dinehq_cart_name_${candidateSlug}`) ||
+                (slug === candidateSlug ? name : null) ||
+                candidateSlug;
+              localStorage.setItem('dinehq_active_cart_slug', candidateSlug);
+              localStorage.setItem('dinehq_active_cart_name', candidateName);
+              setActiveCartItems(parsed);
+              setActiveCartSlug(candidateSlug);
+              setActiveCartName(candidateName);
+              return;
+            }
+          }
+        }
+      }
+
       setActiveCartItems([]);
       setActiveCartSlug(null);
       setActiveCartName(null);
@@ -571,41 +596,68 @@ export default function MarketplaceHomePage() {
   // -------------------------------------------------------------
   // Cart Actions & Restaurant Conflict Prompting
   // Adding a dish from a different restaurant prompts:
-  // "Start a new cart from this restaurant?"
+  // "Can't Order from Different Restaurants at the Same Time"
   // -------------------------------------------------------------
+  const findConflictingRestaurantCart = (targetRestaurantSlug) => {
+    try {
+      const activeSlug = localStorage.getItem('dinehq_active_cart_slug');
+      const activeName = localStorage.getItem('dinehq_active_cart_name');
+
+      if (activeSlug && activeSlug !== targetRestaurantSlug) {
+        const raw = localStorage.getItem(`dinehq_cart_${activeSlug}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return {
+              slug: activeSlug,
+              name: activeName || localStorage.getItem(`dinehq_cart_name_${activeSlug}`) || activeSlug,
+            };
+          }
+        }
+      }
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('dinehq_cart_') && !key.startsWith('dinehq_cart_name_')) {
+          const otherSlug = key.replace('dinehq_cart_', '');
+          if (otherSlug && otherSlug !== targetRestaurantSlug) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const otherName =
+                  localStorage.getItem(`dinehq_cart_name_${otherSlug}`) ||
+                  (activeSlug === otherSlug ? activeName : null) ||
+                  otherSlug;
+                return { slug: otherSlug, name: otherName };
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  };
+
   const handleAddDish = (dish) => {
     if (!dish) return;
+
+    // Inspect active cart in localStorage BEFORE navigating or adding
+    const conflictingCart = findConflictingRestaurantCart(dish.restaurant_slug);
+
+    if (conflictingCart) {
+      // Prompt customer with Cart Conflict Modal
+      setCartConflictItem({
+        ...dish,
+        previousRestaurantName: conflictingCart.name,
+        previousRestaurantSlug: conflictingCart.slug,
+      });
+      return;
+    }
 
     // Check if dish has options/variants
     if (dish.has_options) {
       navigate(`/${dish.restaurant_slug}?highlight=${dish.raw_item_id || dish.id}`);
-      return;
-    }
-
-    // Inspect active cart in localStorage
-    const activeCartSlug = localStorage.getItem('dinehq_active_cart_slug');
-    const activeCartRestaurantName = localStorage.getItem('dinehq_active_cart_name') || 'another restaurant';
-
-    let existingCartHasItems = false;
-    if (activeCartSlug && activeCartSlug !== dish.restaurant_slug) {
-      try {
-        const raw = localStorage.getItem(`dinehq_cart_${activeCartSlug}`);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            existingCartHasItems = true;
-          }
-        }
-      } catch (_) {}
-    }
-
-    if (existingCartHasItems) {
-      // Prompt customer with Cart Conflict Modal
-      setCartConflictItem({
-        ...dish,
-        previousRestaurantName: activeCartRestaurantName,
-        previousRestaurantSlug: activeCartSlug,
-      });
       return;
     }
 
@@ -644,6 +696,7 @@ export default function MarketplaceHomePage() {
       }
 
       localStorage.setItem(cartKey, JSON.stringify(cart));
+      localStorage.setItem(`dinehq_cart_name_${dish.restaurant_slug}`, dish.restaurant_name);
       localStorage.setItem('dinehq_active_cart_slug', dish.restaurant_slug);
       localStorage.setItem('dinehq_active_cart_name', dish.restaurant_name);
 
@@ -660,9 +713,33 @@ export default function MarketplaceHomePage() {
     if (!cartConflictItem) return;
 
     try {
-      // Clear previous restaurant's cart
+      // Clear previous restaurant's cart and any other restaurant carts
       if (cartConflictItem.previousRestaurantSlug) {
         localStorage.removeItem(`dinehq_cart_${cartConflictItem.previousRestaurantSlug}`);
+      }
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          key.startsWith('dinehq_cart_') &&
+          !key.startsWith('dinehq_cart_name_') &&
+          key !== `dinehq_cart_${cartConflictItem.restaurant_slug}`
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+      if (cartConflictItem.has_options) {
+        localStorage.setItem('dinehq_active_cart_slug', cartConflictItem.restaurant_slug);
+        localStorage.setItem('dinehq_active_cart_name', cartConflictItem.restaurant_name);
+        refreshActiveCart();
+        window.dispatchEvent(new Event('dinehq_cart_updated'));
+        const targetUrl = `/${cartConflictItem.restaurant_slug}?highlight=${cartConflictItem.raw_item_id || cartConflictItem.id}`;
+        setCartConflictItem(null);
+        navigate(targetUrl);
+        return;
       }
 
       // Add item to new cart
@@ -761,7 +838,7 @@ export default function MarketplaceHomePage() {
 
   return (
     <div
-      className="min-h-screen bg-[#FFF9F2] dark:bg-[#1A120B] text-[#2B2118] dark:text-[#FFF9F2] font-sans antialiased pb-20 md:pb-12"
+      className="min-h-screen bg-[#FFF9F2] dark:bg-[#1A120B] text-[#2B2118] dark:text-[#FFF9F2] font-sans antialiased pb-16 md:pb-0"
     >
       {/* ========================================================
           1. CLEAN STICKY HEADER (One row, sticky, not clipped)
@@ -1448,13 +1525,14 @@ export default function MarketplaceHomePage() {
                       </div>
 
                       {dish.has_options ? (
-                        <Link
-                          to={`/${dish.restaurant_slug}?highlight=${dish.raw_item_id || dish.id}`}
+                        <button
+                          type="button"
+                          onClick={() => handleAddDish(dish)}
                           className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[38px] rounded-xl bg-white dark:bg-[#281D16] hover:bg-[#FFF1E6] dark:hover:bg-[#34241B] text-[#F26B1D] border border-[#FCD8BF] dark:border-[#4A3222] text-xs font-bold transition shadow-2xs cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>View</span>
-                        </Link>
+                        </button>
                       ) : (
                         <button
                           type="button"
@@ -1489,18 +1567,18 @@ export default function MarketplaceHomePage() {
         {/* ========================================================
             8. MINIMAL CLEAN FOOTER
             ======================================================== */}
-        <footer className="mt-12 sm:mt-16 border-t border-[#F0E4D7] dark:border-[#382B20] py-8 sm:py-10 text-center text-xs text-[#7A6A5C] dark:text-[#A8988B] space-y-3">
+        <footer className="mt-6 sm:mt-8 border-t border-[#F0E4D7] dark:border-[#382B20] py-4 sm:py-5 text-center text-xs text-[#7A6A5C] dark:text-[#A8988B] space-y-1.5">
           <div className="flex items-center justify-center">
-            <Link to="/" className="inline-flex items-center justify-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#F26B1D] to-[#E05307] text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <UtensilsCrossed className="w-4 h-4" />
+            <Link to="/" className="inline-flex items-center justify-center gap-2 group">
+              <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#F26B1D] to-[#E05307] text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                <UtensilsCrossed className="w-3.5 h-3.5" />
               </div>
-              <span className="font-heading font-extrabold text-base sm:text-lg tracking-tight text-[#2B2118] dark:text-[#FFF9F2] group-hover:text-[#F26B1D] transition-colors">
+              <span className="font-heading font-extrabold text-sm sm:text-base tracking-tight text-[#2B2118] dark:text-[#FFF9F2] group-hover:text-[#F26B1D] transition-colors">
                 Dineflow
               </span>
             </Link>
           </div>
-          <p>© {new Date().getFullYear()} Dineflow. Fresh food delivered directly from kitchen menus.</p>
+          <p className="text-[11px]">© {new Date().getFullYear()} Dineflow. Fresh food delivered directly from kitchen menus.</p>
         </footer>
       </main>
 
@@ -1715,7 +1793,7 @@ export default function MarketplaceHomePage() {
 
       {/* ========================================================
           10. CART CONFLICT MODAL
-          "Start a new cart from this restaurant?"
+          "Can't Order from Different Restaurants at the Same Time"
           ======================================================== */}
       {cartConflictItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
@@ -1726,16 +1804,15 @@ export default function MarketplaceHomePage() {
 
             <div className="space-y-1.5">
               <h3 className="font-heading font-extrabold text-base text-[#2B2118] dark:text-[#FFF9F2]">
-                Start a new cart from this restaurant?
+                Can't Order from Different Restaurants at the Same Time
               </h3>
               <p className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8] leading-relaxed">
-                Your cart already contains items from{' '}
+                You already have items from{' '}
                 <span className="font-bold text-[#2B2118] dark:text-[#FFF9F2]">
                   {cartConflictItem.previousRestaurantName || 'another restaurant'}
-                </span>
-                . Adding this item from{' '}
-                <span className="font-bold text-[#F26B1D]">{cartConflictItem.restaurant_name}</span> will
-                clear your previous selection.
+                </span>{' '}
+                in your cart. We can't order from different restaurants at the same time. Would you like to clear your current cart and order from{' '}
+                <span className="font-bold text-[#F26B1D]">{cartConflictItem.restaurant_name}</span> instead?
               </p>
             </div>
 
@@ -1745,14 +1822,14 @@ export default function MarketplaceHomePage() {
                 onClick={handleConfirmNewCart}
                 className="w-full btn-primary min-h-[44px] text-xs font-bold"
               >
-                Start New Cart
+                Clear Cart & Switch Restaurant
               </button>
               <button
                 type="button"
                 onClick={() => setCartConflictItem(null)}
                 className="w-full py-2 text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#2B2118] dark:hover:text-white transition cursor-pointer"
               >
-                Cancel
+                Keep Current Cart
               </button>
             </div>
           </div>

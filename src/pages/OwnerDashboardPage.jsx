@@ -1022,7 +1022,7 @@ export default function OwnerDashboardPage() {
       )}
 
       {/* Footer */}
-      <footer className="no-print mt-auto py-6 border-t border-slate-200 text-center text-xs text-slate-500 bg-white space-y-2">
+      <footer className="no-print mt-auto py-3.5 border-t border-slate-200 text-center text-xs text-slate-500 bg-white space-y-1">
         <div className="flex items-center justify-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#F26B1D] to-[#F5A623] flex items-center justify-center text-white shadow-2xs">
             <UtensilsCrossed className="w-3.5 h-3.5" />

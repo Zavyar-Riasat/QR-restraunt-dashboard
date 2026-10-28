@@ -122,15 +122,26 @@ export default function CustomerMenuPage() {
     try {
       if (cart && cart.length > 0) {
         localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+        if (restaurant?.name) {
+          localStorage.setItem(`dinehq_cart_name_${effectiveSlug}`, restaurant.name);
+          localStorage.setItem('dinehq_active_cart_name', restaurant.name);
+        }
+        localStorage.setItem('dinehq_active_cart_slug', effectiveSlug);
       } else {
         localStorage.removeItem(cartStorageKey);
+        if (localStorage.getItem('dinehq_active_cart_slug') === effectiveSlug) {
+          localStorage.removeItem('dinehq_active_cart_slug');
+          localStorage.removeItem('dinehq_active_cart_name');
+        }
       }
+      window.dispatchEvent(new Event('dinehq_cart_updated'));
     } catch (e) {
       console.warn('Error syncing restaurant cart to localStorage:', e);
     }
-  }, [cart, cartStorageKey]);
+  }, [cart, cartStorageKey, effectiveSlug, restaurant?.name]);
 
   const [selectedItemForModal, setSelectedItemForModal] = useState(null);
+  const [cartConflictState, setCartConflictState] = useState(null);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   // Customer Saved Location & Delivery Areas
@@ -219,29 +230,6 @@ export default function CustomerMenuPage() {
     loadData();
   }, [effectiveSlug]);
 
-  // Highlight dish and open customization modal if arrived via Food mode 'View' link
-  useEffect(() => {
-    if (!menuItems || menuItems.length === 0) return;
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const highlightId = urlParams.get('highlight');
-      if (highlightId) {
-        const found = menuItems.find(
-          (m) => String(m.id) === String(highlightId) || (m.title && m.title.toLowerCase().includes(highlightId.toLowerCase()))
-        );
-        if (found) {
-          setTimeout(() => {
-            setSelectedItemForModal(found);
-            const el = document.getElementById(`item-${found.id}`);
-            if (el) {
-              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 300);
-        }
-      }
-    } catch (_) {}
-  }, [menuItems]);
-
   // Load restaurant delivery areas
   useEffect(() => {
     if (!restaurant?.id) return;
@@ -257,15 +245,136 @@ export default function CustomerMenuPage() {
     return checkRestaurantDeliveryCoverage(customerLocation, restaurant, deliveryAreas);
   }, [customerLocation, restaurant, deliveryAreas]);
 
+  // Find if another restaurant already has items in localStorage cart
+  const findOtherRestaurantCart = React.useCallback(() => {
+    try {
+      const activeSlug = localStorage.getItem('dinehq_active_cart_slug');
+      const activeName = localStorage.getItem('dinehq_active_cart_name');
+
+      if (activeSlug && activeSlug !== effectiveSlug) {
+        const raw = localStorage.getItem(`dinehq_cart_${activeSlug}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return {
+              slug: activeSlug,
+              name: activeName || localStorage.getItem(`dinehq_cart_name_${activeSlug}`) || activeSlug,
+            };
+          }
+        }
+      }
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('dinehq_cart_') && !key.startsWith('dinehq_cart_name_')) {
+          const otherSlug = key.replace('dinehq_cart_', '');
+          if (otherSlug && otherSlug !== effectiveSlug) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const otherName =
+                  localStorage.getItem(`dinehq_cart_name_${otherSlug}`) ||
+                  (activeSlug === otherSlug ? activeName : null) ||
+                  otherSlug;
+                return { slug: otherSlug, name: otherName };
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }, [effectiveSlug]);
+
   // Cart helper functions
-  const handleOpenCustomization = (item) => {
-    if (!getItemAvailability(item)) return; // blocked if sold out
-    const pricing = getItemPricing(item, restaurant);
-    setSelectedItemForModal({
-      ...item,
-      price: pricing.finalPrice,
-      original_price: pricing.originalPrice,
-    });
+  const openItemCustomizationDirectly = React.useCallback(
+    (item) => {
+      if (!getItemAvailability(item)) return; // blocked if sold out
+      const pricing = getItemPricing(item, restaurant);
+      setSelectedItemForModal({
+        ...item,
+        price: pricing.finalPrice,
+        original_price: pricing.originalPrice,
+      });
+    },
+    [restaurant]
+  );
+
+  const handleOpenCustomization = React.useCallback(
+    (item) => {
+      if (!getItemAvailability(item)) return; // blocked if sold out
+
+      const otherCart = findOtherRestaurantCart();
+      if (otherCart) {
+        setCartConflictState({
+          pendingItem: item,
+          previousRestaurantSlug: otherCart.slug,
+          previousRestaurantName: otherCart.name,
+        });
+        return;
+      }
+
+      openItemCustomizationDirectly(item);
+    },
+    [findOtherRestaurantCart, openItemCustomizationDirectly]
+  );
+
+  // Highlight dish and open customization modal if arrived via Food mode 'View' link
+  useEffect(() => {
+    if (!menuItems || menuItems.length === 0) return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const highlightId = urlParams.get('highlight');
+      if (highlightId) {
+        const found = menuItems.find(
+          (m) => String(m.id) === String(highlightId) || (m.title && m.title.toLowerCase().includes(highlightId.toLowerCase()))
+        );
+        if (found) {
+          setTimeout(() => {
+            handleOpenCustomization(found);
+            const el = document.getElementById(`item-${found.id}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 300);
+        }
+      }
+    } catch (_) {}
+  }, [menuItems, handleOpenCustomization]);
+
+  const handleConfirmSwitchRestaurantCart = () => {
+    if (!cartConflictState) return;
+    const { pendingItem, previousRestaurantSlug } = cartConflictState;
+    try {
+      if (previousRestaurantSlug) {
+        localStorage.removeItem(`dinehq_cart_${previousRestaurantSlug}`);
+      }
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          key.startsWith('dinehq_cart_') &&
+          !key.startsWith('dinehq_cart_name_') &&
+          key !== cartStorageKey
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem('dinehq_active_cart_slug', effectiveSlug);
+      if (restaurant?.name) {
+        localStorage.setItem('dinehq_active_cart_name', restaurant.name);
+        localStorage.setItem(`dinehq_cart_name_${effectiveSlug}`, restaurant.name);
+      }
+      window.dispatchEvent(new Event('dinehq_cart_updated'));
+    } catch (_) {}
+
+    setCartConflictState(null);
+    if (pendingItem) {
+      openItemCustomizationDirectly(pendingItem);
+    }
   };
 
   const handleAddToCart = (configuredItem) => {
@@ -1157,6 +1266,50 @@ export default function CustomerMenuPage() {
         </div>
       )}
 
+      {/* Multi-Restaurant Cart Conflict Modal */}
+      {cartConflictState && (
+        <div className="fixed inset-0 z-50 bg-[#2B2118]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-[#F0E4D7] text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF] flex items-center justify-center mx-auto shadow-2xs">
+              <ShoppingBag className="w-6 h-6" style={{ color: primaryColor }} />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-heading font-extrabold text-[#2B2118] text-base">
+                Can't Order from Different Restaurants at the Same Time
+              </h3>
+              <p className="text-xs text-[#7A6A5C] leading-relaxed">
+                You already have items from{' '}
+                <span className="font-bold text-[#2B2118]">
+                  {cartConflictState.previousRestaurantName || 'another restaurant'}
+                </span>{' '}
+                in your cart. We can't order from different restaurants at the same time. Would you like to clear your current cart and order from{' '}
+                <span className="font-bold" style={{ color: primaryColor }}>
+                  {restaurant?.name || 'this restaurant'}
+                </span>{' '}
+                instead?
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={handleConfirmSwitchRestaurantCart}
+                style={{ backgroundColor: primaryColor }}
+                className="w-full py-3 px-4 rounded-xl text-white font-extrabold text-xs shadow-md hover:brightness-95 transition cursor-pointer"
+              >
+                Clear Cart & Switch Restaurant
+              </button>
+              <button
+                type="button"
+                onClick={() => setCartConflictState(null)}
+                className="w-full py-2.5 px-3 rounded-xl border border-[#F0E4D7] bg-white text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] font-bold text-xs transition cursor-pointer"
+              >
+                Keep Current Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Leave Restaurant Cart Confirmation Modal */}
       {showLeaveConfirmModal && (
         <div className="fixed inset-0 z-50 bg-[#2B2118]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -1239,7 +1392,7 @@ export default function CustomerMenuPage() {
       )}
 
       {/* Web Footer */}
-      <footer className="mt-auto py-8 border-t border-[#F0E4D7] text-center text-xs text-[#7A6A5C] bg-[#FFF9F2]">
+      <footer className="mt-auto py-4 border-t border-[#F0E4D7] text-center text-xs text-[#7A6A5C] bg-[#FFF9F2]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             {restaurant.logo_url ? (

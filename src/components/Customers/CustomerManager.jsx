@@ -28,7 +28,7 @@ export default function CustomerManager({
 }) {
   const restId = restaurant?.id || 'rest-101';
 
-  const [customers, setCustomers] = useState([]);
+  const [customers, setCustomers] = useState(() => customerKhataService.getAllCustomers(restId));
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('most_spent'); // 'most_spent' | 'most_orders' | 'name' | 'recent'
 

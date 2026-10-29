@@ -38,7 +38,7 @@ export default function NewOrderModal({
   initialAppendOrderId = null,
 }) {
   const [orderType, setOrderType] = useState(initialOrderType); // 'dine_in' | 'takeaway' | 'delivery' | 'phone'
-  const [phoneOrderMode, setPhoneOrderMode] = useState('pickup'); // 'pickup' | 'delivery'
+  const [phoneOrderMode] = useState('pickup'); // 'pickup' | 'delivery'
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -49,6 +49,9 @@ export default function NewOrderModal({
   const [selectedTable, setSelectedTable] = useState(initialTable || null);
   const [showTablePicker, setShowTablePicker] = useState(!initialTable);
   const [appendToExistingOrderId, setAppendToExistingOrderId] = useState(null);
+  const [tableSearchQuery, setTableSearchQuery] = useState('');
+  const [tableStatusFilter, setTableStatusFilter] = useState('all'); // 'all' | 'free' | 'occupied'
+  const [tableSectionFilter, setTableSectionFilter] = useState('all');
 
   // Customer / Delivery info
   const [customerName, setCustomerName] = useState('');
@@ -122,6 +125,39 @@ export default function NewOrderModal({
   const tables = useMemo(() => {
     return tableService.getTablesWithLiveStatus(restaurant?.id || 'rest-101', orders);
   }, [restaurant?.id, orders]);
+
+  const tableSections = useMemo(() => {
+    const set = new Set();
+    tables.forEach((t) => {
+      if (t.section) set.add(t.section);
+    });
+    return Array.from(set);
+  }, [tables]);
+
+  const freeTablesCount = useMemo(
+    () => tables.filter((t) => t.status === TABLE_STATUS.FREE).length,
+    [tables]
+  );
+
+  const occupiedTablesCount = useMemo(
+    () => tables.filter((t) => t.status !== TABLE_STATUS.FREE).length,
+    [tables]
+  );
+
+  const filteredTables = useMemo(() => {
+    const q = tableSearchQuery.toLowerCase().trim();
+    return tables.filter((t) => {
+      if (tableStatusFilter === 'free' && t.status !== TABLE_STATUS.FREE) return false;
+      if (tableStatusFilter === 'occupied' && t.status === TABLE_STATUS.FREE) return false;
+      if (tableSectionFilter !== 'all' && t.section !== tableSectionFilter) return false;
+      if (!q) return true;
+      return (
+        String(t.table_number || '').toLowerCase().includes(q) ||
+        String(t.name || '').toLowerCase().includes(q) ||
+        String(t.section || '').toLowerCase().includes(q)
+      );
+    });
+  }, [tables, tableSearchQuery, tableStatusFilter, tableSectionFilter]);
 
   // Sync initial table / append order if passed and auto-detect open tab
   useEffect(() => {
@@ -501,8 +537,8 @@ export default function NewOrderModal({
 
       // 2. Creating a brand new in-store order
       const initialStatus = actionType === 'hold' ? 'held' : 'new';
-      const effectiveAmountReceived = grandTotal;
-      const calculatedPaymentStatus = 'paid';
+      const effectiveAmountReceived = 0;
+      const calculatedPaymentStatus = 'unpaid';
 
       const isDeliveryOrder = orderType === 'delivery' || (orderType === 'phone' && phoneOrderMode === 'delivery');
       const resolvedOrderType = orderType === 'phone'
@@ -678,18 +714,7 @@ export default function NewOrderModal({
               <span>Delivery</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setOrderType('phone')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                orderType === 'phone'
-                  ? 'bg-[#F26B1D] text-white shadow-xs'
-                  : 'text-[#7A6A5C] hover:text-[#2B2118]'
-              }`}
-            >
-              <span>📞</span>
-              <span>Phone Order</span>
-            </button>
+
           </div>
 
           {/* Close Button */}
@@ -711,7 +736,6 @@ export default function NewOrderModal({
             { id: 'dine_in', label: 'Dine-In', icon: '🍽️' },
             { id: 'takeaway', label: 'Takeaway', icon: '🛍️' },
             { id: 'delivery', label: 'Delivery', icon: '🛵' },
-            { id: 'phone', label: 'Phone', icon: '📞' },
           ].map((type) => (
             <button
               key={type.id}
@@ -791,88 +815,234 @@ export default function NewOrderModal({
                 </div>
 
                 {orderType === 'dine_in' && (
-                  <button
-                    type="button"
-                    onClick={() => setShowTablePicker((prev) => !prev)}
-                    className="px-3 py-2 rounded-xl bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-2xs"
-                  >
-                    <span>🍽️</span>
-                    <span>{selectedTable ? `Table ${selectedTable.table_number}` : 'Select Table'}</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Fast Dropdown Selector for 1-click selection even with 50+ tables */}
+                    <div className="relative hidden sm:block">
+                      <select
+                        value={selectedTable?.table_number || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const found = tables.find((t) => String(t.table_number) === String(val));
+                          if (found) handleSelectTable(found);
+                        }}
+                        className="px-3 py-2 pr-7 rounded-xl bg-[#FFF9F2] hover:bg-[#FFF1E6] border border-[#F0E4D7] text-xs font-bold text-[#2B2118] focus:outline-none focus:border-[#F26B1D] cursor-pointer appearance-none shadow-2xs transition"
+                        title="Quick jump to any table"
+                      >
+                        <option value="" disabled>
+                          Jump to Table ({tables.length})
+                        </option>
+                        {tables.map((t) => (
+                          <option key={t.id} value={t.table_number}>
+                            T{t.table_number} — {t.name} ({t.status === TABLE_STATUS.FREE ? 'Free' : 'Open Tab'}, {t.capacity}p)
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-[#7A6A5C] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowTablePicker((prev) => !prev)}
+                      className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-2xs ${
+                        selectedTable
+                          ? 'bg-[#2B2118] text-white border-[#2B2118] hover:bg-[#3d2f22]'
+                          : 'bg-[#FFF1E6] text-[#F26B1D] border-[#FCD8BF] hover:bg-[#FFE4CF]'
+                      }`}
+                    >
+                      <span>🍽️</span>
+                      <span>{selectedTable ? `Table ${selectedTable.table_number}` : 'Select Table'}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTablePicker ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* DINE-IN TABLE SELECTION BANNER / OVERLAY (When showTablePicker is true) */}
+            {/* DINE-IN TABLE SELECTION PANEL (Scalable for 10 to 100+ tables) */}
             {orderType === 'dine_in' && showTablePicker && (
-              <div className="p-4 bg-purple-50/90 border-b border-purple-200 backdrop-blur-xs animate-fadeIn shrink-0">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-heading font-black text-xs sm:text-sm text-purple-950 uppercase tracking-tight">
-                      Select Table for Dining
+              <div className="p-3.5 sm:p-4 bg-[#FFF9F2] border-b border-[#F0E4D7] animate-fadeIn shrink-0 space-y-3">
+                {/* Header & Filter Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-heading font-black text-xs sm:text-sm text-[#2B2118] uppercase tracking-tight">
+                      Select Dining Table
                     </span>
-                    <span className="text-[10px] text-purple-700">
-                      (🟢 Free • 🔴 Occupied • 🟡 Bill Pending)
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowTablePicker(false)}
-                    className="text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-100 hover:bg-purple-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition cursor-pointer"
-                  >
-                    <span>{selectedTable ? 'Done' : 'Close'}</span>
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 max-h-36 overflow-y-auto pr-1">
-                  {tables.map((tbl) => {
-                    const isSelected = selectedTable?.table_number === tbl.table_number;
-                    const isOccupied = tbl.status === TABLE_STATUS.OCCUPIED;
-                    const isPending = tbl.status === TABLE_STATUS.BILL_PENDING;
-
-                    return (
+                    {/* Status Filter Pills */}
+                    <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-[#F0E4D7]">
                       <button
-                        key={tbl.id}
                         type="button"
-                        onClick={() => handleSelectTable(tbl)}
-                        className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer relative ${
-                          isSelected
-                            ? 'bg-purple-900 text-white border-purple-900 shadow-md ring-2 ring-purple-400'
-                            : isOccupied
-                            ? 'bg-red-50 text-red-950 border-red-200 hover:bg-red-100'
-                            : isPending
-                            ? 'bg-amber-50 text-amber-950 border-amber-200 hover:bg-amber-100'
-                            : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
+                        onClick={() => setTableStatusFilter('all')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                          tableStatusFilter === 'all'
+                            ? 'bg-[#2B2118] text-white shadow-2xs'
+                            : 'text-[#7A6A5C] hover:text-[#2B2118]'
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="font-black text-xs">T{tbl.table_number}</span>
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              isOccupied
-                                ? 'bg-red-500 animate-pulse'
-                                : isPending
-                                ? 'bg-amber-500'
-                                : 'bg-emerald-500'
-                            }`}
-                          />
-                        </div>
-                        <div className="text-[10px] font-medium opacity-80 mt-1 truncate">
-                          {tbl.name}
-                        </div>
-                        <div className="text-[9px] opacity-70 font-mono mt-0.5">
-                          {tbl.capacity} seats
-                        </div>
-                        {isOccupied && (
-                          <span className="text-[8px] font-bold text-red-600 bg-red-100 px-1 rounded mt-1 text-center">
-                            Open Tab
-                          </span>
-                        )}
+                        All ({tables.length})
                       </button>
-                    );
-                  })}
+                      <button
+                        type="button"
+                        onClick={() => setTableStatusFilter('free')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                          tableStatusFilter === 'free'
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'text-emerald-700 hover:bg-emerald-50'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        <span>Free ({freeTablesCount})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTableStatusFilter('occupied')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                          tableStatusFilter === 'occupied'
+                            ? 'bg-[#F26B1D] text-white shadow-2xs'
+                            : 'text-[#D95A12] hover:bg-[#FFF1E6]'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        <span>Occupied ({occupiedTablesCount})</span>
+                      </button>
+                    </div>
+
+                    {/* Section / Zone Filter (auto-shows when restaurant has multiple zones) */}
+                    {tableSections.length > 1 && (
+                      <select
+                        value={tableSectionFilter}
+                        onChange={(e) => setTableSectionFilter(e.target.value)}
+                        className="px-2.5 py-1 rounded-xl bg-white border border-[#F0E4D7] text-[11px] font-bold text-[#2B2118] focus:outline-none focus:border-[#F26B1D] cursor-pointer"
+                      >
+                        <option value="all">All Zones ({tableSections.length})</option>
+                        {tableSections.map((sec) => (
+                          <option key={sec} value={sec}>
+                            {sec}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Quick Search Input for Large Floor Plans */}
+                    {tables.length > 6 && (
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-[#9E8E81] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={tableSearchQuery}
+                          onChange={(e) => setTableSearchQuery(e.target.value)}
+                          placeholder="Find table #..."
+                          className="w-32 sm:w-40 pl-7 pr-6 py-1 rounded-xl bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D]"
+                        />
+                        {tableSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setTableSearchQuery('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowTablePicker(false)}
+                      className="text-xs font-bold text-white bg-[#2B2118] hover:bg-[#3d2f22] px-3 py-1.5 rounded-xl flex items-center gap-1 transition cursor-pointer shadow-2xs"
+                    >
+                      <span>{selectedTable ? 'Done' : 'Hide'}</span>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Scalable High-Density Table Grid */}
+                {filteredTables.length === 0 ? (
+                  <div className="text-center py-4 bg-white rounded-2xl border border-[#F0E4D7] text-xs text-[#7A6A5C]">
+                    No tables match your filter.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {filteredTables.map((tbl) => {
+                      const isSelected = selectedTable?.table_number === tbl.table_number;
+                      const isOccupied = tbl.status === TABLE_STATUS.OCCUPIED;
+                      const isPending = tbl.status === TABLE_STATUS.BILL_PENDING;
+
+                      return (
+                        <button
+                          key={tbl.id}
+                          type="button"
+                          onClick={() => handleSelectTable(tbl)}
+                          className={`p-2.5 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer relative group ${
+                            isSelected
+                              ? 'bg-[#2B2118] text-white border-[#F26B1D] shadow-md ring-2 ring-[#F26B1D]/30'
+                              : isOccupied
+                              ? 'bg-[#FFF1E6] text-[#2B2118] border-[#FCD8BF] hover:border-[#F26B1D]'
+                              : isPending
+                              ? 'bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100/70'
+                              : 'bg-white text-[#2B2118] border-[#F0E4D7] hover:border-emerald-500 hover:bg-emerald-50/20'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-heading font-black text-xs sm:text-sm tracking-tight">
+                              T{tbl.table_number}
+                            </span>
+                            <span
+                              className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md ${
+                                isSelected
+                                  ? 'bg-white/15 text-white'
+                                  : 'bg-[#FFF9F2] text-[#7A6A5C] border border-[#F0E4D7]'
+                              }`}
+                            >
+                              {tbl.capacity}p
+                            </span>
+                          </div>
+
+                          <div
+                            className={`text-[10px] font-semibold mt-1 truncate ${
+                              isSelected ? 'text-white/85' : 'text-[#7A6A5C]'
+                            }`}
+                          >
+                            {tbl.name}
+                          </div>
+
+                          <div className="mt-1.5 flex items-center justify-between">
+                            {isOccupied ? (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md w-full justify-center ${
+                                  isSelected
+                                    ? 'bg-[#F26B1D] text-white'
+                                    : 'bg-[#F26B1D]/15 text-[#D95A12]'
+                                }`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                                <span>Open Tab</span>
+                              </span>
+                            ) : isPending ? (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-amber-200/70 text-amber-900 px-1.5 py-0.5 rounded-md w-full justify-center">
+                                <span>Bill Due</span>
+                              </span>
+                            ) : (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md w-full justify-center ${
+                                  isSelected
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                }`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>Free</span>
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -997,18 +1167,18 @@ export default function NewOrderModal({
 
             {/* Existing Tab Append Notice Banner */}
             {appendToExistingOrderId && (
-              <div className="p-2.5 bg-purple-50 text-purple-900 border-b border-purple-200 text-xs flex items-center justify-between gap-2 shrink-0">
+              <div className="p-2.5 bg-[#FFF1E6] text-[#2B2118] border-b border-[#FCD8BF] text-xs flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-600 animate-pulse shrink-0" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#F26B1D] animate-pulse shrink-0" />
                   <div>
                     <div className="font-extrabold flex items-center gap-1.5">
                       <span>{activeExistingOrder?.table ? `Merging with Table ${activeExistingOrder.table} Running Tab` : `Adding Dishes to Order #${appendToExistingOrderId}`}</span>
-                      <span className="font-mono bg-purple-200 text-purple-900 px-1.5 py-0.2 rounded text-[10px] font-bold">
+                      <span className="font-mono bg-[#FFE4CF] text-[#2B2118] px-1.5 py-0.2 rounded text-[10px] font-bold">
                         #{appendToExistingOrderId}
                       </span>
                     </div>
                     {activeExistingOrder && (
-                      <div className="text-[11px] text-purple-700">
+                      <div className="text-[11px] text-[#7A6A5C]">
                         Current Bill: <span className="font-mono font-bold">{formatPKR(activeExistingOrder.total_payable || activeExistingOrder.subtotal)}</span> • {activeExistingOrder.items?.length || 0} items already on bill
                       </div>
                     )}
@@ -1017,7 +1187,7 @@ export default function NewOrderModal({
                 <button
                   type="button"
                   onClick={() => setAppendToExistingOrderId(null)}
-                  className="px-2 py-1 rounded bg-white text-purple-800 hover:bg-purple-100 border border-purple-200 text-[10px] font-bold cursor-pointer shrink-0"
+                  className="px-2 py-1 rounded bg-white text-[#D95A12] hover:bg-[#FFF1E6] border border-[#FCD8BF] text-[10px] font-bold cursor-pointer shrink-0"
                 >
                   New tab instead
                 </button>
@@ -1038,7 +1208,7 @@ export default function NewOrderModal({
             {/* Middle Scrollable Body: Table/Customer, Cart Items, Notes, Discount, Payment Details */}
             <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
 
-              {/* Order Type Specific Fields (Customer, Phone, Table, Address) */}
+              {/* Order Type Specific Fields (Table / Customer / Delivery Address) */}
               <div className="p-2.5 bg-[#FFF9F2]/70 rounded-2xl border border-[#F0E4D7] space-y-2 text-xs">
                 {orderType === 'dine_in' ? (
                   <div className="space-y-2">
@@ -1057,82 +1227,45 @@ export default function NewOrderModal({
                       <button
                         type="button"
                         onClick={() => setShowTablePicker(true)}
-                        className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 text-xs font-bold hover:bg-purple-100 transition cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-[#FFF1E6] text-[#D95A12] border border-[#FCD8BF] text-xs font-bold hover:bg-[#FFE4CF] transition cursor-pointer"
                       >
                         {selectedTable ? 'Change' : 'Pick Table'}
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Customer Name (optional)"
-                        className="px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D]"
-                      />
-                      <input
-                        type="tel"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="Phone (optional)"
-                        className="px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D] font-mono"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Guest / Table Name (optional)"
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D]"
+                    />
+                  </div>
+                ) : orderType === 'takeaway' ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Walk-in / Takeaway Customer Name (optional)"
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D]"
+                    />
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {/* Phone Order Mode Selector (Pickup vs Delivery) */}
-                    {orderType === 'phone' && (
-                      <div className="p-1 rounded-xl bg-white border border-[#F0E4D7] flex items-center gap-1 shadow-2xs">
-                        <button
-                          type="button"
-                          onClick={() => setPhoneOrderMode('pickup')}
-                          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                            phoneOrderMode === 'pickup'
-                              ? 'bg-[#2B2118] text-white shadow-2xs'
-                              : 'text-[#7A6A5C] hover:bg-[#FFF9F2]'
-                          }`}
-                        >
-                          <span>🛍️</span>
-                          <span>Phone Pickup (Counter)</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPhoneOrderMode('delivery')}
-                          className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                            phoneOrderMode === 'delivery'
-                              ? 'bg-[#F26B1D] text-white shadow-2xs'
-                              : 'text-[#7A6A5C] hover:bg-[#FFF9F2]'
-                          }`}
-                        >
-                          <span>🛵</span>
-                          <span>Phone Delivery (Rider)</span>
-                        </button>
-                      </div>
-                    )}
-
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         type="text"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder={
-                          orderType === 'delivery' || (orderType === 'phone' && phoneOrderMode === 'delivery')
-                            ? 'Customer Name *'
-                            : 'Customer Name (optional)'
-                        }
+                        placeholder="Customer Name *"
                         className="px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D]"
                       />
                       <input
                         type="tel"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder={
-                          orderType === 'delivery' || orderType === 'phone'
-                            ? 'Phone (03xx-xxxxxxx) *'
-                            : 'Phone (optional)'
-                        }
+                        placeholder="Phone (03xx-xxxxxxx) *"
                         className="px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D] font-mono"
                       />
                     </div>
@@ -1148,13 +1281,6 @@ export default function NewOrderModal({
                         />
                       </div>
                     )}
-
-                    {orderType === 'phone' && phoneOrderMode === 'pickup' && (
-                      <div className="p-2 rounded-xl bg-teal-50 border border-teal-200 text-[11px] text-teal-900 flex items-center gap-1.5 font-medium">
-                        <span>🛍️</span>
-                        <span>Customer will collect order at counter. No delivery fee or rider needed.</span>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -1163,27 +1289,27 @@ export default function NewOrderModal({
               <div className="space-y-2">
                 {/* Running Bill / Tab Section */}
                 {appendToExistingOrderId && activeExistingOrder && (
-                  <div className="rounded-2xl border-2 border-purple-200 bg-purple-50/70 p-3 space-y-2 shadow-2xs">
-                    <div className="flex items-center justify-between border-b border-purple-200/80 pb-2">
+                  <div className="rounded-2xl border-2 border-[#FCD8BF] bg-[#FFF1E6]/60 p-3 space-y-2 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-[#FCD8BF] pb-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-purple-600 animate-pulse shrink-0" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#F26B1D] animate-pulse shrink-0" />
                         <div>
-                          <div className="font-heading font-black text-xs text-purple-950 flex items-center gap-1.5">
+                          <div className="font-heading font-black text-xs text-[#2B2118] flex items-center gap-1.5">
                             <span>{activeExistingOrder.table ? `Table #${activeExistingOrder.table} Running Bill (Active)` : `Order #${activeExistingOrder.id} Running Bill`}</span>
-                            <span className="font-mono text-[10px] font-bold bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded">
+                            <span className="font-mono text-[10px] font-bold bg-[#FFE4CF] text-[#2B2118] px-1.5 py-0.5 rounded">
                               Current Tab
                             </span>
                           </div>
-                          <div className="text-[10px] text-purple-700">
+                          <div className="text-[10px] text-[#7A6A5C]">
                             Already ordered & in kitchen / served
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono font-black text-xs text-purple-950">
+                        <div className="font-mono font-black text-xs text-[#2B2118]">
                           {formatPKR(existingTabTotal)}
                         </div>
-                        <div className="text-[9px] text-purple-600 font-bold">
+                        <div className="text-[9px] text-[#F26B1D] font-bold">
                           {activeExistingOrder.items?.length || 0} items on bill
                         </div>
                       </div>
@@ -1194,11 +1320,11 @@ export default function NewOrderModal({
                       {activeExistingOrder.items?.map((item, idx) => (
                         <div
                           key={idx}
-                          className="flex items-start justify-between gap-2 p-1.5 rounded-lg bg-white/80 border border-purple-100 text-xs"
+                          className="flex items-start justify-between gap-2 p-1.5 rounded-lg bg-white/80 border border-[#F0E4D7] text-xs"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-[#2B2118] truncate flex items-center gap-1.5">
-                              <span className="font-mono text-[11px] font-black text-purple-700 bg-purple-100 px-1.5 py-0.2 rounded">
+                              <span className="font-mono text-[11px] font-black text-[#7A6A5C] bg-[#FFF1E6] px-1.5 py-0.2 rounded">
                                 {item.quantity}×
                               </span>
                               <span className="truncate">{item.title}</span>
@@ -1467,7 +1593,7 @@ export default function NewOrderModal({
               <div className="space-y-1">
                 {/* When order tab is active, show the previous tab total */}
                 {appendToExistingOrderId && activeExistingOrder && (
-                  <div className="flex items-center justify-between text-[11px] text-purple-950 bg-purple-50 px-2 py-1 rounded-lg border border-purple-200">
+                  <div className="flex items-center justify-between text-[11px] text-[#2B2118] bg-[#FFF1E6] px-2 py-1 rounded-lg border border-[#FCD8BF]">
                     <span className="font-bold">{activeExistingOrder.table ? `Table #${activeExistingOrder.table} Previous Bill:` : `Order #${activeExistingOrder.id} Previous Bill:`}</span>
                     <span className="font-mono font-black">{formatPKR(existingTabTotal)}</span>
                   </div>

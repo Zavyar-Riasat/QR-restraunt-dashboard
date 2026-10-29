@@ -308,6 +308,16 @@ export default function AdminPanelPage() {
     setEditErrorMsg('');
     setEditSuccessMsg('');
 
+    const normalizedEditEmail = String(editForm.email || '').trim().toLowerCase();
+    const duplicateEditUser = usersList.find(
+      (u) => u.id !== editingAccount.id && String(u.email || '').trim().toLowerCase() === normalizedEditEmail
+    );
+    if (duplicateEditUser) {
+      const roleLabel = (duplicateEditUser.role || 'account').toUpperCase();
+      setEditErrorMsg(`This email "${normalizedEditEmail}" is already registered (${roleLabel}). Please add a new email.`);
+      return;
+    }
+
     try {
       setEditSubmitting(true);
       await updateUserCredentials(editingAccount.id, {
@@ -406,6 +416,16 @@ export default function AdminPanelPage() {
 
     if (!form.restaurant_name || !form.slug || !form.email || !form.password || !(form.phone || form.whatsapp_number)) {
       setErrorMsg('Please fill in all required fields.');
+      return;
+    }
+
+    const normalizedEmail = String(form.email || '').trim().toLowerCase();
+    const duplicateUser = usersList.find(
+      (u) => String(u.email || '').trim().toLowerCase() === normalizedEmail
+    );
+    if (duplicateUser) {
+      const roleLabel = (duplicateUser.role || 'account').toUpperCase();
+      setErrorMsg(`This email "${normalizedEmail}" is already registered (${roleLabel}). Please add a new email.`);
       return;
     }
 
@@ -673,10 +693,22 @@ export default function AdminPanelPage() {
                 type="email"
                 required
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, email: e.target.value });
+                  if (errorMsg) setErrorMsg('');
+                }}
                 placeholder="owner@firecrust.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
               />
+              {form.email.trim() &&
+                usersList.some(
+                  (u) => String(u.email || '').trim().toLowerCase() === form.email.trim().toLowerCase()
+                ) && (
+                  <p className="mt-1.5 text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>This email is already registered. Please add a new email.</span>
+                  </p>
+                )}
             </div>
 
             {/* Manager Password */}
@@ -1337,9 +1369,24 @@ export default function AdminPanelPage() {
                     type="email"
                     required
                     value={editForm.email}
-                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    onChange={(e) => {
+                      setEditForm({ ...editForm, email: e.target.value });
+                      if (editErrorMsg) setEditErrorMsg('');
+                    }}
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                  {editForm.email.trim() &&
+                    editingAccount &&
+                    usersList.some(
+                      (u) =>
+                        u.id !== editingAccount.id &&
+                        String(u.email || '').trim().toLowerCase() === editForm.email.trim().toLowerCase()
+                    ) && (
+                      <p className="mt-1.5 text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>This email is already registered. Please add a new email.</span>
+                      </p>
+                    )}
                 </div>
 
                 <div>

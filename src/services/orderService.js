@@ -173,22 +173,9 @@ const getStarterOrders = (restaurantId, _restaurantName) => [
     total_payable_paisa: 233000,
     order_type: 'delivery',
     status: 'preparing', // new, preparing, out_for_delivery, completed, cancelled
-    payment_status: 'paid', // Paid in full
-    payments: [
-      {
-        id: 'PAY-8421-1',
-        order_id: 'DB-8421',
-        amount_paisa: 233000,
-        amount: 2330,
-        method: 'cash',
-        date: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
-        note: 'Paid in full on delivery',
-        recorded_by: 'Cashier Ali',
-        is_void: false,
-        created_at: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
-        edit_history: [],
-      },
-    ],
+    payment_status: 'unpaid',
+    explicit_paid: false,
+    payments: [],
     rider_token: 'rtk_demo_8421',
     assigned_rider: { id: 'rdr-1', name: 'Muhammad Ali', phone: '0301-2345678' },
     items: [
@@ -214,23 +201,10 @@ const getStarterOrders = (restaurantId, _restaurantName) => [
     total_payable: 1730,
     total_payable_paisa: 173000,
     order_type: 'delivery',
-    status: 'new',
-    payment_status: 'paid', // Paid in full
-    payments: [
-      {
-        id: 'PAY-7319-1',
-        order_id: 'DB-7319',
-        amount_paisa: 173000,
-        amount: 1730,
-        method: 'cash',
-        date: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-        note: 'Paid in full',
-        recorded_by: 'Online POS',
-        is_void: false,
-        created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-        edit_history: [],
-      },
-    ],
+    status: 'preparing',
+    payment_status: 'unpaid',
+    explicit_paid: false,
+    payments: [],
     rider_token: 'rtk_demo_7319',
     assigned_rider: null,
     items: [
@@ -1086,20 +1060,35 @@ export const orderService = {
             if (copy.total_payable_paisa == null && copy.total_payable != null) {
               copy.total_payable_paisa = toPaisa(copy.total_payable);
             }
-            if (!Array.isArray(copy.payments) || copy.payments.length === 0) {
-              copy.payments = [{
-                id: `PAY-${copy.id || 'auto'}`,
-                order_id: copy.id,
-                amount_paisa: copy.total_payable_paisa || toPaisa(copy.total_payable),
-                amount: copy.total_payable,
-                method: copy.payment_method || 'cash',
-                date: copy.created_at || new Date().toISOString(),
-                is_void: false,
-              }];
+            const isOrderCompleted = copy.status === 'completed' || copy.status === 'delivered';
+            const isExplicitlyPaid = Boolean(copy.explicit_paid) || isOrderCompleted;
+            if (isExplicitlyPaid) {
+              if (copy.payment_status !== 'paid' || !copy.explicit_paid) {
+                hasMissingTokens = true;
+              }
+              copy.payment_status = 'paid';
+              copy.explicit_paid = true;
+              copy.amount_received = copy.total_payable;
+              if (!Array.isArray(copy.payments) || copy.payments.length === 0) {
+                copy.payments = [{
+                  id: `PAY-${copy.id || 'auto'}`,
+                  order_id: copy.id,
+                  amount_paisa: copy.total_payable_paisa || toPaisa(copy.total_payable),
+                  amount: copy.total_payable,
+                  method: copy.payment_method || 'cash',
+                  date: copy.created_at || new Date().toISOString(),
+                  is_void: false,
+                }];
+              }
+            } else {
+              if (copy.payment_status === 'paid' || (Array.isArray(copy.payments) && copy.payments.length > 0)) {
+                hasMissingTokens = true;
+              }
+              copy.payment_status = 'unpaid';
+              copy.explicit_paid = false;
+              copy.amount_received = 0;
+              copy.payments = [];
             }
-            // All orders are paid in full - no partial amounts or balance due
-            copy.payment_status = 'paid';
-            copy.amount_received = copy.total_payable;
             return copy;
           });
 
@@ -1249,13 +1238,31 @@ export const orderService = {
     const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
     const orders = this.getOrders(restaurantId);
     let updatedOrder = null;
-    const updated = orders.map((o) => {
-      if (o.id === orderId) {
-        updatedOrder = { ...o, status: newStatus, ...additionalUpdates };
-        return updatedOrder;
-      }
-      return o;
-    });
+    const updated =
+      newStatus === 'cancelled'
+        ? orders.filter((o) => o.id !== orderId && o.status !== 'cancelled')
+        : orders.map((o) => {
+            if (o.id === orderId) {
+              const autoSettle = newStatus === 'completed' || newStatus === 'delivered';
+              updatedOrder = {
+                ...o,
+                status: newStatus,
+                ...(autoSettle
+                  ? {
+                      payment_status: 'paid',
+                      explicit_paid: true,
+                      amount_received: o.total_payable,
+                      completed_at: additionalUpdates.completed_at || o.completed_at || new Date().toISOString(),
+                    }
+                  : {}),
+                ...additionalUpdates,
+              };
+              return updatedOrder;
+            }
+            return o;
+          });
+
+    this._ordersCache.delete(restaurantId);
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(updated));
@@ -1280,6 +1287,60 @@ export const orderService = {
           if (error && isOrdersTableMissingError(error)) _ordersTableAvailable = false;
         })
         .catch(() => {});
+    }
+
+    return updated;
+  },
+
+  /**
+   * Explicitly mark an order as paid or unpaid
+   */
+  updateOrderPaymentStatus(restaurantId, orderId, isPaid = true) {
+    const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
+    const orders = this.getOrders(restaurantId);
+    let updatedOrder = null;
+    const updated = orders.map((o) => {
+      if (o.id === orderId) {
+        const payable = Number(o.total_payable) || 0;
+        const payablePaisa = o.total_payable_paisa || toPaisa(payable);
+        updatedOrder = {
+          ...o,
+          payment_status: isPaid ? 'paid' : 'unpaid',
+          explicit_paid: Boolean(isPaid),
+          amount_received: isPaid ? payable : 0,
+          payments: isPaid
+            ? [
+                {
+                  id: `PAY-${o.id}-${Date.now()}`,
+                  order_id: o.id,
+                  amount_paisa: payablePaisa,
+                  amount: payable,
+                  method: o.payment_method || 'cash',
+                  date: new Date().toISOString(),
+                  is_void: false,
+                },
+              ]
+            : [],
+        };
+        return updatedOrder;
+      }
+      return o;
+    });
+
+    this._ordersCache.delete(restaurantId);
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('dinehq_order_status_updated', {
+            detail: { restaurantId, orderId, status: updatedOrder?.status, order: updatedOrder },
+          })
+        );
+      }
+    } catch (e) {
+      console.warn('Failed to update order payment status:', e);
     }
 
     return updated;
@@ -1659,12 +1720,18 @@ export const orderService = {
    */
   getOrderStats(restaurantId) {
     const orders = this.getOrders(restaurantId);
-    const validOrders = orders.filter((o) => o.status !== 'cancelled');
+    const validOrders = orders.filter((o) => o.status !== 'cancelled' && o.status !== 'new');
     const totalOrders = validOrders.length;
     const grossVolume = validOrders.reduce((sum, o) => sum + (Number(o.total_payable) || 0), 0);
     // 30% saved from standard food aggregators
     const savedCommission = grossVolume * 0.30;
-    const activeCount = orders.filter((o) => o.status === 'new' || o.status === 'preparing').length;
+    const activeCount = orders.filter(
+      (o) =>
+        o.status === 'preparing' ||
+        o.status === 'out_for_delivery' ||
+        o.status === 'ready' ||
+        o.status === 'held'
+    ).length;
 
     return {
       totalOrders,

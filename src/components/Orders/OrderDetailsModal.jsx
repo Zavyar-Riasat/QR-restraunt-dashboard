@@ -18,6 +18,7 @@ import { format12HourTime } from '../../utils/dateUtils';
 import { buildGoogleMapsNavUrl, buildOsmNavUrl } from '../../config/mapConfig';
 import SendToRiderMenu from './SendToRiderMenu';
 import { TEMPLATE_TYPES } from '../../services/printer/printerTypes';
+import { orderService } from '../../services/orderService';
 
 const LeafletMap = lazy(() => import('../Map/LeafletMap.jsx'));
 
@@ -143,6 +144,89 @@ export default function OrderDetailsModal({
 
         {/* Scrollable Content */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+          {/* Interactive 4-Stage Kitchen Progress Manager */}
+          {currentOrder.status !== 'cancelled' && onUpdateStatus && (
+            <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-[#7A6A5C]">
+                  Kitchen Progress
+                </span>
+                <span className="text-[11px] font-bold text-[#F26B1D]">
+                  Click any stage to update customer live tracker
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {/* Stage 1: Received */}
+                <div className="flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold select-none">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 mb-1" />
+                  <span>Received</span>
+                </div>
+
+                {/* Stage 2: Cooking */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateStatus(currentOrder.id, 'preparing');
+                    const nextOrder = { ...currentOrder, status: 'preparing' };
+                    setActiveOrder(nextOrder);
+                    if (onOrderUpdated) onOrderUpdated(nextOrder);
+                  }}
+                  className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl border text-xs font-extrabold transition cursor-pointer ${
+                    currentOrder.status === 'preparing'
+                      ? 'bg-[#F26B1D] border-[#F26B1D] text-white shadow-md shadow-orange-500/20'
+                      : currentOrder.status === 'out_for_delivery' || currentOrder.status === 'ready' || currentOrder.status === 'completed'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D]'
+                      : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:border-[#F26B1D] hover:text-[#2B2118]'
+                  }`}
+                >
+                  <ChefHat className="w-5 h-5 mb-1" />
+                  <span>Cooking</span>
+                </button>
+
+                {/* Stage 3: Ready / Dispatch */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextStatus = isDelivery ? 'out_for_delivery' : 'ready';
+                    onUpdateStatus(currentOrder.id, nextStatus);
+                    const nextOrder = { ...currentOrder, status: nextStatus };
+                    setActiveOrder(nextOrder);
+                    if (onOrderUpdated) onOrderUpdated(nextOrder);
+                  }}
+                  className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl border text-xs font-extrabold transition cursor-pointer ${
+                    currentOrder.status === 'out_for_delivery' || currentOrder.status === 'ready'
+                      ? 'bg-[#F26B1D] border-[#F26B1D] text-white shadow-md shadow-orange-500/20'
+                      : currentOrder.status === 'completed'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D]'
+                      : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:border-[#F26B1D] hover:text-[#2B2118]'
+                  }`}
+                >
+                  <Truck className="w-5 h-5 mb-1" />
+                  <span>Ready / Dispatch</span>
+                </button>
+
+                {/* Stage 4: Completed */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateStatus(currentOrder.id, 'completed');
+                    const nextOrder = { ...currentOrder, status: 'completed', payment_status: 'paid', explicit_paid: true };
+                    setActiveOrder(nextOrder);
+                    if (onOrderUpdated) onOrderUpdated(nextOrder);
+                    onClose();
+                  }}
+                  className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl border text-xs font-extrabold transition cursor-pointer ${
+                    currentOrder.status === 'completed'
+                      ? 'bg-[#1F9D55] border-[#1F9D55] text-white shadow-md shadow-emerald-500/20'
+                      : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:bg-emerald-600 hover:border-emerald-600 hover:text-white'
+                  }`}
+                >
+                  <CheckCircle2 className="w-5 h-5 mb-1" />
+                  <span>Completed</span>
+                </button>
+              </div>
+            </div>
+          )}
           {/* Assigned Rider Banner (if assigned) */}
           {currentOrder.assigned_rider && (
             <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
@@ -337,14 +421,53 @@ export default function OrderDetailsModal({
           {/* Payment & Financial Section */}
           <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-xs text-[#2B2118] uppercase tracking-wider">
                   Payment Status
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Paid in Full</span>
-                </span>
+                {currentOrder.payment_status === 'paid' && (currentOrder.explicit_paid || currentOrder.status === 'completed') ? (
+                  <>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Paid in Full</span>
+                    </span>
+                    {currentOrder.status !== 'completed' && restaurant?.id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          orderService.updateOrderPaymentStatus(restaurant.id, currentOrder.id, false);
+                          const nextOrder = { ...currentOrder, payment_status: 'unpaid', explicit_paid: false };
+                          setActiveOrder(nextOrder);
+                          if (onOrderUpdated) onOrderUpdated(nextOrder);
+                        }}
+                        className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white border border-slate-200 text-slate-600 hover:bg-amber-50 hover:text-amber-800 transition cursor-pointer"
+                      >
+                        Mark Unpaid
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+                      <Clock className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Unpaid • Bill Pending</span>
+                    </span>
+                    {restaurant?.id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          orderService.updateOrderPaymentStatus(restaurant.id, currentOrder.id, true);
+                          const nextOrder = { ...currentOrder, payment_status: 'paid', explicit_paid: true };
+                          setActiveOrder(nextOrder);
+                          if (onOrderUpdated) onOrderUpdated(nextOrder);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs"
+                      >
+                        ✓ Mark Paid
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="text-right">

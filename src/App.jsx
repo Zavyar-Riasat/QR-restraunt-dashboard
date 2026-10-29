@@ -1,39 +1,17 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CustomerAuthProvider } from './context/CustomerAuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-function lazyWithRetry(importFn) {
-  return lazy(async () => {
-    try {
-      return await importFn();
-    } catch (error) {
-      try {
-        const lastReload = Number(sessionStorage.getItem('dineflow_lazy_reload_ts') || 0);
-        if (Date.now() - lastReload > 10000) {
-          sessionStorage.setItem('dineflow_lazy_reload_ts', String(Date.now()));
-          if ('caches' in window) {
-            const names = await caches.keys();
-            await Promise.all(names.map((n) => caches.delete(n)));
-          }
-          window.location.reload();
-          return new Promise(() => {});
-        }
-      } catch  {}
-      throw error;
-    }
-  });
-}
-
-const MarketplaceHomePage = lazyWithRetry(() => import('./pages/MarketplaceHomePage'));
-const CustomerAccountPage = lazyWithRetry(() => import('./pages/CustomerAccountPage'));
-const OwnerDashboardPage = lazyWithRetry(() => import('./pages/OwnerDashboardPage'));
-const CustomerMenuPage = lazyWithRetry(() => import('./pages/CustomerMenuPage'));
-const LoginPage = lazyWithRetry(() => import('./pages/LoginPage'));
-const AdminPanelPage = lazyWithRetry(() => import('./pages/AdminPanelPage'));
-const RiderDeliveryPage = lazyWithRetry(() => import('./pages/RiderDeliveryPage'));
+import MarketplaceHomePage from './pages/MarketplaceHomePage';
+import CustomerAccountPage from './pages/CustomerAccountPage';
+import OwnerDashboardPage from './pages/OwnerDashboardPage';
+import CustomerMenuPage from './pages/CustomerMenuPage';
+import LoginPage from './pages/LoginPage';
+import AdminPanelPage from './pages/AdminPanelPage';
+import RiderDeliveryPage from './pages/RiderDeliveryPage';
 
 function PageLoader() {
   return (

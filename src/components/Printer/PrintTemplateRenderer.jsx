@@ -297,10 +297,10 @@ export default function PrintTemplateRenderer({
               </span>
             </div>
 
-            {/* Payment Method Badge */}
+            {/* Payment Method & Status Badge */}
             <div className="pt-0.5 text-center">
               <span className="px-1.5 py-0.5 rounded-xs bg-slate-100 border border-slate-300 font-extrabold text-[9px] inline-block uppercase">
-                Payment: {order?.payment_method || 'Cash on Delivery'}
+                Payment: {order?.payment_method || 'Cash on Delivery'} • {(order?.payment_status === 'paid' && (order?.explicit_paid || order?.status === 'completed')) ? 'PAID' : 'UNPAID'}
               </span>
             </div>
           </div>
@@ -480,10 +480,10 @@ export default function PrintTemplateRenderer({
               </span>
             </div>
 
-            {/* Payment Method Badge */}
+            {/* Payment Method & Status Badge */}
             <div className="pt-0.5 text-center">
               <span className="px-1.5 py-0.5 rounded-xs bg-slate-100 border border-slate-300 font-extrabold text-[9px] inline-block uppercase">
-                Payment: {order?.payment_method || 'Cash on Delivery'}
+                Payment: {order?.payment_method || 'Cash on Delivery'} • {(order?.payment_status === 'paid' && (order?.explicit_paid || order?.status === 'completed')) ? 'PAID' : 'UNPAID'}
               </span>
             </div>
           </div>

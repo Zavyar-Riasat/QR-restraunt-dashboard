@@ -11,6 +11,23 @@ export default class ErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
 
+  componentDidMount() {
+    if (import.meta.hot) {
+      this._hmrReset = () => {
+        if (this.state.hasError) {
+          this.setState({ hasError: false, error: null });
+        }
+      };
+      import.meta.hot.on('vite:afterUpdate', this._hmrReset);
+    }
+  }
+
+  componentWillUnmount() {
+    if (import.meta.hot && this._hmrReset && typeof import.meta.hot.off === 'function') {
+      import.meta.hot.off('vite:afterUpdate', this._hmrReset);
+    }
+  }
+
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught an unhandled error:', error, errorInfo);
   }

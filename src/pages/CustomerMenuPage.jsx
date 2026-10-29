@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { isReservedSlug } from '../config/appConfig';
 import { menuService } from '../services/menuService';
+import { restaurantService } from '../services/restaurantService';
 import { marketplaceService } from '../services/marketplaceService';
 import { checkRestaurantDeliveryCoverage } from '../utils/geoValidation';
 import VariantCustomizationModal from '../components/VariantCustomizationModal';
@@ -91,11 +92,20 @@ export default function CustomerMenuPage() {
     }
   }, [effectiveSlug, navigate]);
 
-  const [loading, setLoading] = useState(true);
+  const initialSyncMenu = React.useMemo(() => {
+    if (isReservedSlug(effectiveSlug)) return null;
+    try {
+      return restaurantService.getInitialStateSync({ slug: effectiveSlug });
+    } catch {
+      return null;
+    }
+  }, [effectiveSlug]);
+
+  const [loading, setLoading] = useState(() => !initialSyncMenu?.restaurant);
   const [error, setError] = useState(null);
-  const [restaurant, setRestaurant] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [menuItems, setMenuItems] = useState([]);
+  const [restaurant, setRestaurant] = useState(() => initialSyncMenu?.restaurant || null);
+  const [categories, setCategories] = useState(() => initialSyncMenu?.categories || []);
+  const [menuItems, setMenuItems] = useState(() => initialSyncMenu?.menuItems || []);
   const t = UI_TRANSLATIONS.en;
 
   // Filter & Search
@@ -214,7 +224,13 @@ export default function CustomerMenuPage() {
 
     async function loadData() {
       try {
-        setLoading(true);
+        if (!initialSyncMenu?.restaurant) {
+          setLoading(true);
+        } else {
+          setRestaurant(initialSyncMenu.restaurant);
+          setCategories(initialSyncMenu.categories || []);
+          setMenuItems(initialSyncMenu.menuItems || []);
+        }
         setError(null);
         const data = await menuService.getMenuBySlug(effectiveSlug);
         setRestaurant(data.restaurant);
@@ -222,7 +238,9 @@ export default function CustomerMenuPage() {
         setMenuItems(data.menuItems || []);
       } catch (err) {
         console.error('Failed to load menu:', err);
-        setError('This restaurant menu could not be loaded. Please verify the URL.');
+        if (!initialSyncMenu?.restaurant) {
+          setError('This restaurant menu could not be loaded. Please verify the URL.');
+        }
       } finally {
         setLoading(false);
       }
@@ -1253,6 +1271,7 @@ export default function CustomerMenuPage() {
               onBack={() => setIsDesktopCheckout(false)}
               onOrderPlaced={(newOrder) => {
                 setIsDesktopCheckout(false);
+                setPersistedActiveOrderId(newOrder.id);
                 setActiveTrackerModalOrder(newOrder);
                 setCart([]);
                 try {

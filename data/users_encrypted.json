@@ -238,14 +238,15 @@
     "phone": "923003334455",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "b4009459e673f1256bcc1d39b4deba",
-      "iv": "fd2f836f1421518cafe003ed",
-      "authTag": "c2bc5f4b47d22788c30303c0ea68d3d4"
+      "ciphertext": "eeb590218ca8872e5c62",
+      "iv": "3ba52f62bbbb1b535a11fac4",
+      "authTag": "6eba2f5bacde31bb611bc90b374909c9"
     },
     "must_change_password": false,
-    "session_version": 1,
+    "session_version": 2,
     "created_by_role": "manager",
-    "created_at": "2026-10-05T12:30:00.000Z"
+    "created_at": "2026-10-05T12:30:00.000Z",
+    "updated_at": "2026-10-29T10:47:24.591Z"
   },
   {
     "id": "user-waiter-01",

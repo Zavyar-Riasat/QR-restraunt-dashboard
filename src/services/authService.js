@@ -338,6 +338,21 @@ export const authService = {
   },
 
   /**
+   * Check if an email is already registered across any role (Admin, Owner, Manager, Cashier, Waiter)
+   */
+  findExistingUserByEmail(email, excludeUserId = null) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail) return null;
+    return (
+      this.getRegisteredUsers().find(
+        (u) =>
+          (excludeUserId ? u.id !== excludeUserId : true) &&
+          String(u.email || '').trim().toLowerCase() === cleanEmail
+      ) || null
+    );
+  },
+
+  /**
    * Save a newly registered user locally (sanitized)
    */
   saveRegisteredUser(userData) {
@@ -403,14 +418,13 @@ export const authService = {
       throw new Error(`The slug "${newRestaurantSlug}" is reserved by the platform. Please choose a different restaurant slug.`);
     }
 
-    // Check email conflict
-    if (newEmail !== existingUser.email) {
-      const emailConflict = currentUsers.find(
-        (u) => u.id !== existingUser.id && u.email.toLowerCase() === newEmail
-      );
-      if (emailConflict) {
-        throw new Error(`The email "${newEmail}" is already used by another account.`);
-      }
+    // Check email conflict across all roles
+    const emailConflict = currentUsers.find(
+      (u) => u.id !== existingUser.id && String(u.email || '').trim().toLowerCase() === newEmail
+    );
+    if (emailConflict) {
+      const roleLabel = (emailConflict.role || 'account').toUpperCase();
+      throw new Error(`This email "${newEmail}" is already registered (${roleLabel}). Please add a new email.`);
     }
 
     // If a password change was included in update, call server change-password / reset
@@ -638,9 +652,10 @@ export const authService = {
       throw new Error('Password must be at least 4 characters long.');
     }
 
-    const existing = this.getRegisteredUsers().find((u) => u.email.toLowerCase() === cleanEmail);
+    const existing = this.findExistingUserByEmail(cleanEmail);
     if (existing) {
-      throw new Error(`An account with email "${cleanEmail}" already exists.`);
+      const roleLabel = (existing.role || 'account').toUpperCase();
+      throw new Error(`This email "${cleanEmail}" is already registered (${roleLabel}). Please add a new email.`);
     }
 
     const restaurantSlug = restaurant?.slug || actorUser?.restaurant_slug || 'burgersmoke';
@@ -674,8 +689,16 @@ export const authService = {
             this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
             return data.staff;
           }
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (res.status === 409 || (errData.error && errData.error.toLowerCase().includes('already'))) {
+            throw new Error(errData.error || `This email "${cleanEmail}" is already registered. Please add a new email.`);
+          }
         }
-      } catch {
+      } catch (err) {
+        if (err.message && err.message.toLowerCase().includes('already')) {
+          throw err;
+        }
         // Continue to local persistence fallback
       }
     }
@@ -715,6 +738,12 @@ export const authService = {
 
     const cleanEmail = updates.email ? String(updates.email).trim().toLowerCase() : targetUser.email;
     const cleanPassword = updates.password ? String(updates.password).trim() : '';
+
+    const duplicateUser = this.findExistingUserByEmail(cleanEmail, staffId);
+    if (duplicateUser) {
+      const roleLabel = (duplicateUser.role || 'account').toUpperCase();
+      throw new Error(`This email "${cleanEmail}" is already registered (${roleLabel}). Please add a new email.`);
+    }
 
     const session = this.getCurrentSession();
     if (session?.token && !session.token.startsWith('loc_token_')) {
@@ -939,6 +968,12 @@ export const authService = {
       throw new Error(`The slug "${cleanSlug}" is reserved by the platform. Please choose a different restaurant slug.`);
     }
 
+    const existingAccount = this.findExistingUserByEmail(cleanEmail);
+    if (existingAccount) {
+      const roleLabel = (existingAccount.role || 'account').toUpperCase();
+      throw new Error(`This email "${cleanEmail}" is already registered (${roleLabel}). Please add a new email.`);
+    }
+
     // Try server endpoint if admin session available
     if (session?.token) {
       try {
@@ -971,8 +1006,17 @@ export const authService = {
               phone: cleanPhone,
             },
           };
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (res.status === 409 || (errData.error && errData.error.toLowerCase().includes('already'))) {
+            throw new Error(errData.error || `This email "${cleanEmail}" is already registered. Please add a new email.`);
+          }
         }
-      } catch  {}
+      } catch (err) {
+        if (err.message && err.message.toLowerCase().includes('already')) {
+          throw err;
+        }
+      }
     }
 
     // Persist password locally for admin view & login fallback

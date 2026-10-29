@@ -193,8 +193,10 @@ export const serverStorage = {
     const users = this.getUsers();
     const cleanEmail = userData.email.trim().toLowerCase();
 
-    if (users.some((u) => u.email.toLowerCase() === cleanEmail)) {
-      throw new Error(`A user with email "${cleanEmail}" is already registered.`);
+    const existing = users.find((u) => String(u.email || '').trim().toLowerCase() === cleanEmail);
+    if (existing) {
+      const roleLabel = (existing.role || 'account').toUpperCase();
+      throw new Error(`This email "${cleanEmail}" is already registered (${roleLabel}). Please add a new email.`);
     }
 
     // Encrypt password if plain text was provided

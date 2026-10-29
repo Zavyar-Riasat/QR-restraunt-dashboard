@@ -7,14 +7,12 @@ import {
   AlertCircle,
   Truck,
   ShoppingBag,
-  Utensils,
   ArrowLeft,
   CheckCircle2,
   
   CreditCard,
   Banknote,
   Loader2,
-  RefreshCw,
 } from 'lucide-react';
 import { handleDirectOrderCheckout, validatePakistaniPhone } from '../utils/checkoutUtils';
 import { formatPKR } from '../utils/currencyUtils';
@@ -35,15 +33,9 @@ export default function DirectOrderCheckout({
   const primaryColor = restaurant?.primary_color || '#F26B1D';
   const { customer: authCustomer, addresses, isCustomerAuthenticated } = useCustomerAuth();
 
-  // Read table parameter from URL if customer scanned a table-specific QR code
-  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const initialTable = urlParams?.get('table') || urlParams?.get('t') || '';
-
   const [orderType, setOrderType] = useState(() => {
-    if (initialTable) return 'dine_in';
     return isDeliverableToCustomer ? 'delivery' : 'pickup';
   });
-  const [tableNumber, setTableNumber] = useState(initialTable);
   const [placedSuccessOrder, setPlacedSuccessOrder] = useState(null);
 
   const [customer, setCustomer] = useState({
@@ -183,31 +175,19 @@ export default function DirectOrderCheckout({
       return;
     }
 
-    if (orderType !== 'dine_in' && !customer.name.trim()) {
+    if (!customer.name.trim()) {
       setFormError('Please enter your full name.');
       return;
     }
 
-    if (orderType !== 'dine_in') {
-      if (!phoneValidation || !phoneValidation.isValid) {
-        setFormError(phoneValidation?.error || 'Please enter a valid Pakistani phone number (e.g. 0300 1234567).');
-        return;
-      }
-    } else {
-      if (customer.phone?.trim() && phoneValidation && !phoneValidation.isValid) {
-        setFormError(phoneValidation?.error || 'Please enter a valid Pakistani phone number or leave blank.');
-        return;
-      }
-    }
-
-    if (orderType === 'dine_in' && !tableNumber.trim()) {
-      setFormError('Please enter your table number.');
+    if (!phoneValidation || !phoneValidation.isValid) {
+      setFormError(phoneValidation?.error || 'Please enter a valid Pakistani phone number (e.g. 0300 1234567).');
       return;
     }
 
     if (orderType === 'delivery') {
       if (!isDeliverableToCustomer) {
-        setFormError("This restaurant doesn't deliver to your location. You can choose Pickup or Dine-in.");
+        setFormError("This restaurant doesn't deliver to your location. You can choose Takeaway / Pickup.");
         return;
       }
       const typedAddress = (deliveryLocation.formattedAddress || '').trim();
@@ -250,11 +230,11 @@ export default function DirectOrderCheckout({
         customerDetails: {
           ...customer,
           customer_id: isCustomerAuthenticated && authCustomer ? authCustomer.id : null,
-          name: customer.name.trim() || (orderType === 'dine_in' ? `Table ${tableNumber}` : 'Guest Customer'),
+          name: customer.name.trim() || 'Guest Customer',
           address: orderType === 'delivery' ? deliveryAddress : customer.address,
           phone: phoneValidation?.normalized || customer.phone?.trim() || '',
           orderType,
-          tableNumber: orderType === 'dine_in' ? tableNumber : null,
+          tableNumber: null,
           paymentMethod,
           honeypot,
           idempotencyKey,
@@ -269,20 +249,17 @@ export default function DirectOrderCheckout({
       });
 
       if (result.success) {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set('order', result.order.id);
+          window.history.replaceState({}, '', url.pathname + url.search);
+        } catch {
+          // ignore history replace error
+        }
         setPlacedSuccessOrder(result.order);
         if (onOrderPlaced) {
           onOrderPlaced(result.order);
         }
-        // Automatically refresh this page with the order tracking parameter preserved
-        setTimeout(() => {
-          try {
-            const url = new URL(window.location.href);
-            url.searchParams.set('order', result.order.id);
-            window.location.href = url.toString();
-          } catch {
-            window.location.reload();
-          }
-        }, 1100);
       }
     } catch (err) {
       setFormError(err.message || 'Failed to place order. Please try again.');
@@ -310,8 +287,8 @@ export default function DirectOrderCheckout({
         </div>
 
         <div className="p-3 rounded-2xl bg-emerald-100/50 border border-emerald-200 max-w-xs mx-auto flex items-center justify-center gap-2 text-xs text-emerald-800 font-semibold">
-          <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-          <span>Refreshing page & opening tracker...</span>
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Live order tracker active</span>
         </div>
       </div>
     );
@@ -363,7 +340,7 @@ export default function DirectOrderCheckout({
         <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
           Dining Preference *
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             disabled={!isDeliverableToCustomer}
@@ -393,26 +370,13 @@ export default function DirectOrderCheckout({
             <ShoppingBag className="w-4 h-4 text-blue-600" />
             <span className="text-xs">Takeaway</span>
           </button>
-
-          <button
-            type="button"
-            onClick={() => setOrderType('dine_in')}
-            className={`py-2.5 px-2 rounded-xl border text-center transition cursor-pointer flex flex-col items-center gap-1 ${
-              orderType === 'dine_in'
-                ? 'border-[#F26B1D] bg-[#FFF1E6] text-[#2B2118] ring-1 ring-[#F26B1D] font-extrabold shadow-2xs'
-                : 'border-[#F0E4D7] bg-white text-[#7A6A5C] hover:border-[#FCD8BF]'
-            }`}
-          >
-            <Utensils className="w-4 h-4 text-[#1F9D55]" />
-            <span className="text-xs">Dine-In</span>
-          </button>
         </div>
 
         {/* Outside Delivery Area Notice */}
         {!isDeliverableToCustomer && (
           <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 mt-2 animate-fadeIn">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>This restaurant doesn't deliver to your location. You can choose Pickup or Dine-in.</span>
+            <span>This restaurant doesn't deliver to your location. You can choose Takeaway / Pickup.</span>
           </div>
         )}
       </div>
@@ -433,14 +397,14 @@ export default function DirectOrderCheckout({
         {/* Customer Name */}
         <div>
           <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider mb-1">
-            Your Name {orderType === 'dine_in' ? '(Optional)' : '*'}
+            Your Name *
           </label>
           <div className="relative">
             <User className="w-4 h-4 text-[#9E8E81] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              required={orderType !== 'dine_in'}
-              placeholder={orderType === 'dine_in' ? `Table ${tableNumber || 'Guest'}` : 'e.g. Ali Ahmed'}
+              required
+              placeholder="e.g. Ali Ahmed"
               value={customer.name}
               onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
               className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
@@ -452,7 +416,7 @@ export default function DirectOrderCheckout({
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider">
-              Phone Number {orderType === 'dine_in' ? '(Optional)' : '*'}
+              Phone Number *
             </label>
             {phoneValidation && (
               <span
@@ -468,8 +432,8 @@ export default function DirectOrderCheckout({
             <Phone className="w-4 h-4 text-[#9E8E81] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="tel"
-              required={orderType !== 'dine_in'}
-              placeholder={orderType === 'dine_in' ? '0300 1234567 (Optional)' : '0300 1234567'}
+              required
+              placeholder="0300 1234567"
               value={customer.phone}
               onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
               className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FFF9F2] border text-[#2B2118] text-xs font-mono focus:outline-none focus:bg-white transition ${
@@ -507,31 +471,6 @@ export default function DirectOrderCheckout({
             </div>
           )}
         </div>
-
-        {/* Dine-in Table Number Field */}
-        {orderType === 'dine_in' && (
-          <div>
-            <label className="block text-xs font-bold text-[#2B2118] uppercase tracking-wider mb-1">
-              Table Number *
-            </label>
-            <div className="relative">
-              <Utensils className="w-4 h-4 text-[#9E8E81] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                required
-                placeholder="e.g. 5 or T-12"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs font-bold focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
-              />
-            </div>
-            <p className="text-[11px] text-[#7A6A5C] mt-1">
-              {initialTable
-                ? `✓ Table #${initialTable} auto-filled from your QR code scan.`
-                : 'Enter the table number shown on your table stand.'}
-            </p>
-          </div>
-        )}
 
         {/* Pickup Notice */}
         {orderType === 'pickup' && (

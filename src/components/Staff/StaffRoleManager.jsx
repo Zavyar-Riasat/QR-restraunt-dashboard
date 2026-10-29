@@ -57,8 +57,19 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
   const actorRoleConfig = getRoleTierConfig(actorRole);
   const manageableRoles = actorRoleConfig.canManageRoles || [];
 
-  const [staffList, setStaffList] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [staffList, setStaffList] = useState(() => {
+    const slug = (restaurant?.slug || currentUser?.restaurant_slug || 'burgersmoke').toLowerCase();
+    const initial = authService
+      .getRegisteredUsers()
+      .filter(
+        (u) =>
+          (u.restaurant_slug || 'burgersmoke').toLowerCase() === slug &&
+          ['owner', 'manager', 'cashier', 'waiter'].includes(u.role)
+      );
+    const roleOrder = { owner: 1, manager: 2, cashier: 3, waiter: 4 };
+    return [...initial].sort((a, b) => (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99));
+  });
+  const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
   // Create / Edit Staff Modal State
@@ -79,7 +90,6 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
   };
 
   const loadStaff = useCallback(async () => {
-    setLoading(true);
     try {
       const slug = restaurant?.slug || currentUser?.restaurant_slug || 'burgersmoke';
       const list = await authService.getRestaurantStaff(slug);
@@ -133,6 +143,20 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
 
     if (!formName.trim() || !formEmail.trim()) {
       setFormError('Staff member name and email are required.');
+      return;
+    }
+
+    const normalizedEmail = formEmail.trim().toLowerCase();
+    const duplicateStaff =
+      staffList.find(
+        (s) =>
+          (!editingStaff || s.id !== editingStaff.id) &&
+          String(s.email || '').trim().toLowerCase() === normalizedEmail
+      ) || authService.findExistingUserByEmail(normalizedEmail, editingStaff?.id);
+
+    if (duplicateStaff) {
+      const roleLabel = (duplicateStaff.role || 'account').toUpperCase();
+      setFormError(`This email "${normalizedEmail}" is already registered (${roleLabel}). Please add a new email.`);
       return;
     }
 
@@ -488,10 +512,25 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
                   type="email"
                   required
                   value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
+                  onChange={(e) => {
+                    setFormEmail(e.target.value);
+                    if (formError) setFormError('');
+                  }}
                   placeholder="e.g. waiter2@burgersmoke.com"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-sm font-mono text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]"
                 />
+                {formEmail.trim() &&
+                  (staffList.some(
+                    (s) =>
+                      (!editingStaff || s.id !== editingStaff.id) &&
+                      String(s.email || '').trim().toLowerCase() === formEmail.trim().toLowerCase()
+                  ) ||
+                    Boolean(authService.findExistingUserByEmail(formEmail.trim(), editingStaff?.id))) && (
+                    <p className="mt-1.5 text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>This email is already registered. Please add a new email.</span>
+                    </p>
+                  )}
               </div>
 
               <div>

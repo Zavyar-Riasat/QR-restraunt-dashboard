@@ -394,6 +394,14 @@ export async function handleAuthApi(req, res) {
       }
 
       const body = await parseJsonBody(req);
+      const cleanAdminEmail = String(body.email || '').trim().toLowerCase();
+      const existingAdminUser = serverStorage.findUserByEmail(cleanAdminEmail);
+      if (existingAdminUser) {
+        const roleLabel = (existingAdminUser.role || 'account').toUpperCase();
+        return sendJson(res, 409, {
+          error: `This email "${cleanAdminEmail}" is already registered (${roleLabel}). Please add a new email.`,
+        });
+      }
       const rawPassword = body.password || generateStrongPassword(14);
       const encrypted = encryptPassword(rawPassword);
 
@@ -480,6 +488,15 @@ export async function handleAuthApi(req, res) {
           return sendJson(res, 400, { error: 'Staff email and password are required.' });
         }
 
+        const cleanStaffEmail = String(body.email).trim().toLowerCase();
+        const existingStaffUser = serverStorage.findUserByEmail(cleanStaffEmail);
+        if (existingStaffUser) {
+          const roleLabel = (existingStaffUser.role || 'account').toUpperCase();
+          return sendJson(res, 409, {
+            error: `This email "${cleanStaffEmail}" is already registered (${roleLabel}). Please add a new email.`,
+          });
+        }
+
         const encrypted = encryptPassword(String(body.password).trim());
         const created = serverStorage.createUser({
           name: body.name || `${targetRole.charAt(0).toUpperCase() + targetRole.slice(1)} Staff`,
@@ -516,7 +533,19 @@ export async function handleAuthApi(req, res) {
 
         const updates = {};
         if (body.name) updates.name = String(body.name).trim();
-        if (body.email) updates.email = String(body.email).trim().toLowerCase();
+        if (body.email) {
+          const cleanNewEmail = String(body.email).trim().toLowerCase();
+          const emailConflict = serverStorage
+            .getUsers()
+            .find((u) => u.id !== targetUser.id && String(u.email || '').trim().toLowerCase() === cleanNewEmail);
+          if (emailConflict) {
+            const roleLabel = (emailConflict.role || 'account').toUpperCase();
+            return sendJson(res, 409, {
+              error: `This email "${cleanNewEmail}" is already registered (${roleLabel}). Please add a new email.`,
+            });
+          }
+          updates.email = cleanNewEmail;
+        }
         if (body.phone) updates.phone = String(body.phone).trim();
         if (body.password && String(body.password).trim().length >= 4) {
           updates.password_encrypted = encryptPassword(String(body.password).trim());

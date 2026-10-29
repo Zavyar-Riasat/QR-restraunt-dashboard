@@ -7,7 +7,6 @@ import {
   Phone,
   Utensils,
   ShoppingBag,
-  RefreshCw,
   ArrowLeft,
   XCircle,
   AlertCircle,
@@ -268,13 +267,6 @@ export default function CustomerOrderTracker({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-[#7A6A5C]">
                 Kitchen Progress
-              </span>
-              <span
-                style={{ color: primaryColor }}
-                className="text-xs font-bold flex items-center gap-1.5 font-mono"
-              >
-                <RefreshCw className="w-3 h-3 animate-spin" />
-                <span>Live status synced</span>
               </span>
             </div>
 

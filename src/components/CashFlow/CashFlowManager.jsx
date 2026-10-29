@@ -27,7 +27,7 @@ export default function CashFlowManager({
   const restId = restaurant?.id || 'rest-101';
   const restName = restaurant?.name || 'Restaurant';
 
-  const [entries, setEntries] = useState([]);
+  const [entries, setEntries] = useState(() => cashFlowService.getEntries(restId));
   const [activeTypeFilter, setActiveTypeFilter] = useState('all'); // 'all' | 'in' | 'out'
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'specific_date' | 'custom_range'

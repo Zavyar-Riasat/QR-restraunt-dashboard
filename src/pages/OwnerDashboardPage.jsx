@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ExecutiveKPIs from '../components/ExecutiveKPIs';
 import OrdersFeed from '../components/OrdersFeed';
@@ -18,41 +18,28 @@ import NotificationPromptBanner from '../components/PWA/NotificationPromptBanner
 import { pwaService } from '../services/pwaService';
 import { getAppBaseUrl } from '../config/appConfig.js';
 
-// Lazy-loaded Dashboard Tabs & Heavy Modals to keep initial Dashboard bundle minimal
-const StoreSettings = lazy(() => import('../components/StoreSettings'));
-const CategoryManager = lazy(() => import('../components/CategoryManager'));
-const MenuItemManager = lazy(() => import('../components/MenuItemManager'));
-const QRCodeManager = lazy(() => import('../components/QRCodeManager'));
-const TableManager = lazy(() => import('../components/TableManagement/TableManager'));
-const CustomerManager = lazy(() => import('../components/Customers/CustomerManager'));
-const CashFlowManager = lazy(() => import('../components/CashFlow/CashFlowManager'));
-const StaffRoleManager = lazy(() => import('../components/Staff/StaffRoleManager'));
+// Direct imports for Dashboard Tabs so shifting tabs never flashes a skeleton or reloads layout structure
+import StoreSettings from '../components/StoreSettings';
+import CategoryManager from '../components/CategoryManager';
+import MenuItemManager from '../components/MenuItemManager';
+import QRCodeManager from '../components/QRCodeManager';
+import TableManager from '../components/TableManagement/TableManager';
+import CustomerManager from '../components/Customers/CustomerManager';
+import CashFlowManager from '../components/CashFlow/CashFlowManager';
+import StaffRoleManager from '../components/Staff/StaffRoleManager';
 const NewOrderModal = lazy(() => import('../components/POS/NewOrderModal'));
 const PrinterSetupWizard = lazy(() => import('../components/Printer/PrinterSetupWizard'));
 const TodaySalesSummaryModal = lazy(() => import('../components/Reports/TodaySalesSummaryModal'));
 
-function TabPanelSkeleton() {
-  return (
-    <div className="bg-white border border-[#F0E4D7] rounded-3xl p-6 sm:p-8 shadow-xs animate-pulse space-y-4">
-      <div className="h-6 w-48 bg-slate-200 rounded-lg" />
-      <div className="h-4 w-72 bg-slate-100 rounded-md" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-        <div className="h-36 bg-slate-100 rounded-2xl" />
-        <div className="h-36 bg-slate-100 rounded-2xl" />
-      </div>
-    </div>
-  );
-}
-
 export default function OwnerDashboardPage() {
   const navigate = useNavigate();
   const { restaurantSlug } = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const tierConfig = useMemo(() => getRoleTierConfig(user?.role), [user?.role]);
 
   const [activeTab, setActiveTabState] = useState(() => {
-    const requested = searchParams.get('tab');
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const requested = params?.get('tab');
     const cfg = getRoleTierConfig(user?.role);
     if (requested && cfg.allowedTabs.includes(requested)) {
       return requested;
@@ -65,21 +52,20 @@ export default function OwnerDashboardPage() {
       return;
     }
     setActiveTabState(tab);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('tab', tab);
-      return next;
-    }, { replace: true });
-  }, [setSearchParams, tierConfig.allowedTabs]);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState(null, '', url.pathname + url.search);
+    } catch {
+      // ignore URL replace errors
+    }
+  }, [tierConfig.allowedTabs]);
 
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab && tierConfig.allowedTabs.includes(tab) && tab !== activeTab) {
-      setActiveTabState(tab);
-    } else if (!tierConfig.allowedTabs.includes(activeTab)) {
+    if (!tierConfig.allowedTabs.includes(activeTab)) {
       setActiveTabState(tierConfig.defaultTab);
     }
-  }, [searchParams, activeTab, tierConfig]);
+  }, [activeTab, tierConfig]);
 
   // Synchronously hydrate initial state on first render for instant FCP & LCP (zero loading spinner shift)
   const initialSyncData = useMemo(() => {
@@ -387,10 +373,7 @@ export default function OwnerDashboardPage() {
             }
           }
 
-          // Automatically print KOT if Auto-print is enabled
-          printerService.autoPrintNewOrder(order, restaurant).catch((pErr) => {
-            console.warn('Auto-print dispatch notice:', pErr);
-          });
+
         }
       }
     };
@@ -436,8 +419,18 @@ export default function OwnerDashboardPage() {
   const handleSelectRestaurant = (restId) => {
     setSelectedRestaurantId(restId);
     const target = allRestaurants.find((r) => r.id === restId);
-    if (target?.slug) {
-      navigate(`/${target.slug}/admin`);
+    if (target) {
+      const syncState = restaurantService.getInitialStateSync({ restaurantId: restId, slug: target.slug });
+      if (syncState?.restaurant) {
+        setRestaurant(syncState.restaurant);
+        setCategories(syncState.categories || []);
+        setMenuItems(syncState.menuItems || []);
+        setOrders(orderService.getOrders(syncState.restaurant.id));
+        setOrderStats(orderService.getOrderStats(syncState.restaurant.id));
+      }
+      if (target.slug) {
+        navigate(`/${target.slug}/admin?tab=${activeTab}`, { replace: true });
+      }
     }
   };
 
@@ -507,9 +500,17 @@ export default function OwnerDashboardPage() {
 
   const handleUpdateOrderStatus = (orderId, newStatus) => {
     if (!restaurant?.id) return;
+    const existingOrder = orders.find((o) => o.id === orderId);
     const updated = orderService.updateOrderStatus(restaurant.id, orderId, newStatus);
     setOrders(updated);
     setOrderStats(orderService.getOrderStats(restaurant.id));
+
+    if (existingOrder?.status === 'new' && newStatus === 'preparing') {
+      const acceptedOrder = updated.find((o) => o.id === orderId) || { ...existingOrder, status: 'preparing' };
+      printerService.autoPrintNewOrder(acceptedOrder, restaurant).catch((pErr) => {
+        console.warn('Auto-print dispatch notice:', pErr);
+      });
+    }
   };
 
   const handleOpenLiveCustomerMenu = () => {
@@ -938,143 +939,110 @@ export default function OwnerDashboardPage() {
 
         {/* Tab View Panels */}
         <div>
-          {activeTab === 'orders' && tierConfig.allowedTabs.includes('orders') && (
-            <OrdersFeed
-              orders={orders}
-              feedMode="active"
-              onNavigateToCompleted={() => setActiveTab('completed')}
-              onUpdateStatus={handleUpdateOrderStatus}
-              restaurant={restaurant}
-              soundEnabled={soundEnabled}
-              onToggleSound={toggleSound}
-              newOrderAlert={newOrderAlert}
-              mutedOrderIds={mutedOrderIds}
-              onMuteOrderAlert={handleMuteOrderAlert}
-              isAudioUnlocked={isAudioUnlocked}
-              onUnlockAudio={handleUnlockAudio}
-              onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
-              onOpenNewOrder={(table, orderType, appendOrderId) => handleOpenNewOrder(table, orderType || 'dine_in', appendOrderId)}
-              onDismissOrderAlert={() => setNewOrderAlert(null)}
-              menuItems={menuItems}
-            />
-          )}
-
-          {activeTab === 'completed' && tierConfig.allowedTabs.includes('completed') && (
-            <OrdersFeed
-              orders={orders}
-              feedMode="completed"
-              onUpdateStatus={handleUpdateOrderStatus}
-              restaurant={restaurant}
-              soundEnabled={soundEnabled}
-              onToggleSound={toggleSound}
-              newOrderAlert={newOrderAlert}
-              mutedOrderIds={mutedOrderIds}
-              onMuteOrderAlert={handleMuteOrderAlert}
-              isAudioUnlocked={isAudioUnlocked}
-              onUnlockAudio={handleUnlockAudio}
-              onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
-              onOpenNewOrder={(table, orderType, appendOrderId) => handleOpenNewOrder(table, orderType || 'dine_in', appendOrderId)}
-              onDismissOrderAlert={() => setNewOrderAlert(null)}
-              menuItems={menuItems}
-            />
-          )}
-
-          {activeTab === 'tables' && tierConfig.allowedTabs.includes('tables') && (
-            <Suspense fallback={<TabPanelSkeleton />}>
-              <TableManager
-                restaurant={restaurant}
+          {(activeTab === 'orders' || activeTab === 'completed') &&
+            tierConfig.allowedTabs.includes(activeTab) && (
+              <OrdersFeed
                 orders={orders}
-                currentUser={user}
-                onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
+                feedMode={activeTab === 'completed' ? 'completed' : 'active'}
+                onNavigateToCompleted={() => setActiveTab('completed')}
+                onUpdateStatus={handleUpdateOrderStatus}
+                restaurant={restaurant}
+                soundEnabled={soundEnabled}
+                onToggleSound={toggleSound}
+                newOrderAlert={newOrderAlert}
+                mutedOrderIds={mutedOrderIds}
+                onMuteOrderAlert={handleMuteOrderAlert}
+                isAudioUnlocked={isAudioUnlocked}
+                onUnlockAudio={handleUnlockAudio}
+                onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
+                onOpenNewOrder={(table, orderType, appendOrderId) =>
+                  handleOpenNewOrder(table, orderType || 'dine_in', appendOrderId)
+                }
+                onDismissOrderAlert={() => setNewOrderAlert(null)}
                 menuItems={menuItems}
               />
-            </Suspense>
+            )}
+
+          {activeTab === 'tables' && tierConfig.allowedTabs.includes('tables') && (
+            <TableManager
+              restaurant={restaurant}
+              orders={orders}
+              currentUser={user}
+              onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
+              menuItems={menuItems}
+            />
           )}
 
           {activeTab === 'items' && tierConfig.allowedTabs.includes('items') && (
-            <Suspense fallback={<TabPanelSkeleton />}>
-              <MenuItemManager
-                categories={categories}
-                menuItems={menuItems}
-                onCreateMenuItem={handleCreateMenuItem}
-                onUpdateMenuItem={handleUpdateMenuItem}
-                onDeleteMenuItem={handleDeleteMenuItem}
-              />
-            </Suspense>
+            <MenuItemManager
+              categories={categories}
+              menuItems={menuItems}
+              onCreateMenuItem={handleCreateMenuItem}
+              onUpdateMenuItem={handleUpdateMenuItem}
+              onDeleteMenuItem={handleDeleteMenuItem}
+            />
           )}
 
           {activeTab === 'qr' && tierConfig.allowedTabs.includes('qr') && (
-            <Suspense fallback={<TabPanelSkeleton />}>
-              <QRCodeManager
-                restaurant={restaurant}
-                onNavigateToSettings={() => tierConfig.canAccessSettings && setActiveTab('settings')}
-              />
-            </Suspense>
+            <QRCodeManager
+              restaurant={restaurant}
+              onNavigateToSettings={() => tierConfig.canAccessSettings && setActiveTab('settings')}
+            />
           )}
 
           {activeTab === 'categories' && tierConfig.allowedTabs.includes('categories') && (
-            <Suspense fallback={<TabPanelSkeleton />}>
-              <CategoryManager
-                categories={categories}
-                menuItems={menuItems}
-                onCreateCategory={handleCreateCategory}
-                onUpdateCategory={handleUpdateCategory}
-                onDeleteCategory={handleDeleteCategory}
-              />
-            </Suspense>
+            <CategoryManager
+              categories={categories}
+              menuItems={menuItems}
+              onCreateCategory={handleCreateCategory}
+              onUpdateCategory={handleUpdateCategory}
+              onDeleteCategory={handleDeleteCategory}
+            />
           )}
 
           {activeTab === 'customers' && tierConfig.allowedTabs.includes('customers') && (
-            <Suspense fallback={<TabPanelSkeleton />}>
-              <CustomerManager
-                restaurant={restaurant}
-                currentUser={user}
-                orders={orders}
-                initialFilter={khataFilter}
-                onViewOrder={(orderOrId) => {
-                  const targetOrder =
-                    typeof orderOrId === 'object' && orderOrId !== null
-                      ? orderOrId
-                      : orders.find((o) => o.id === orderOrId);
-                  if (targetOrder?.status === 'completed') {
-                    setActiveTab('completed');
-                  } else {
-                    setActiveTab('orders');
-                  }
-                }}
-              />
-            </Suspense>
+            <CustomerManager
+              restaurant={restaurant}
+              currentUser={user}
+              orders={orders}
+              initialFilter={khataFilter}
+              onViewOrder={(orderOrId) => {
+                const targetOrder =
+                  typeof orderOrId === 'object' && orderOrId !== null
+                    ? orderOrId
+                    : orders.find((o) => o.id === orderOrId);
+                if (targetOrder?.status === 'completed') {
+                  setActiveTab('completed');
+                } else {
+                  setActiveTab('orders');
+                }
+              }}
+            />
           )}
 
           {activeTab === 'cashflow' && tierConfig.allowedTabs.includes('cashflow') && (
-            <Suspense fallback={<TabPanelSkeleton />}>
-              <CashFlowManager
-                restaurant={restaurant}
-                currentUser={user}
-              />
-            </Suspense>
+            <CashFlowManager
+              restaurant={restaurant}
+              currentUser={user}
+            />
           )}
 
           {activeTab === 'staff' && tierConfig.allowedTabs.includes('staff') && (
-            <Suspense fallback={<TabPanelSkeleton />}>
-              <StaffRoleManager
-                restaurant={restaurant}
-                currentUser={user}
-              />
-            </Suspense>
+            <StaffRoleManager
+              restaurant={restaurant}
+              currentUser={user}
+            />
           )}
 
           {activeTab === 'settings' && tierConfig.canAccessSettings && (
-            <Suspense fallback={<TabPanelSkeleton />}>
-              <StoreSettings
-                restaurant={restaurant}
-                categories={categories}
-                orders={orders}
-                onUpdate={handleUpdateRestaurant}
-                onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
-                onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
-              />
-            </Suspense>
+            <StoreSettings
+              restaurant={restaurant}
+              categories={categories}
+              orders={orders}
+              onUpdate={handleUpdateRestaurant}
+              onOpenPrinterSettings={() => setIsPrinterModalOpen(true)}
+              onOpenPosForTable={(table, appendOrderId) => handleOpenNewOrder(table, 'dine_in', appendOrderId)}
+            />
           )}
         </div>
       </main>

@@ -456,14 +456,20 @@ export default function MarketplaceHomePage() {
   const [filterFreeDelivery, setFilterFreeDelivery] = useState(false);
 
   const [restaurantPage, setRestaurantPage] = useState(1);
-  const [restaurants, setRestaurants] = useState([]);
+  const [restaurants, setRestaurants] = useState(() => {
+    try {
+      return marketplaceService.getApprovedMarketplaceRestaurantsSync() || [];
+    } catch {
+      return [];
+    }
+  });
   const [_restaurantTotalCount, setRestaurantTotalCount] = useState(0);
   const [restaurantHasMore, setRestaurantHasMore] = useState(false);
-  const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(false);
 
   const fetchRestaurants = useCallback(async () => {
     try {
-      setRestaurantsLoading(true);
+      setRestaurantsLoading((prev) => (restaurants.length === 0 ? true : prev));
       const queryLat = customerLocation?.lat ? Number(customerLocation.lat.toFixed(3)) : null;
       const queryLng = customerLocation?.lng ? Number(customerLocation.lng.toFixed(3)) : null;
 

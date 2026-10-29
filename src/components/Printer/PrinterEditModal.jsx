@@ -7,7 +7,6 @@ import {
   AlertCircle,
   RefreshCw,
   HardDrive,
-  Usb,
   Zap,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -19,7 +18,7 @@ import {
   PRINTER_TYPE_OPTIONS,
 } from '../../services/printer/printerTypes';
 
-export default function PrinterEditModal({ isOpen, onClose, printer, categories = [], onPrinterUpdated }) {
+export default function PrinterEditModal({ isOpen, onClose, printer, _categories = [], onPrinterUpdated }) {
   const [formData, setFormData] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
   const [testStatus, setTestStatus] = useState(null);
@@ -90,7 +89,7 @@ export default function PrinterEditModal({ isOpen, onClose, printer, categories 
   const currentTypeOption =
     PRINTER_TYPE_OPTIONS.find((t) => t.id === formData.type) || PRINTER_TYPE_OPTIONS[0];
 
-  const handleToggleCategory = (catId) => {
+  const _handleToggleCategory = (catId) => {
     if (catId === 'all') {
       setFormData((prev) => ({ ...prev, categories: ['all'] }));
       return;

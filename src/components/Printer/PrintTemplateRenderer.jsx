@@ -17,15 +17,15 @@ export default function PrintTemplateRenderer({
     showLogo = false, // Default is NO as requested by owner
     showPhone = true,
     footerMessage = 'Thank you for ordering with us! Visit again soon.',
-    language = 'en', // 'en'
+    language: _language = 'en', // 'en'
     fontSize = 'normal', // 'normal' | 'large'
   } = settings;
 
   const is58mm = paperSize === PAPER_SIZES.SIZE_58MM;
   const isA4 = paperSize === PAPER_SIZES.SIZE_A4;
   const isLargeFont = fontSize === 'large';
-  const showUrdu = false;
-  const showEnglish = true;
+  const _showUrdu = false;
+  const _showEnglish = true;
 
   const dateInfo = format12HourTime(order?.created_at);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';

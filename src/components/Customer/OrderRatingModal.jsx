@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, X, Check, Heart, ThumbsUp, MessageSquare, CheckCircle2 } from 'lucide-react';
+import { Star, X, Check, CheckCircle2 } from 'lucide-react';
 import { orderService } from '../../services/orderService.js';
 
 const QUICK_TAGS = [

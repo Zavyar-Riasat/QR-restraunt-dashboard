@@ -21,7 +21,7 @@ function lazyWithRetry(importFn) {
           window.location.reload();
           return new Promise(() => {});
         }
-      } catch (_) {}
+      } catch  {}
       throw error;
     }
   });

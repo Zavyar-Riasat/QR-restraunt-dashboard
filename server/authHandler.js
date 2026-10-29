@@ -47,7 +47,7 @@ function parseJsonBody(req) {
       if (!body.trim()) return resolve({});
       try {
         resolve(JSON.parse(body));
-      } catch (err) {
+      } catch  {
         reject(new Error('Invalid JSON payload.'));
       }
     });
@@ -432,6 +432,125 @@ export async function handleAuthApi(req, res) {
 
       const logs = serverStorage.getAuditLogs();
       return sendJson(res, 200, { logs });
+    }
+
+    // -------------------------------------------------------------
+    // 8. Restaurant Staff & Role Credential Management (/api/staff/users)
+    // Tier 1 (Owner) manages Tier 2 (Manager) & Tier 3 (Cashier)
+    // Tier 2 (Manager) manages Tier 3 (Cashier) & exclusively manages Tier 4 (Waiter)
+    // -------------------------------------------------------------
+    if (pathname === '/api/staff/users') {
+      const activeUser = authenticateToken(token);
+      if (!activeUser || !['admin', 'owner', 'manager'].includes(activeUser.role)) {
+        return sendJson(res, 403, { error: 'Access denied. Owner or Manager authorization required.' });
+      }
+
+      const canActorManageRole = (actorRole, targetRole) => {
+        if (actorRole === 'admin') return ['owner', 'manager', 'cashier', 'waiter'].includes(targetRole);
+        if (actorRole === 'owner') return ['owner', 'manager', 'cashier', 'waiter'].includes(targetRole);
+        if (actorRole === 'manager') return ['cashier', 'waiter'].includes(targetRole);
+        return false;
+      };
+
+      if (req.method === 'GET') {
+        const slugFilter = url.searchParams.get('restaurant_slug') || activeUser.restaurant_slug;
+        const staff = serverStorage
+          .getUsers()
+          .filter((u) => u.restaurant_slug === slugFilter && ['owner', 'manager', 'cashier', 'waiter'].includes(u.role))
+          .map((u) => ({
+            ...sanitizeUserForClient(u),
+            password_masked: '••••••••••••',
+          }));
+        return sendJson(res, 200, { staff });
+      }
+
+      if (req.method === 'POST') {
+        const body = await parseJsonBody(req);
+        const targetRole = String(body.role || '').toLowerCase();
+
+        if (!canActorManageRole(activeUser.role, targetRole)) {
+          const reason =
+            targetRole === 'waiter' && activeUser.role === 'owner'
+              ? 'Waiter credentials can only be managed by a Manager.'
+              : `Your role (${activeUser.role}) is not authorized to create ${targetRole} credentials.`;
+          return sendJson(res, 403, { error: reason });
+        }
+
+        if (!body.email || !body.password) {
+          return sendJson(res, 400, { error: 'Staff email and password are required.' });
+        }
+
+        const encrypted = encryptPassword(String(body.password).trim());
+        const created = serverStorage.createUser({
+          name: body.name || `${targetRole.charAt(0).toUpperCase() + targetRole.slice(1)} Staff`,
+          email: String(body.email).trim().toLowerCase(),
+          phone: body.phone || activeUser.phone || '923001234567',
+          role: targetRole,
+          restaurant_id: body.restaurant_id || activeUser.restaurant_id || 'rest-101',
+          restaurant_name: body.restaurant_name || activeUser.restaurant_name || 'Burger & Smoke Co.',
+          restaurant_slug: body.restaurant_slug || activeUser.restaurant_slug || 'burgersmoke',
+          password_encrypted: encrypted,
+          must_change_password: false,
+        });
+
+        return sendJson(res, 201, {
+          success: true,
+          staff: sanitizeUserForClient(created),
+        });
+      }
+
+      if (req.method === 'PUT') {
+        const body = await parseJsonBody(req);
+        const targetUser = serverStorage.findUserById(body.staffId);
+        if (!targetUser) {
+          return sendJson(res, 404, { error: 'Staff account not found.' });
+        }
+
+        if (!canActorManageRole(activeUser.role, targetUser.role)) {
+          const reason =
+            targetUser.role === 'waiter' && activeUser.role === 'owner'
+              ? 'Waiter credentials can only be managed by a Manager.'
+              : `Your role (${activeUser.role}) is not authorized to modify ${targetUser.role} credentials.`;
+          return sendJson(res, 403, { error: reason });
+        }
+
+        const updates = {};
+        if (body.name) updates.name = String(body.name).trim();
+        if (body.email) updates.email = String(body.email).trim().toLowerCase();
+        if (body.phone) updates.phone = String(body.phone).trim();
+        if (body.password && String(body.password).trim().length >= 4) {
+          updates.password_encrypted = encryptPassword(String(body.password).trim());
+          updates.session_version = (targetUser.session_version || 1) + 1;
+          invalidateUserSessions(targetUser.id);
+        }
+
+        const updated = serverStorage.updateUser(targetUser.id, updates);
+        return sendJson(res, 200, {
+          success: true,
+          staff: sanitizeUserForClient(updated),
+        });
+      }
+
+      if (req.method === 'DELETE') {
+        const body = await parseJsonBody(req);
+        const targetUser = serverStorage.findUserById(body.staffId);
+        if (!targetUser) {
+          return sendJson(res, 404, { error: 'Staff account not found.' });
+        }
+
+        if (!canActorManageRole(activeUser.role, targetUser.role)) {
+          const reason =
+            targetUser.role === 'waiter' && activeUser.role === 'owner'
+              ? 'Waiter credentials can only be managed by a Manager.'
+              : `Your role (${activeUser.role}) is not authorized to delete ${targetUser.role} credentials.`;
+          return sendJson(res, 403, { error: reason });
+        }
+
+        const remaining = serverStorage.getUsers().filter((u) => u.id !== targetUser.id);
+        serverStorage.saveUsers(remaining);
+        invalidateUserSessions(targetUser.id);
+        return sendJson(res, 200, { success: true });
+      }
     }
 
     // Unmatched API route

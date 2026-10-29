@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Monitor, Check, X, Smartphone, ArrowRight, Share2, PlusSquare } from 'lucide-react';
+import { Download, Monitor, X, Share2, PlusSquare } from 'lucide-react';
 import { pwaService } from '../../services/pwaService';
 
 export default function InstallAppButton() {

@@ -166,6 +166,17 @@
   transition: transform 250ms ease-out, box-shadow 250ms ease-out, border-color 250ms ease;
 }
 
+/* Responsive dashboard tab bar: wrap cleanly so no tab is clipped */
+main > div.no-print.flex.overflow-x-auto {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+main > div.no-print.flex.overflow-x-auto > button {
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+  justify-content: center;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .card-warm:hover {
     transform: translateY(-4px);

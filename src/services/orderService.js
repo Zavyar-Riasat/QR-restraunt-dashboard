@@ -125,6 +125,22 @@ const isSupabaseConfigured = () => {
   );
 };
 
+const isUuid = (val) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
+
+let _ordersTableAvailable = true;
+const isOrdersTableMissingError = (err) => {
+  if (!err) return false;
+  const code = String(err.code || '');
+  const msg = String(err.message || '');
+  return (
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    msg.includes('Could not find the table') ||
+    msg.includes('relation "public.orders" does not exist')
+  );
+};
+
 export const generateRiderToken = () => {
   const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
   let token = 'rtk_';
@@ -143,7 +159,7 @@ export const generateRiderToken = () => {
 };
 
 // Starter initial orders for new or demo restaurants so the orders board is immediately functional
-const getStarterOrders = (restaurantId, restaurantName) => [
+const getStarterOrders = (restaurantId, _restaurantName) => [
   {
     id: 'DB-8421',
     restaurant_id: restaurantId,
@@ -719,7 +735,7 @@ export const orderService = {
         };
       }
       return { allowed: true };
-    } catch (e) {
+    } catch {
       return { allowed: true };
     }
   },
@@ -734,7 +750,7 @@ export const orderService = {
       const recent = history.filter((t) => now - t < tenMinutes);
       recent.push(now);
       localStorage.setItem(KEY, JSON.stringify(recent));
-    } catch (e) {}
+    } catch {}
   },
 
   /**
@@ -962,10 +978,10 @@ export const orderService = {
     newOrder.payment_status = initialPaymentState.paymentStatus;
     newOrder.amount_received = initialPaymentState.amountPaid;
 
-    // 1. Try persisting to Supabase if an orders table exists
-    if (isSupabaseConfigured()) {
+    // 1. Try persisting to Supabase if an orders table exists and restId is a valid UUID
+    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(restId)) {
       try {
-        await supabase.from('orders').insert([
+        const { error } = await supabase.from('orders').insert([
           {
             id: newOrder.id,
             restaurant_id: restId,
@@ -988,7 +1004,10 @@ export const orderService = {
             area_landmark: newOrder.area_landmark,
           },
         ]);
-      } catch (e) {
+        if (error && isOrdersTableMissingError(error)) {
+          _ordersTableAvailable = false;
+        }
+      } catch {
         // Table might not exist yet, fallback to localStorage
       }
     }
@@ -1105,7 +1124,7 @@ export const orderService = {
             try {
               finalRaw = JSON.stringify(cleaned);
               localStorage.setItem(storageKey, finalRaw);
-            } catch (_) {}
+            } catch {}
           }
           this._ordersCache.set(restaurantId, {
             raw: finalRaw,
@@ -1129,7 +1148,7 @@ export const orderService = {
         dayStr: nowStr,
         orders: starter,
       });
-    } catch (e) {}
+    } catch {}
     return starter;
   },
 
@@ -1202,8 +1221,8 @@ export const orderService = {
       }
     }
 
-    // 2. Query Supabase if configured
-    if (isSupabaseConfigured()) {
+    // 2. Query Supabase if configured and orders table is available
+    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
       try {
         const { data, error } = await supabase
           .from('orders')
@@ -1211,6 +1230,9 @@ export const orderService = {
           .eq('id', orderId)
           .maybeSingle();
 
+        if (error && isOrdersTableMissingError(error)) {
+          _ordersTableAvailable = false;
+        }
         if (data && !error) return data;
       } catch (e) {
         console.warn('Supabase getOrderById error:', e);
@@ -1249,8 +1271,15 @@ export const orderService = {
       console.warn('Failed to update order status:', e);
     }
 
-    if (isSupabaseConfigured()) {
-      supabase.from('orders').update({ status: newStatus, ...additionalUpdates }).eq('id', orderId).then().catch(() => {});
+    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
+      supabase
+        .from('orders')
+        .update({ status: newStatus, ...additionalUpdates })
+        .eq('id', orderId)
+        .then(({ error }) => {
+          if (error && isOrdersTableMissingError(error)) _ordersTableAvailable = false;
+        })
+        .catch(() => {});
     }
 
     return updated;
@@ -1317,12 +1346,15 @@ export const orderService = {
     }
 
     // 2. Persist to Supabase if configured
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('orders')
           .update({ customer_rating: cleanRating })
           .eq('id', orderId);
+        if (error && isOrdersTableMissingError(error)) {
+          _ordersTableAvailable = false;
+        }
       } catch (e) {
         console.warn('Supabase rating update error:', e);
       }
@@ -1339,7 +1371,7 @@ export const orderService = {
     try {
       const raw = localStorage.getItem(`dinehq_rating_${orderId}`);
       if (raw) return JSON.parse(raw);
-    } catch (_) {}
+    } catch {}
     return null;
   },
 
@@ -1531,13 +1563,15 @@ export const orderService = {
       console.warn('Failed to append items to order:', e);
     }
 
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
       supabase.from('orders').update({
         items: combinedItems,
         subtotal: newSubtotal,
         total_payable: newTotal,
         payment_status: appendPaymentState.paymentStatus,
-      }).eq('id', orderId).then().catch(() => {});
+      }).eq('id', orderId).then(({ error }) => {
+        if (error && isOrdersTableMissingError(error)) _ordersTableAvailable = false;
+      }).catch(() => {});
     }
 
     return { updatedOrder, newlyAddedItems: formattedNewItems };
@@ -1606,13 +1640,15 @@ export const orderService = {
       console.warn('Failed to update order items:', e);
     }
 
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
       supabase.from('orders').update({
         items: updatedItems,
         subtotal: newSubtotal,
         total_payable: newTotal,
         payment_status: updatePaymentState.paymentStatus,
-      }).eq('id', orderId).then().catch(() => {});
+      }).eq('id', orderId).then(({ error }) => {
+        if (error && isOrdersTableMissingError(error)) _ordersTableAvailable = false;
+      }).catch(() => {});
     }
 
     return updatedOrder;

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Move, Trash2, Bold, RotateCcw, Edit3, Check, Copy, RotateCw } from 'lucide-react';
+import { Move, Trash2, RotateCcw, Edit3, Check, Copy, RotateCw } from 'lucide-react';
 
 /**
  * Movable, editable, customizable text box component
@@ -69,7 +69,7 @@ export default function DraggableTextBox({
         range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
-      } catch (err) {
+      } catch  {
         // Fallback focus
       }
     }
@@ -85,35 +85,35 @@ export default function DraggableTextBox({
       return;
     }
     // Single click / drag moves the text
-    onSelect && onSelect(id);
-    onStartDrag && onStartDrag(e, id);
+    if (onSelect) { onSelect(id);; }
+    if (onStartDrag) { onStartDrag(e, id);; }
   };
 
   const handleTouchStart = (e) => {
     if (isEditing) return;
-    onSelect && onSelect(id);
-    onStartDrag && onStartDrag(e, id);
+    if (onSelect) { onSelect(id);; }
+    if (onStartDrag) { onStartDrag(e, id);; }
   };
 
   // Double click to enter text box
   const handleDoubleClick = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    onSelect && onSelect(id);
+    if (onSelect) { onSelect(id);; }
     setIsEditing(true);
   };
 
   // Blur saves and exits editing mode
   const handleBlur = (e) => {
     setIsEditing(false);
-    onUpdateText && onUpdateText(id, e.currentTarget.innerText);
+    if (onUpdateText) { onUpdateText(id, e.currentTarget.innerText);; }
   };
 
   // Escape exits editing mode
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       setIsEditing(false);
-      textRef.current && textRef.current.blur();
+      if (textRef.current) { textRef.current.blur();; }
     }
   };
 
@@ -147,7 +147,7 @@ export default function DraggableTextBox({
       onDoubleClick={handleDoubleClick}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect && onSelect(id);
+        if (onSelect) { onSelect(id);; }
       }}
       className={`group select-none max-w-[95%] transition-shadow ${
         isEditing
@@ -177,7 +177,7 @@ export default function DraggableTextBox({
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditing(false);
-                textRef.current && textRef.current.blur();
+                if (textRef.current) { textRef.current.blur();; }
               }}
               className="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] flex items-center gap-1 cursor-pointer transition shadow-xs"
               title="Finish editing"
@@ -446,9 +446,9 @@ export function TextCornerHandles({
   maxSize = 64,
 }) {
   const [activeHandle, setActiveHandle] = useState(null);
-  const [currentSize, setCurrentSize] = useState(fontSize);
-  const [currentHeight, setCurrentHeight] = useState(height);
-  const [currentWidth, setCurrentWidth] = useState(width);
+  const [_currentSize, setCurrentSize] = useState(fontSize);
+  const [_currentHeight, setCurrentHeight] = useState(height);
+  const [_currentWidth, setCurrentWidth] = useState(width);
   const [tooltipText, setTooltipText] = useState('');
   const resizeRef = useRef({
     startX: 0,
@@ -507,22 +507,22 @@ export function TextCornerHandles({
         const newH = Math.round(Math.max(20, Math.min(650, initH + deltaY)));
         setCurrentHeight(newH);
         setTooltipText(`Height: ${newH}px`);
-        onSetDimensions && onSetDimensions(id, { height: newH, width: width || initW });
+        if (onSetDimensions) { onSetDimensions(id, { height: newH, width: width || initW });; }
       } else if (handleType === 'n') {
         const newH = Math.round(Math.max(20, Math.min(650, initH - deltaY)));
         setCurrentHeight(newH);
         setTooltipText(`Height: ${newH}px`);
-        onSetDimensions && onSetDimensions(id, { height: newH, width: width || initW });
+        if (onSetDimensions) { onSetDimensions(id, { height: newH, width: width || initW });; }
       } else if (handleType === 'e') {
         const newW = Math.round(Math.max(30, Math.min(800, initW + deltaX)));
         setCurrentWidth(newW);
         setTooltipText(`Width: ${newW}px`);
-        onSetDimensions && onSetDimensions(id, { width: newW, height: height || initH });
+        if (onSetDimensions) { onSetDimensions(id, { width: newW, height: height || initH });; }
       } else if (handleType === 'w') {
         const newW = Math.round(Math.max(30, Math.min(800, initW - deltaX)));
         setCurrentWidth(newW);
         setTooltipText(`Width: ${newW}px`);
-        onSetDimensions && onSetDimensions(id, { width: newW, height: height || initH });
+        if (onSetDimensions) { onSetDimensions(id, { width: newW, height: height || initH });; }
       } else {
         let sizeDelta = 0;
         if (handleType === 'se') sizeDelta = (deltaX + deltaY) / 5;

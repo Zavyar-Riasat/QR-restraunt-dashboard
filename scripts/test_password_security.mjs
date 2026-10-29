@@ -17,8 +17,7 @@ import {
   decryptPassword,
   comparePassword,
   generateStrongPassword,
-  maskPassword,
-} from '../server/crypto.js';
+  } from '../server/crypto.js';
 import {
   serverStorage,
   sanitizeUserForClient,
@@ -26,10 +25,7 @@ import {
 import {
   createSession,
   authenticateToken,
-  invalidateUserSessions,
-} from '../server/authHandler.js';
-import fs from 'node:fs';
-import path from 'node:path';
+  } from '../server/authHandler.js';
 
 function assert(condition, message) {
   if (!condition) {

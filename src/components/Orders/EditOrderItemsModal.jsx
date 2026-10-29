@@ -44,7 +44,7 @@ export default function EditOrderItemsModal({
           return parsed.menuItems;
         }
       }
-    } catch (e) {
+    } catch  {
       // ignore
     }
     return [];

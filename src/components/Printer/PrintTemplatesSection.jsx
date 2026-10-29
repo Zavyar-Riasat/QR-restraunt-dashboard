@@ -5,10 +5,8 @@ import {
   Receipt,
   ChefHat,
   Truck,
-  Check,
   CheckCircle2,
   RefreshCw,
-  Save,
   Type,
   Phone,
   Image as ImageIcon,
@@ -89,7 +87,7 @@ export default function PrintTemplatesSection({ restaurant }) {
         templateSettings: settings,
       };
 
-      const res = await printerService.print(sampleJob);
+      const _res = await printerService.print(sampleJob);
       setPrintFeedback({
         type: 'success',
         text: `Sample ${TEMPLATE_TYPE_LABELS[templateType]} sent to printer!`,

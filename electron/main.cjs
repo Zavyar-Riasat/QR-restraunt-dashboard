@@ -10,7 +10,7 @@ let usbModule = null;
 // Try loading native usb module if available
 try {
   usbModule = require('usb');
-} catch (e) {
+} catch  {
   // Optional native usb dependency, fallback to standard device polling
 }
 
@@ -183,7 +183,7 @@ function setupIpcHandlers() {
         }
       }
       return null;
-    } catch (e) {
+    } catch  {
       return null;
     }
   });

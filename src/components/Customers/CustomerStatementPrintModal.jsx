@@ -5,15 +5,11 @@ import {
   Download,
   Share2,
   Check,
-  FileText,
-  Copy,
-} from 'lucide-react';
+  } from 'lucide-react';
 import {
   formatPKR,
-  formatPaisa,
   formatPhone,
-  toRupees,
-} from '../../utils/currencyUtils';
+  } from '../../utils/currencyUtils';
 import { customerKhataService } from '../../services/customerKhataService';
 
 export default function CustomerStatementPrintModal({
@@ -51,7 +47,7 @@ export default function CustomerStatementPrintModal({
           text,
         });
         return;
-      } catch (e) {
+      } catch  {
         // Fallback to clipboard if share was cancelled or failed
       }
     }

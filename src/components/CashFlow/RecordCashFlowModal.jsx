@@ -3,24 +3,14 @@ import {
   X,
   ArrowDownLeft,
   ArrowUpRight,
-  DollarSign,
-  Plus,
-  Coins,
-  FileText,
-  Calendar,
-  User,
-  CreditCard,
-  Building,
   CheckCircle2,
-  Trash2,
-} from 'lucide-react';
+  } from 'lucide-react';
 import {
   cashFlowService,
   CASH_IN_CATEGORIES,
   CASH_OUT_CATEGORIES,
   PAYMENT_METHODS,
 } from '../../services/cashFlowService';
-import { formatPKR } from '../../utils/currencyUtils';
 
 export default function RecordCashFlowModal({
   isOpen,

@@ -206,5 +206,65 @@
     "must_change_password": false,
     "session_version": 1,
     "created_at": "2026-10-14T12:00:00.000Z"
+  },
+  {
+    "id": "user-manager-01",
+    "email": "manager@burgersmoke.com",
+    "name": "Burger & Smoke Manager",
+    "role": "manager",
+    "restaurant_id": "rest-101",
+    "restaurant_name": "Burger & Smoke Co.",
+    "restaurant_slug": "burgersmoke",
+    "phone": "923002223344",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "f9d1c13441cf5c6b0fee393bac862c",
+      "iv": "dd7cab376cbd9421f1f3a8f0",
+      "authTag": "83d5ee2b86627c457a72a2060275aafd"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_by_role": "owner",
+    "created_at": "2026-10-05T12:15:00.000Z"
+  },
+  {
+    "id": "user-cashier-01",
+    "email": "cashier@burgersmoke.com",
+    "name": "Counter Cashier",
+    "role": "cashier",
+    "restaurant_id": "rest-101",
+    "restaurant_name": "Burger & Smoke Co.",
+    "restaurant_slug": "burgersmoke",
+    "phone": "923003334455",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "b4009459e673f1256bcc1d39b4deba",
+      "iv": "fd2f836f1421518cafe003ed",
+      "authTag": "c2bc5f4b47d22788c30303c0ea68d3d4"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_by_role": "manager",
+    "created_at": "2026-10-05T12:30:00.000Z"
+  },
+  {
+    "id": "user-waiter-01",
+    "email": "waiter@burgersmoke.com",
+    "name": "Floor Waiter",
+    "role": "waiter",
+    "restaurant_id": "rest-101",
+    "restaurant_name": "Burger & Smoke Co.",
+    "restaurant_slug": "burgersmoke",
+    "phone": "923004445566",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "3341ca5f5ea332db66b94943c6fc",
+      "iv": "3afab69778599ab3578bb77b",
+      "authTag": "ba3299eaf0c7e4a9ee2e3ae8b9cb418d"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_by_role": "manager",
+    "created_at": "2026-10-05T12:45:00.000Z"
   }
 ]

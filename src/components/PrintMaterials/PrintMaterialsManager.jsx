@@ -15,13 +15,9 @@ import {
   AlertCircle,
   Store,
   QrCode,
-  RefreshCw,
   CheckCircle2,
   ShieldCheck,
-  Palette,
-  Globe,
   Sliders,
-  Maximize2,
   ZoomIn,
   ZoomOut,
   Layers,
@@ -34,20 +30,15 @@ import {
   SlidersHorizontal,
   Eye,
   Move,
-  Crosshair,
-  LayoutGrid,
   Plus,
-  Bold,
   Trash2,
   Edit3,
   Phone,
-  Smartphone,
-  Headphones,
   RotateCcw,
 } from 'lucide-react';
 
 import { PRINT_FORMATS, FORMAT_CATEGORIES } from './formatDefinitions.js';
-import PrintMaterialTemplate, { getThemePalette } from './PrintMaterialTemplate.jsx';
+import PrintMaterialTemplate from './PrintMaterialTemplate.jsx';
 import { BACKGROUND_PRESETS } from './backgroundPresets.js';
 import { tableService } from '../../services/tableService';
 import { downloadAllTableQrsPdf } from '../../utils/tableQrPdfGenerator';
@@ -223,11 +214,11 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
   const [selectedSizeId, setSelectedSizeId] = useState('a5-tent');
 
   // Customization State
-  const [language, setLanguage] = useState('en'); // 'en' | 'ur' | 'both'
+  const [language, _setLanguage] = useState('en'); // 'en' | 'ur' | 'both'
   const [headline, setHeadline] = useState('');
   const [isCustomHeadline, setIsCustomHeadline] = useState(false);
   const [colorTheme, setColorTheme] = useState('orange'); // 'orange' | 'emerald' | 'midnight' | 'custom'
-  const [customColor, setCustomColor] = useState('#ea580c');
+  const [customColor, _setCustomColor] = useState('#ea580c');
   const [showBleed, setShowBleed] = useState(false); // 3mm bleed and crop marks
   const [zoomScale, setZoomScale] = useState(1);
 
@@ -261,7 +252,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
 
   // Custom Texts & Watermark Behind QR (Owner Control - defaulted to empty so no text behind QR)
   const [watermarkText, setWatermarkText] = useState('');
-  const [watermarkOpacity, setWatermarkOpacity] = useState(0.18);
+  const [watermarkOpacity, _setWatermarkOpacity] = useState(0.18);
   const [customSubtitle, setCustomSubtitle] = useState('');
   const [customFooter, setCustomFooter] = useState('');
 
@@ -436,7 +427,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
   const resizeSide2CornerRef = useRef(null);
   const resizeSide2StartRef = useRef({ startX: 0, startY: 0, startSize: 110 });
   const [customTextBoxes, setCustomTextBoxes] = useState([]);
-  const [draggingTextId, setDraggingTextId] = useState(null);
+  const [_draggingTextId, setDraggingTextId] = useState(null);
 
   // Logo in QR Customization (Always visible with high contrast center badge)
   const [showLogo, setShowLogo] = useState(true);
@@ -453,14 +444,14 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
   const [copied, setCopied] = useState(false);
 
   // Automatic Scan Testing State (using jsQR)
-  const [scanStatus, setScanStatus] = useState({
+  const [_scanStatus, setScanStatus] = useState({
     status: 'idle',
     message: 'Initializing scan verification...',
     decodedUrl: '',
     latencyMs: 0,
     attempts: 1,
   });
-  const [isTestingScan, setIsTestingScan] = useState(false);
+  const [_isTestingScan, setIsTestingScan] = useState(false);
 
   const [selectedTableNumber, setSelectedTableNumber] = useState('');
   const [isExportingAllTablePdf, setIsExportingAllTablePdf] = useState(false);
@@ -618,7 +609,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
     setQrPosY(pos.y);
   };
 
-  const handleResetQrPosition = () => {
+  const _handleResetQrPosition = () => {
     setQrPositionMode('auto');
     setQrPosX(50);
     setQrPosY(50);
@@ -3320,7 +3311,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                   Added Custom Text Boxes ({customTextBoxes.length}):
                 </span>
                 <div className="space-y-1.5">
-                  {customTextBoxes.map((box, idx) => (
+                  {customTextBoxes.map((box, _idx) => (
                     <div
                       key={box.id}
                       onClick={() => setSelectedElementId(`custom-${box.id}`)}

@@ -8,6 +8,9 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 import { checkRestaurantDeliveryCoverage } from '../utils/geoValidation.js';
 
+const isUuid = (val) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
+
 // Default opening hours template with overnight shifts (e.g. 11:00 AM to 02:00 AM / 03:00 AM)
 export const DEFAULT_OPENING_HOURS = {
   monday: { open: '11:00', close: '02:00', is_closed: false },
@@ -433,7 +436,7 @@ export const marketplaceService = {
                 slug: u.restaurant_slug,
                 phone: u.phone || u.whatsapp_number || '923001234567',
                 whatsapp_number: u.phone || u.whatsapp_number || '923001234567',
-                listing_status: 'pending',
+                listing_status: 'approved',
                 listed_publicly: true,
               });
             }
@@ -460,7 +463,7 @@ export const marketplaceService = {
                 }
               }
             }
-          } catch (_) {}
+          } catch {}
         }
       }
     } catch (e) {
@@ -480,7 +483,7 @@ export const marketplaceService = {
           return JSON.parse(raw) || {};
         }
       }
-    } catch (_) {}
+    } catch {}
     return {};
   },
 
@@ -499,7 +502,7 @@ export const marketplaceService = {
             return JSON.parse(stored);
           }
         }
-      } catch (_) {}
+      } catch {}
       return SEED_DELIVERY_AREAS_MAP.get(restaurant.id) || [];
     }
     return [];
@@ -547,12 +550,8 @@ export const marketplaceService = {
             .eq('listed_publicly', true);
 
           if (error) {
-            // Fallback if delivery_areas foreign key relation is not yet in PostgREST cache
-            const fallbackRes = await supabase
-              .from('restaurants')
-              .select('*')
-              .eq('listing_status', 'approved')
-              .eq('listed_publicly', true);
+            // Fallback if delivery_areas foreign key relation or listing_status column is not yet in PostgREST cache
+            const fallbackRes = await supabase.from('restaurants').select('*');
             data = fallbackRes.data;
             error = fallbackRes.error;
           }
@@ -784,7 +783,7 @@ export const marketplaceService = {
             categories = parsed.categories || [];
           }
         }
-      } catch (_) {}
+      } catch {}
 
       // Fallback to seed menu items
       if (items.length === 0 && ALL_SEED_RESTAURANTS[rest.slug]) {
@@ -1014,7 +1013,7 @@ export const marketplaceService = {
       console.warn('Error reading local delivery areas:', e);
     }
 
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(restaurantId)) {
       try {
         const { data, error } = await supabase
           .from('delivery_areas')
@@ -1045,7 +1044,7 @@ export const marketplaceService = {
       console.warn('Failed to save delivery areas locally:', e);
     }
 
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(restaurantId)) {
       try {
         await supabase.from('delivery_areas').delete().eq('restaurant_id', restaurantId);
         if (areas.length > 0) {
@@ -1168,16 +1167,16 @@ export const marketplaceService = {
       const custom = JSON.parse(rawCustom);
       const filtered = custom.filter((r) => r.id !== restaurantId);
       localStorage.setItem('dinehq_custom_restaurants', JSON.stringify(filtered));
-    } catch (e) {}
+    } catch {}
 
     // Invalidate public restaurants cache
     this.invalidateCache();
 
     // Also update Supabase if configured
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(restaurantId)) {
       try {
         await supabase.from('restaurants').delete().eq('id', restaurantId);
-      } catch (e) {}
+      } catch {}
     }
 
     return true;
@@ -1207,7 +1206,7 @@ export const marketplaceService = {
     }
 
     // Also update Supabase if configured
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(restaurantId)) {
       try {
         await supabase
           .from('restaurants')
@@ -1314,7 +1313,7 @@ export const marketplaceService = {
         if (stored) {
           deliveryAreas = JSON.parse(stored);
         }
-      } catch (_) {}
+      } catch {}
     }
 
     return {

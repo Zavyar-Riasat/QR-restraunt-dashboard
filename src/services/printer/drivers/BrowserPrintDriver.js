@@ -48,7 +48,7 @@ export class BrowserPrintDriver extends BaseDriver {
             };
           }
         }
-      } catch (_) {}
+      } catch  {}
     }
 
     if (!isAvail) {

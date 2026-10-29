@@ -45,7 +45,7 @@ export class RawBtDriver extends BaseDriver {
         signal: AbortSignal.timeout(600),
       });
       if (res.ok) backgroundServiceActive = true;
-    } catch (_) {}
+    } catch  {}
 
     return {
       connected: true,

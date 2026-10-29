@@ -100,7 +100,7 @@ export default function PrintersSection({ categories = [] }) {
     printerService.setDefaultPrinter(printerId);
   };
 
-  const getCategoryNames = (catIds = []) => {
+  const _getCategoryNames = (catIds = []) => {
     if (!catIds || catIds.includes('all') || catIds.length === 0) {
       return 'All Categories';
     }

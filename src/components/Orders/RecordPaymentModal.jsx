@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import {
   X,
-  CreditCard,
-  Banknote,
-  DollarSign,
   AlertTriangle,
   Clock,
   User,
@@ -12,9 +9,7 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  Calendar,
-} from 'lucide-react';
+  } from 'lucide-react';
 import {
   formatPKR,
   toPaisa,

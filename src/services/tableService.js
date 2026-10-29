@@ -4,7 +4,6 @@
  * QR code generation for dine-in tables, table merging/moving, and closing tables.
  */
 
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 import { getAppBaseUrl } from '../config/appConfig.js';
 
 const TABLES_STORAGE_PREFIX = 'dinehq_tables_';
@@ -148,6 +147,8 @@ export const tableService = {
         } else {
           status = TABLE_STATUS.OCCUPIED;
         }
+      } else if (tbl.is_manually_occupied || tbl.status === TABLE_STATUS.OCCUPIED) {
+        status = TABLE_STATUS.OCCUPIED;
       }
 
       return {
@@ -158,6 +159,30 @@ export const tableService = {
         orderCount: openOrders.length,
       };
     });
+  },
+
+  /**
+   * Manually occupy a table according to customer need (Waiter / Floor Staff)
+   */
+  occupyTable(restaurantId, tableId, { guestCount = 2, guestName = '', note = '', occupiedBy = 'Waiter' } = {}) {
+    const tables = this.getTables(restaurantId);
+    const updated = tables.map((t) => {
+      if (t.id === tableId || String(t.table_number) === String(tableId)) {
+        return {
+          ...t,
+          status: TABLE_STATUS.OCCUPIED,
+          is_manually_occupied: true,
+          guest_count: Number(guestCount) || t.capacity || 2,
+          guest_name: String(guestName || '').trim() || 'Walk-in Guest',
+          occupancy_note: String(note || '').trim(),
+          occupied_by: occupiedBy,
+          occupied_at: new Date().toISOString(),
+        };
+      }
+      return t;
+    });
+    this.saveTables(restaurantId, updated);
+    return updated.find((t) => t.id === tableId || String(t.table_number) === String(tableId));
   },
 
   /**
@@ -188,8 +213,43 @@ export const tableService = {
       }
     });
 
+    // Also transfer manual occupancy metadata if source table was manually occupied
+    const tables = this.getTables(restaurantId);
+    const sourceTbl = tables.find(
+      (t) => String(t.table_number || '').replace(/^Table\s*/i, '').trim() === fromStr
+    );
+    const updatedTables = tables.map((t) => {
+      const tNum = String(t.table_number || '').replace(/^Table\s*/i, '').trim();
+      if (tNum === fromStr) {
+        return {
+          ...t,
+          status: TABLE_STATUS.FREE,
+          is_manually_occupied: false,
+          guest_count: null,
+          guest_name: '',
+          occupancy_note: '',
+          occupied_by: '',
+          occupied_at: null,
+        };
+      }
+      if (tNum === toStr && sourceTbl?.is_manually_occupied) {
+        updatedAny = true;
+        return {
+          ...t,
+          status: TABLE_STATUS.OCCUPIED,
+          is_manually_occupied: true,
+          guest_count: sourceTbl.guest_count,
+          guest_name: sourceTbl.guest_name,
+          occupancy_note: sourceTbl.occupancy_note,
+          occupied_by: sourceTbl.occupied_by,
+          occupied_at: sourceTbl.occupied_at,
+        };
+      }
+      return t;
+    });
+
     // Notify table listeners
-    this.saveTables(restaurantId, this.getTables(restaurantId));
+    this.saveTables(restaurantId, updatedTables);
     return updatedAny;
   },
 
@@ -197,28 +257,46 @@ export const tableService = {
    * Close a table: complete all active orders on this table and mark as free
    */
   closeTable(restaurantId, tableNumber, orderService) {
-    if (!orderService) return false;
-    const orders = orderService.getOrders(restaurantId);
     const tStr = String(tableNumber || '').replace(/^Table\s*/i, '').trim();
 
-    orders.forEach((o) => {
-      const oTable = String(o.table_number || o.table || '').replace(/^Table\s*/i, '').trim();
-      if (
-        o.order_type === 'dine_in' &&
-        o.status !== 'completed' &&
-        o.status !== 'cancelled' &&
-        oTable === tStr
-      ) {
-        orderService.updateOrderStatus(restaurantId, o.id, 'completed', {
-          closed_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-          payment_status: 'paid',
-        });
-      }
-    });
+    if (orderService) {
+      const orders = orderService.getOrders(restaurantId);
+      orders.forEach((o) => {
+        const oTable = String(o.table_number || o.table || '').replace(/^Table\s*/i, '').trim();
+        if (
+          o.order_type === 'dine_in' &&
+          o.status !== 'completed' &&
+          o.status !== 'cancelled' &&
+          oTable === tStr
+        ) {
+          orderService.updateOrderStatus(restaurantId, o.id, 'completed', {
+            closed_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            payment_status: 'paid',
+          });
+        }
+      });
+    }
 
-    // Notify listeners
-    this.saveTables(restaurantId, this.getTables(restaurantId));
+    // Clear manual occupancy on the table and notify listeners
+    const tables = this.getTables(restaurantId);
+    const updatedTables = tables.map((t) => {
+      const tNum = String(t.table_number || '').replace(/^Table\s*/i, '').trim();
+      if (tNum === tStr) {
+        return {
+          ...t,
+          status: TABLE_STATUS.FREE,
+          is_manually_occupied: false,
+          guest_count: null,
+          guest_name: '',
+          occupancy_note: '',
+          occupied_by: '',
+          occupied_at: null,
+        };
+      }
+      return t;
+    });
+    this.saveTables(restaurantId, updatedTables);
     return true;
   },
 };

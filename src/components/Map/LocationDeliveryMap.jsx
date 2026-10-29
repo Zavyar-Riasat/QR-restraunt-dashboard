@@ -6,18 +6,18 @@ import {
   Navigation,
   RotateCcw,
   Undo2,
-  Trash2,
+  
   PenTool,
-  Check,
+  
   AlertCircle,
   Compass,
-  Layers,
+  
 } from 'lucide-react';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import {
-  validatePolygonCoordinates,
+  
   calculatePolygonAreaKm2,
   generatePresetPolygon,
 } from '../../utils/geoValidation';
@@ -109,6 +109,61 @@ export default function LocationDeliveryMap({
   const activeLat = Number(restaurantLocation?.lat ?? DEFAULT_CENTER.lat);
   const activeLng = Number(restaurantLocation?.lng ?? DEFAULT_CENTER.lng);
 
+  // Notify parent of drawing active state changes
+  const updateDrawingState = useCallback(
+    (active) => {
+      setIsDrawingActive(active);
+      if (onDrawingActiveChange) onDrawingActiveChange(active);
+    },
+    [onDrawingActiveChange]
+  );
+
+  // Drawing Controls Handlers (declared before effects that invoke them)
+  const startInteractiveDrawing = useCallback(() => {
+    updateDrawingState(true);
+    setTempPoints([]);
+
+    // Also trigger Geoman draw if available as a companion
+    if (mapRef.current?.pm) {
+      try {
+        mapRef.current.pm.enableDraw('Polygon');
+      } catch {}
+    }
+  }, [updateDrawingState]);
+
+  const finishInteractiveDrawing = useCallback(
+    (pointsToCommit = tempPoints) => {
+      if (pointsToCommit.length < 3) {
+        setGeoError('Please click at least 3 points on the map to form a boundary.');
+        return;
+      }
+
+      if (mapRef.current?.pm) {
+        try {
+          mapRef.current.pm.disableDraw();
+        } catch {}
+      }
+
+      setPolygonHistory((prev) => [...prev, pointsToCommit]);
+      if (onPolygonChange) onPolygonChange(pointsToCommit);
+      setTempPoints([]);
+      updateDrawingState(false);
+      setGeoError('');
+    },
+    [tempPoints, onPolygonChange, updateDrawingState]
+  );
+
+  const cancelInteractiveDrawing = useCallback(() => {
+    if (mapRef.current?.pm) {
+      try {
+        mapRef.current.pm.disableDraw();
+      } catch {}
+    }
+    setTempPoints([]);
+    updateDrawingState(false);
+    setGeoError('');
+  }, [updateDrawingState]);
+
   // Sync prop changes for drawing mode if controlled from outside
   useEffect(() => {
     if (typeof isDrawingActiveProp === 'boolean' && isDrawingActiveProp !== isDrawingActive) {
@@ -118,13 +173,7 @@ export default function LocationDeliveryMap({
         cancelInteractiveDrawing();
       }
     }
-  }, [isDrawingActiveProp]);
-
-  // Notify parent of drawing active state changes
-  const updateDrawingState = (active) => {
-    setIsDrawingActive(active);
-    if (onDrawingActiveChange) onDrawingActiveChange(active);
-  };
+  }, [isDrawingActiveProp, isDrawingActive, startInteractiveDrawing, cancelInteractiveDrawing]);
 
   // 1. Initialize Leaflet Map
   useEffect(() => {
@@ -446,50 +495,7 @@ export default function LocationDeliveryMap({
         dashArray: '6, 6',
       }).addTo(map);
     }
-  }, [isDrawingActive, tempPoints]);
-
-  // Drawing Controls Handlers
-  const startInteractiveDrawing = () => {
-    updateDrawingState(true);
-    setTempPoints([]);
-
-    // Also trigger Geoman draw if available as a companion
-    if (mapRef.current?.pm) {
-      try {
-        mapRef.current.pm.enableDraw('Polygon');
-      } catch (_) {}
-    }
-  };
-
-  const finishInteractiveDrawing = (pointsToCommit = tempPoints) => {
-    if (pointsToCommit.length < 3) {
-      setGeoError('Please click at least 3 points on the map to form a boundary.');
-      return;
-    }
-
-    if (mapRef.current?.pm) {
-      try {
-        mapRef.current.pm.disableDraw();
-      } catch (_) {}
-    }
-
-    setPolygonHistory((prev) => [...prev, pointsToCommit]);
-    if (onPolygonChange) onPolygonChange(pointsToCommit);
-    setTempPoints([]);
-    updateDrawingState(false);
-    setGeoError('');
-  };
-
-  const cancelInteractiveDrawing = () => {
-    if (mapRef.current?.pm) {
-      try {
-        mapRef.current.pm.disableDraw();
-      } catch (_) {}
-    }
-    setTempPoints([]);
-    updateDrawingState(false);
-    setGeoError('');
-  };
+  }, [isDrawingActive, tempPoints, finishInteractiveDrawing]);
 
   const undoLastDrawingPoint = () => {
     setTempPoints((prev) => prev.slice(0, -1));
@@ -630,7 +636,7 @@ export default function LocationDeliveryMap({
         }
         setIsLocating(false);
       },
-      (err) => {
+      (_err) => {
         setIsLocating(false);
         setGeoError('Unable to detect location. Please allow GPS permission in your browser.');
       },

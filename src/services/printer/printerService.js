@@ -136,7 +136,7 @@ class PrinterService {
         }
         try {
           localStorage.setItem(STORAGE_TEMPLATE_KEY, JSON.stringify(parsed));
-        } catch (_) {}
+        } catch  {}
         return { ...DEFAULT_TEMPLATE_SETTINGS, ...parsed, language: 'en' };
       }
     } catch (e) {
@@ -180,7 +180,7 @@ class PrinterService {
           if (hasStaleConnected) {
             try {
               localStorage.setItem(PRINTERS_LIST_KEY, JSON.stringify(sanitized));
-            } catch (_) {}
+            } catch  {}
           }
           return sanitized;
         }
@@ -249,7 +249,7 @@ class PrinterService {
     const defaultList = [defaultPrinter];
     try {
       localStorage.setItem(PRINTERS_LIST_KEY, JSON.stringify(defaultList));
-    } catch (_) {}
+    } catch  {}
     return defaultList;
   }
 
@@ -389,7 +389,7 @@ class PrinterService {
         } else if (driver && typeof driver.isConnected === 'function') {
           isConn = Boolean(driver.isConnected(printer));
         }
-      } catch (e) {
+      } catch  {
         isConn = false;
       }
 
@@ -405,7 +405,7 @@ class PrinterService {
     if (hasChanges) {
       try {
         localStorage.setItem(PRINTERS_LIST_KEY, JSON.stringify(updated));
-      } catch (_) {}
+      } catch  {}
       this.notifyListeners({ printers: updated });
     }
 
@@ -430,7 +430,7 @@ class PrinterService {
 
     try {
       localStorage.setItem(PRINTERS_LIST_KEY, JSON.stringify(list));
-    } catch (_) {}
+    } catch  {}
     this.notifyListeners({ printers: list });
     return list;
   }
@@ -474,7 +474,7 @@ class PrinterService {
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
-    } catch (_) {}
+    } catch  {}
   }
 
   /**
@@ -808,7 +808,7 @@ class PrinterService {
         this.setPrinterStatus(printer.id, 'connected');
       } else {
         // Queue the print job while printer is reconnecting!
-        const queuedItem = this.addToRetryQueue(
+        const _queuedItem = this.addToRetryQueue(
           job.order,
           printer,
           job.templateType || TEMPLATE_TYPES.KOT,
@@ -1017,7 +1017,7 @@ class PrinterService {
   /**
    * Legacy test page method
    */
-  async printTestPage(overrideConfig = null) {
+  async printTestPage(_overrideConfig = null) {
     const defaultPrinter = this.getDefaultPrinter();
     return this.printTestPageForPrinter(defaultPrinter);
   }
@@ -1232,7 +1232,7 @@ class PrinterService {
           })
         );
       }
-    } catch (e) {}
+    } catch  {}
   }
 
   /**

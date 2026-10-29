@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BellRing, Volume2, X, Check, ShieldCheck } from 'lucide-react';
+import { BellRing } from 'lucide-react';
 import { pwaService } from '../../services/pwaService';
 
 export default function NotificationPromptBanner() {

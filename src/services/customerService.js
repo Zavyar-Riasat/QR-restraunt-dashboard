@@ -7,6 +7,9 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 import { orderService } from './orderService.js';
 
+const isUuid = (val) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
+
 const CUSTOMER_SESSION_KEY = 'dineflow_customer_session';
 const CUSTOMER_REGISTRY_KEY = 'dinehq_customer_registry';
 const CUSTOMER_ADDRESSES_KEY = 'dineflow_customer_addresses_';
@@ -91,7 +94,7 @@ export const customerService = {
               null;
           }
         }
-      } catch (_) {}
+      } catch {}
     }
 
     const fallbackId = cleanPhone
@@ -111,20 +114,21 @@ export const customerService = {
       updated_at: new Date().toISOString(),
     };
 
-    // If Supabase is configured and phone is available, upsert into customers table
-    if (isSupabaseConfigured() && customerObj.phone) {
+    // If Supabase is configured and phone or email is available, upsert into customers table
+    if (isSupabaseConfigured() && (customerObj.phone || customerObj.email)) {
       try {
+        const conflictCol = customerObj.phone ? 'phone' : 'email';
         const { data, error } = await supabase
           .from('customers')
           .upsert(
             {
+              ...(isUuid(customerObj.id) ? { id: customerObj.id } : {}),
               name: customerObj.name,
-              phone: customerObj.phone,
-              email: customerObj.email,
+              phone: customerObj.phone || null,
+              email: customerObj.email || null,
               avatar: customerObj.avatar,
-              preferred_language: customerObj.preferred_language,
             },
-            { onConflict: 'phone' }
+            { onConflict: conflictCol }
           )
           .select()
           .maybeSingle();
@@ -169,8 +173,8 @@ export const customerService = {
       updated_at: new Date().toISOString(),
     };
 
-    // Update Supabase if configured
-    if (isSupabaseConfigured()) {
+    // Update Supabase if configured and customerId is a valid UUID
+    if (isSupabaseConfigured() && isUuid(customerId)) {
       try {
         await supabase
           .from('customers')
@@ -178,7 +182,6 @@ export const customerService = {
             name: updated.name,
             email: updated.email,
             avatar: updated.avatar,
-            preferred_language: updated.preferred_language,
           })
           .eq('id', customerId);
       } catch (err) {
@@ -221,7 +224,7 @@ export const customerService = {
     const current = this.getCurrentCustomer();
 
     // 1. Delete from Supabase if configured
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(customerId)) {
       try {
         await supabase.from('customer_addresses').delete().eq('customer_id', customerId);
         await supabase.from('favorites').delete().eq('customer_id', customerId);
@@ -259,7 +262,7 @@ export const customerService = {
     if (!customerId) return [];
 
     // 1. Try Supabase
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(customerId)) {
       try {
         const { data, error } = await supabase
           .from('customer_addresses')
@@ -343,17 +346,16 @@ export const customerService = {
     }
 
     // Try Supabase insert/update
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(customerId)) {
       try {
         await supabase.from('customer_addresses').upsert({
-          id: newAddr.id.startsWith('addr_') ? undefined : newAddr.id,
+          ...(isUuid(newAddr.id) ? { id: newAddr.id } : {}),
           customer_id: customerId,
           label: newAddr.label,
           address: newAddr.address,
           latitude: newAddr.latitude,
           longitude: newAddr.longitude,
           landmark: newAddr.landmark,
-          delivery_note: newAddr.delivery_note,
           is_default: newAddr.is_default,
         });
       } catch (err) {
@@ -378,7 +380,7 @@ export const customerService = {
         localStorage.setItem('dinehq_customer_location', JSON.stringify(locObj));
         // Remove skip flag if present
         localStorage.removeItem('dinehq_location_skipped');
-      } catch (_) {}
+      } catch {}
     }
 
     return updatedList;
@@ -396,7 +398,7 @@ export const customerService = {
       updated[0].is_default = true;
     }
 
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(customerId) && isUuid(addressId)) {
       try {
         await supabase
           .from('customer_addresses')
@@ -426,7 +428,7 @@ export const customerService = {
   async getFavorites(customerId) {
     if (!customerId) return [];
 
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(customerId)) {
       try {
         const { data, error } = await supabase
           .from('favorites')
@@ -463,7 +465,7 @@ export const customerService = {
       ? current.filter((id) => id !== restaurantId)
       : [...current, restaurantId];
 
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(customerId) && isUuid(restaurantId)) {
       try {
         if (exists) {
           await supabase

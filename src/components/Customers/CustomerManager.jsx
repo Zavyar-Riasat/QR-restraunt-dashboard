@@ -10,8 +10,7 @@ import {
   ShoppingBag,
   CreditCard,
   MapPin,
-  FileText,
-} from 'lucide-react';
+  } from 'lucide-react';
 import {
   formatPKR,
   formatPhone,

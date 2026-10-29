@@ -3,7 +3,6 @@
  * Supports Day, Month, Year, and Custom Date/Time ranges with complete analytics
  */
 
-import { formatPKR } from './currencyUtils.js';
 
 export const DATE_PRESETS = [
   { id: 'today', label: 'Today' },

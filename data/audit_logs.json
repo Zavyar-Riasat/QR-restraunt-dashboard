@@ -1,5 +1,44 @@
 [
   {
+    "id": "audit-1793269768296-j5mkt",
+    "timestamp": "2026-10-29T10:29:28.296Z",
+    "action": "VIEW_PASSWORD",
+    "admin_id": "user-admin-01",
+    "admin_email": "admin@dineflow.pk",
+    "target_user_id": "user-owner-03",
+    "target_email": "manager@shinwari.com",
+    "target_restaurant_name": "Khyber Shinwari & Karahi Dera",
+    "target_restaurant_slug": "shinwari",
+    "ip_address": "::1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+  },
+  {
+    "id": "audit-1793269763621-rx04b",
+    "timestamp": "2026-10-29T10:29:23.621Z",
+    "action": "VIEW_PASSWORD",
+    "admin_id": "user-admin-01",
+    "admin_email": "admin@dineflow.pk",
+    "target_user_id": "user-owner-02",
+    "target_email": "manager@crust.com",
+    "target_restaurant_name": "Crust & Crave Pizzeria",
+    "target_restaurant_slug": "crust",
+    "ip_address": "::1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+  },
+  {
+    "id": "audit-1793269756575-keyew",
+    "timestamp": "2026-10-29T10:29:16.575Z",
+    "action": "VIEW_PASSWORD",
+    "admin_id": "user-admin-01",
+    "admin_email": "admin@dineflow.pk",
+    "target_user_id": "user-admin-01",
+    "target_email": "admin@dineflow.pk",
+    "target_restaurant_name": "Burger & Smoke Co.",
+    "target_restaurant_slug": "burgersmoke",
+    "ip_address": "::1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+  },
+  {
     "id": "audit-1792827283295-9s4gd",
     "timestamp": "2026-10-24T07:34:43.295Z",
     "action": "RESET_PASSWORD",

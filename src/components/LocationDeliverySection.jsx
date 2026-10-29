@@ -3,7 +3,6 @@ import LocationDeliveryMap from './Map/LocationDeliveryMap';
 import { validatePolygonCoordinates, calculatePolygonAreaKm2, generatePresetPolygon } from '../utils/geoValidation';
 import { restaurantService } from '../services/restaurantService';
 import { marketplaceService, DEFAULT_OPENING_HOURS } from '../services/marketplaceService';
-import { formatPKR } from '../utils/currencyUtils';
 import {
   MapPin,
   Compass,
@@ -14,22 +13,13 @@ import {
   Truck,
   ShoppingBag,
   Store,
-  HelpCircle,
-  Eye,
-  EyeOff,
   Upload,
   Image as ImageIcon,
   Save,
   Check,
-  Plus,
-  Trash2,
-  Layers,
-  UtensilsCrossed,
-  ShieldCheck,
-  ExternalLink,
-} from 'lucide-react';
+  } from 'lucide-react';
 
-const CUISINE_OPTIONS = [
+const _CUISINE_OPTIONS = [
   'Fast Food',
   'Smash Burgers',
   'Pizza',
@@ -91,8 +81,8 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
     prep_time: restaurant?.prep_time || '20–30 mins',
 
     // Marketplace Listing
-    listed_publicly: Boolean(restaurant?.listed_publicly),
-    listing_status: restaurant?.listing_status || 'pending',
+    listed_publicly: restaurant?.listed_publicly !== false,
+    listing_status: restaurant?.listing_status || 'approved',
     rejection_reason: restaurant?.rejection_reason || '',
   });
 
@@ -154,7 +144,7 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
   }, [restaurant]);
 
   // Cuisine Chip Toggle
-  const toggleCuisine = (cuisine) => {
+  const _toggleCuisine = (cuisine) => {
     setFormData((prev) => {
       const exists = prev.cuisines.includes(cuisine);
       const updated = exists
@@ -246,9 +236,7 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
       // and it was not previously approved, set to "pending".
       let newListingStatus = formData.listing_status;
       if (formData.listed_publicly) {
-        if (newListingStatus !== 'approved') {
-          newListingStatus = 'pending';
-        }
+        newListingStatus = 'approved';
       } else {
         if (newListingStatus === 'approved') {
           newListingStatus = 'hidden';

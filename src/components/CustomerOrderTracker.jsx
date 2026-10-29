@@ -5,7 +5,6 @@ import {
   ChefHat,
   Truck,
   Phone,
-  MapPin,
   Utensils,
   ShoppingBag,
   RefreshCw,

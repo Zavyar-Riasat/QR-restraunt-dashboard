@@ -4,13 +4,9 @@ import {
   FileSpreadsheet,
   Download,
   Printer,
-  Calendar,
-  AlertTriangle,
   Search,
-  Filter,
-} from 'lucide-react';
+  } from 'lucide-react';
 import {
-  formatPKR,
   formatPaisa,
   formatPhone,
   toRupees,

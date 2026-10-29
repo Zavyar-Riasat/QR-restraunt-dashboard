@@ -3,7 +3,6 @@ import {
   generatePresetPolygon,
   validatePolygonCoordinates,
   calculatePolygonAreaKm2,
-  isPointInPolygon,
   checkRestaurantDeliveryCoverage,
 } from '../src/utils/geoValidation.js';
 

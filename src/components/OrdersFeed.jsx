@@ -27,7 +27,6 @@ import {
   RotateCcw,
   Navigation,
   Copy,
-  Plus,
   Send,
   Pause,
   Receipt,
@@ -38,7 +37,7 @@ import {
   Eye,
   Edit2,
 } from 'lucide-react';
-import { formatPKR, computeOrderPaymentState } from '../utils/currencyUtils';
+import { formatPKR } from '../utils/currencyUtils';
 import { filterOrdersByDate } from '../utils/orderReportUtils';
 import { playKitchenChime } from '../services/orderService';
 import {
@@ -70,7 +69,7 @@ export default function OrdersFeed({
   isAudioUnlocked = true,
   onUnlockAudio,
   onOpenPrinterSettings,
-  onPrintSalesSummary,
+  onPrintSalesSummary: _onPrintSalesSummary,
   onOpenNewOrder,
   onDismissOrderAlert,
   menuItems = [],
@@ -123,7 +122,7 @@ export default function OrdersFeed({
     setViewMode(mode);
     try {
       localStorage.setItem('dinehq_orders_view_mode', mode);
-    } catch (_) {}
+    } catch {}
   };
 
   const handleCopyLocation = (order) => {
@@ -132,7 +131,7 @@ export default function OrdersFeed({
       if (navigator?.clipboard?.writeText) {
         navigator.clipboard.writeText(url).catch(() => {});
       }
-    } catch (_) {}
+    } catch {}
     setCopiedLocationId(order.id);
     setTimeout(() => setCopiedLocationId(null), 2500);
   };
@@ -926,18 +925,14 @@ export default function OrdersFeed({
                     <th className="py-3 px-3">Items Summary</th>
                     <th className="py-3 px-3 text-right">Payable</th>
                     <th className="py-3 px-2 text-center">Payment</th>
-                    <th className="py-3 px-3 text-center">Status</th>
                     <th className="py-3 px-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F0E4D7]/70 font-medium">
                   {filteredOrders.map((order) => {
-                    const paymentState = computeOrderPaymentState(order);
                     const itemsSummary = Array.isArray(order.items)
                       ? order.items.map((it) => `${it.quantity || 1}× ${it.title}`).join(', ')
                       : '—';
-                    const isPaid = paymentState.paymentStatus === 'paid';
-                    const isPartial = paymentState.paymentStatus === 'partial';
 
                     return (
                       <tr
@@ -1052,32 +1047,6 @@ export default function OrdersFeed({
                           </span>
                         </td>
 
-                        {/* Status (with inline status change dropdown) */}
-                        <td className="py-3 px-3 text-center whitespace-nowrap">
-                          <select
-                            value={order.status || 'new'}
-                            onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
-                            className={`text-[11px] font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-1 transition ${
-                              order.status === 'new'
-                                ? 'bg-red-100 text-red-800 border-red-300'
-                                : order.status === 'preparing'
-                                ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                : order.status === 'out_for_delivery' || order.status === 'ready'
-                                ? 'bg-blue-100 text-blue-900 border-blue-300'
-                                : order.status === 'completed'
-                                ? 'bg-slate-100 text-slate-700 border-slate-300'
-                                : 'bg-rose-100 text-rose-800 border-rose-300'
-                            }`}
-                          >
-                            <option value="new">New Order</option>
-                            <option value="preparing">Preparing</option>
-                            <option value="out_for_delivery">Out / Ready</option>
-                            <option value="completed">Completed</option>
-                            <option value="held">Held / Draft</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
-                        </td>
-
                         {/* Quick Actions */}
                         <td className="py-3 px-3 text-center whitespace-nowrap">
                           <div className="flex items-center justify-center gap-1.5">
@@ -1124,7 +1093,6 @@ export default function OrdersFeed({
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {filteredOrders.map((order, cardIdx) => {
-              const paymentState = computeOrderPaymentState(order);
               return (
                 <div
                   key={order.id}

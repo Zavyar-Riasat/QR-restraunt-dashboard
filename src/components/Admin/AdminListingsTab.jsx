@@ -1,24 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import ListingMapPreview from '../Map/ListingMapPreview';
 import { marketplaceService } from '../../services/marketplaceService';
-import { formatPKR } from '../../utils/currencyUtils';
 import {
   Store,
   MapPin,
   Clock,
   CheckCircle2,
-  AlertCircle,
   XCircle,
-  Eye,
   EyeOff,
   Search,
   ExternalLink,
   Phone,
-  Truck,
-  ShoppingBag,
   Check,
   X,
-  MessageSquare,
   Trash2,
 } from 'lucide-react';
 
@@ -88,7 +82,7 @@ export default function AdminListingsTab() {
   };
 
   // Reject action
-  const handleOpenRejectModal = (restaurant) => {
+  const _handleOpenRejectModal = (restaurant) => {
     setRejectingRestaurant(restaurant);
     setRejectionReason(COMMON_REJECTION_REASONS[0]);
   };

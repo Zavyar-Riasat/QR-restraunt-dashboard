@@ -159,7 +159,7 @@ export default function TodaySalesSummaryModal({
         minute: '2-digit',
         hour12: true,
       });
-    } catch (_) {
+    } catch  {
       return isoString;
     }
   };
@@ -239,7 +239,7 @@ export default function TodaySalesSummaryModal({
     const ordersRowsHtml =
       displayedOrders.length > 0
         ? displayedOrders
-            .map((order, idx) => {
+            .map((order, _idx) => {
               const itemsSummary = Array.isArray(order.items)
                 ? order.items
                     .map((it) => `${it.quantity || 1}x ${it.title || 'Item'}`)
@@ -683,7 +683,7 @@ export default function TodaySalesSummaryModal({
       try {
         frameWindow.focus();
         frameWindow.print();
-      } catch (_) {
+      } catch  {
         window.print();
       } finally {
         setTimeout(() => {

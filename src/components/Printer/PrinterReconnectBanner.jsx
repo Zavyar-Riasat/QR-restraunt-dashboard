@@ -13,15 +13,13 @@ import {
   Zap,
   CheckCircle2,
   X,
-  AlertTriangle,
-  HardDrive,
   Clock,
 } from 'lucide-react';
 import { printerService } from '../../services/printer/printerService';
 import { DRIVER_IDS } from '../../services/printer/printerTypes';
 import { formatVidPid } from '../../services/printer/usbRegistry';
 
-export default function PrinterReconnectBanner({ onOpenSettings }) {
+export default function PrinterReconnectBanner({ onOpenSettings: _onOpenSettings }) {
   const [printers, setPrinters] = useState(() => printerService.getPrinters());
   const [queueCount, setQueueCount] = useState(() => printerService.getRetryQueue().length);
   const [portChangedDetail, setPortChangedDetail] = useState(null);

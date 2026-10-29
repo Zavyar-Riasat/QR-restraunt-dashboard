@@ -9,7 +9,6 @@
  */
 
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { encryptPassword, decryptPassword, comparePassword, getEncryptionKey } from '../server/crypto.js';
@@ -17,7 +16,7 @@ import { serverStorage } from '../server/storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..');
+const _rootDir = path.resolve(__dirname, '..');
 
 console.log('🔐 Starting Password Migration to AES-256-GCM Encrypted Storage...\n');
 

@@ -4,7 +4,7 @@
  * Web Push / Background notifications, and Screen Wake Lock API.
  */
 
-import { playKitchenChime, playLoudKitchenAlarm } from './orderService.js';
+import { playKitchenChime } from './orderService.js';
 import { formatPKR } from '../utils/currencyUtils.js';
 
 class PWAService {
@@ -99,7 +99,7 @@ class PWAService {
           const cacheNames = await caches.keys();
           await Promise.all(cacheNames.map((name) => caches.delete(name)));
         }
-      } catch (_) {}
+      } catch  {}
       return null;
     }
 

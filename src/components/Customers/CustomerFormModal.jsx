@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Phone, MapPin, FileText, DollarSign, Calendar, AlertCircle } from 'lucide-react';
+import { X, User, Phone, MapPin, AlertCircle } from 'lucide-react';
 import { toPaisa, toRupees } from '../../utils/currencyUtils';
 
 export default function CustomerFormModal({

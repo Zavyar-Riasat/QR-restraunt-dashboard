@@ -151,7 +151,7 @@ export class BluetoothDriver extends BaseDriver {
             return c;
           }
         }
-      } catch (_e) {
+      } catch  {
         // service not present on this model, check next
       }
     }

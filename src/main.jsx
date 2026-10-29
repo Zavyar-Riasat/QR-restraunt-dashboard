@@ -13,7 +13,7 @@ try {
   } else {
     document.documentElement.classList.remove('dark');
   }
-} catch (_) {}
+} catch  {}
 
 // Automatically recover from Vite chunk load errors after a new Vercel deployment
 function recoverFromChunkLoadError() {
@@ -31,7 +31,7 @@ function recoverFromChunkLoadError() {
       }
       return true;
     }
-  } catch (_) {}
+  } catch  {}
   return false;
 }
 

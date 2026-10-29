@@ -36,7 +36,7 @@ import {
 
 const NAME_SUGGESTIONS = ['Kitchen', 'Counter', 'Bar', 'Cashier', 'Grill', 'Takeaway'];
 
-export default function PrinterSetupWizard({ isOpen, onClose, categories = [], onPrinterAdded }) {
+export default function PrinterSetupWizard({ isOpen, onClose, _categories = [], onPrinterAdded }) {
   const [step, setStep] = useState(1);
 
   // Form State
@@ -57,7 +57,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
   // Pairing state
   const [isPairing, setIsPairing] = useState(false);
   const [pairingError, setPairingError] = useState('');
-  const [pairingSuccess, setPairingSuccess] = useState(false);
+  const [_pairingSuccess, setPairingSuccess] = useState(false);
   const [systemPrinters, setSystemPrinters] = useState([]);
 
   // Fetch installed Windows printers if running under Electron
@@ -84,8 +84,8 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
   const [printTarget, setPrintTarget] = useState(PRINT_TARGETS.KOT);
   const [selectedCategories, setSelectedCategories] = useState(['all']);
   const [copies, setCopies] = useState(1);
-  const [autoPrint, setAutoPrint] = useState(true);
-  const [openCashDrawer, setOpenCashDrawer] = useState(false);
+  const [autoPrint, _setAutoPrint] = useState(true);
+  const [openCashDrawer, _setOpenCashDrawer] = useState(false);
   const [printLogo, setPrintLogo] = useState(false); // Default is NO as requested by owner
   const [isDefault, setIsDefault] = useState(false);
 
@@ -229,7 +229,7 @@ export default function PrinterSetupWizard({ isOpen, onClose, categories = [], o
   };
 
   // Toggle category
-  const toggleCategory = (catId) => {
+  const _toggleCategory = (catId) => {
     if (catId === 'all') {
       setSelectedCategories(['all']);
       return;

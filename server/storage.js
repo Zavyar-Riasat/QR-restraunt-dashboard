@@ -37,7 +37,7 @@ function getInitialProvisionedUsers() {
     {
       id: 'user-owner-01',
       email: 'owner@burgersmoke.com',
-      name: 'Burger & Smoke Manager',
+      name: 'Burger & Smoke Owner',
       role: 'owner',
       restaurant_id: 'rest-101',
       restaurant_name: 'Burger & Smoke Co.',
@@ -47,6 +47,51 @@ function getInitialProvisionedUsers() {
       must_change_password: false,
       session_version: 1,
       created_at: new Date('2026-10-05T12:00:00Z').toISOString(),
+    },
+    {
+      id: 'user-manager-01',
+      email: 'manager@burgersmoke.com',
+      name: 'Burger & Smoke Manager',
+      role: 'manager',
+      restaurant_id: 'rest-101',
+      restaurant_name: 'Burger & Smoke Co.',
+      restaurant_slug: 'burgersmoke',
+      phone: '923002223344',
+      password_encrypted: encryptPassword('ManagerPass123!'),
+      must_change_password: false,
+      session_version: 1,
+      created_by_role: 'owner',
+      created_at: new Date('2026-10-05T12:15:00Z').toISOString(),
+    },
+    {
+      id: 'user-cashier-01',
+      email: 'cashier@burgersmoke.com',
+      name: 'Counter Cashier',
+      role: 'cashier',
+      restaurant_id: 'rest-101',
+      restaurant_name: 'Burger & Smoke Co.',
+      restaurant_slug: 'burgersmoke',
+      phone: '923003334455',
+      password_encrypted: encryptPassword('CashierPass123!'),
+      must_change_password: false,
+      session_version: 1,
+      created_by_role: 'manager',
+      created_at: new Date('2026-10-05T12:30:00Z').toISOString(),
+    },
+    {
+      id: 'user-waiter-01',
+      email: 'waiter@burgersmoke.com',
+      name: 'Floor Waiter',
+      role: 'waiter',
+      restaurant_id: 'rest-101',
+      restaurant_name: 'Burger & Smoke Co.',
+      restaurant_slug: 'burgersmoke',
+      phone: '923004445566',
+      password_encrypted: encryptPassword('WaiterPass123!'),
+      must_change_password: false,
+      session_version: 1,
+      created_by_role: 'manager',
+      created_at: new Date('2026-10-05T12:45:00Z').toISOString(),
     },
   ];
 }
@@ -67,6 +112,18 @@ export const serverStorage = {
       const content = fs.readFileSync(USERS_FILE, 'utf8');
       const users = JSON.parse(content);
       if (Array.isArray(users) && users.length > 0) {
+        // Ensure default 4-tier accounts exist in store
+        const initial = getInitialProvisionedUsers();
+        let added = false;
+        for (const seedUser of initial) {
+          if (!users.some((u) => u.email.toLowerCase() === seedUser.email.toLowerCase())) {
+            users.push(seedUser);
+            added = true;
+          }
+        }
+        if (added) {
+          fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+        }
         return users;
       }
     } catch (e) {
@@ -189,7 +246,7 @@ export const serverStorage = {
     if (fs.existsSync(AUDIT_LOGS_FILE)) {
       try {
         logs = JSON.parse(fs.readFileSync(AUDIT_LOGS_FILE, 'utf8'));
-      } catch (_) {
+      } catch  {
         logs = [];
       }
     }
@@ -216,7 +273,7 @@ export const serverStorage = {
     if (!fs.existsSync(AUDIT_LOGS_FILE)) return [];
     try {
       return JSON.parse(fs.readFileSync(AUDIT_LOGS_FILE, 'utf8'));
-    } catch (_) {
+    } catch  {
       return [];
     }
   },
@@ -229,7 +286,7 @@ export const serverStorage = {
     if (!fs.existsSync(LOCKOUTS_FILE)) return {};
     try {
       return JSON.parse(fs.readFileSync(LOCKOUTS_FILE, 'utf8'));
-    } catch (_) {
+    } catch  {
       return {};
     }
   },
@@ -312,7 +369,7 @@ export const serverStorage = {
  */
 export function sanitizeUserForClient(user) {
   if (!user) return null;
-  const { password, password_encrypted, ciphertext, iv, authTag, ...safeUser } = user;
+  const { password: _password, password_encrypted: _password_encrypted, ciphertext: _ciphertext, iv: _iv, authTag: _authTag, ...safeUser } = user;
   return {
     ...safeUser,
     password_masked: '••••••••••••',

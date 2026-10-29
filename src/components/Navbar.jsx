@@ -1,52 +1,31 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getAppBaseUrl } from '../config/appConfig.js';
 import {
   UtensilsCrossed,
   ExternalLink,
-  ShieldCheck,
-  Database,
-  Copy,
-  Check,
   Shield,
   LogOut,
   User,
   ChevronDown,
-  Store,
-  Plus,
-  Printer,
-  FileText,
 } from 'lucide-react';
-import PrinterStatusBadge from './Printer/PrinterStatusBadge';
-import InstallAppButton from './PWA/InstallAppButton';
 
 export default function Navbar({
   restaurant,
   allRestaurants = [],
   onSelectRestaurant,
-  isLive,
-  kitchenOpen = true,
-  onToggleKitchenOpen,
-  onOpenQR,
+  _isLive,
+  _kitchenOpen = true,
+  onToggleKitchenOpen: _onToggleKitchenOpen,
+  onOpenQR: _onOpenQR,
   onOpenPreview,
-  onOpenPrinterSettings,
-  onOpenNewOrder,
-  onPrintSalesSummary,
-  isPrintingSummary = false,
+  onOpenPrinterSettings: _onOpenPrinterSettings,
+  onOpenNewOrder: _onOpenNewOrder,
+  onPrintSalesSummary: _onPrintSalesSummary,
+  isPrintingSummary: _isPrintingSummary = false,
 }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [copied, setCopied] = useState(false);
-
-  const origin = getAppBaseUrl();
-  const menuUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}`;
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(menuUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleSignOut = async () => {
     await logout();
@@ -93,8 +72,8 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Right Action Controls */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        {/* Right Action Controls (Top Navbar Row) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Admin Panel Shortcut (if user is admin) */}
           {user?.role === 'admin' && (
             <Link
@@ -107,62 +86,10 @@ export default function Navbar({
             </Link>
           )}
 
-          {/* Receipt Printer Status & Setup Shortcut */}
-          {onOpenPrinterSettings && (
-            <div className="hidden md:inline-flex items-center shrink-0">
-              <PrinterStatusBadge onOpenSettings={onOpenPrinterSettings} />
-            </div>
-          )}
-
-          {/* Quick Copy Menu Link (on wide screens) */}
-          <button
-            onClick={handleCopyLink}
-            className="hidden xl:inline-flex items-center gap-1.5 h-9 px-2.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer whitespace-nowrap shrink-0 shadow-2xs"
-            title="Copy customer menu URL to share with customers"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-[#1F9D55] shrink-0" /> : <Copy className="w-3.5 h-3.5 text-[#7A6A5C] shrink-0" />}
-            <span>{copied ? 'Copied!' : 'Copy Menu URL'}</span>
-          </button>
-
-          {/* PWA Install Button (hidden once installed) */}
-          <InstallAppButton />
-
-          {/* Primary "Reports & History" (Executive PDF Report) Button */}
-          {onPrintSalesSummary && (
-            <button
-              id="print-today-summary-navbar-btn"
-              type="button"
-              disabled={isPrintingSummary}
-              onClick={onPrintSalesSummary}
-              className="h-8 sm:h-9 inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold border border-slate-800 transition cursor-pointer shadow-2xs whitespace-nowrap shrink-0 disabled:opacity-50"
-              title="View Sales Reports & Order History"
-            >
-              <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline">
-                {isPrintingSummary ? 'Loading...' : 'Reports'}
-              </span>
-            </button>
-          )}
-
-          {/* Big "+ New Order" Button */}
-          {onOpenNewOrder && (
-            <button
-              id="new-order-navbar-btn"
-              type="button"
-              onClick={onOpenNewOrder}
-              className="h-8 sm:h-9 inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#F5A623] hover:from-[#E05A0C] hover:to-[#E59512] active:scale-95 text-white text-xs sm:text-sm font-black shadow-md shadow-orange-500/25 transition cursor-pointer border border-amber-300/30 whitespace-nowrap shrink-0"
-              title="Open In-Store POS to place a new Dine-in, Takeaway, or Delivery order"
-            >
-              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3] shrink-0" />
-              <span className="hidden sm:inline">New Order</span>
-              <span className="sm:hidden">Order</span>
-            </button>
-          )}
-
           {/* Live Customer Menu Button */}
           <button
             onClick={onOpenPreview}
-            className="hidden lg:inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] shadow-2xs transition cursor-pointer whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] shadow-2xs transition cursor-pointer whitespace-nowrap shrink-0"
             title="Preview Customer Menu"
           >
             <span>View Menu</span>
@@ -170,13 +97,13 @@ export default function Navbar({
           </button>
 
           {/* User Profile & Sign Out - Always kept compact so Logout never overflows */}
-          <div className="flex items-center pl-1 sm:pl-2 border-l border-[#F0E4D7] gap-1 shrink-0">
+          <div className="flex items-center pl-1 sm:pl-2 border-l border-[#F0E4D7] gap-1.5 shrink-0">
             <div
-              className="hidden xl:inline-flex items-center gap-1.5 h-9 px-2.5 rounded-xl bg-[#FFF9F2] text-[#7A6A5C] text-xs font-medium border border-[#F0E4D7] whitespace-nowrap shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 h-8 sm:h-9 px-2.5 rounded-xl bg-[#FFF9F2] text-[#7A6A5C] text-xs font-medium border border-[#F0E4D7] whitespace-nowrap shrink-0"
               title={user?.email}
             >
               <User className="w-3 h-3 text-[#9E8E81] shrink-0" />
-              <span className="max-w-[90px] truncate">{user?.email?.split('@')[0] || 'Manager'}</span>
+              <span className="max-w-[110px] truncate">{user?.email?.split('@')[0] || 'Manager'}</span>
             </div>
 
             <button

@@ -10,12 +10,10 @@
 
 import { strict as assert } from 'assert';
 import {
-  KNOWN_ESCPOS_VENDORS,
   matchesUsbPrinterProfile,
   isUsbPrinterDevice,
-  findMatchingUsbDevice,
-} from '../src/services/printer/usbRegistry.js';
-import { DRIVER_IDS, PAPER_SIZES, createDefaultPrinter } from '../src/services/printer/printerTypes.js';
+  } from '../src/services/printer/usbRegistry.js';
+import { DRIVER_IDS, createDefaultPrinter } from '../src/services/printer/printerTypes.js';
 import { WindowsPrintDriver } from '../src/services/printer/drivers/WindowsPrintDriver.js';
 
 console.log('=== RUNNING THERMAL PRINTER RECONNECT VERIFICATION TESTS ===\n');

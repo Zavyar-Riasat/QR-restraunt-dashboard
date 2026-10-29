@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import {
   Navigation,
   MapPin,
@@ -12,7 +12,6 @@ import {
   Building,
   FileText,
   Copy,
-  RotateCcw,
   Loader2,
 } from 'lucide-react';
 import { geocodeService } from '../services/geocodeService.js';
@@ -37,7 +36,7 @@ export default function DeliveryLocationPicker({
     deliveryNote: '',
   },
   onChange,
-  primaryColor = '#F26B1D',
+  primaryColor: _primaryColor = '#F26B1D',
   restaurant = null,
 }) {
   const [isLocating, setIsLocating] = useState(false);
@@ -215,7 +214,7 @@ export default function DeliveryLocationPicker({
               formattedAddress: revAddress,
             });
           }
-        } catch (_) {}
+        } catch  {}
       },
       (err) => {
         setIsLocating(false);
@@ -266,7 +265,7 @@ export default function DeliveryLocationPicker({
           formattedAddress: revAddress,
         });
       }
-    } catch (_) {}
+    } catch  {}
   };
 
   const handleLocationUpdate = (updates) => {

@@ -25,7 +25,6 @@ import {
   toPaisa,
   toRupees,
   formatPaisa,
-  formatPKR,
   normalizePhone,
   formatPhone,
   computeOrderPaymentState,

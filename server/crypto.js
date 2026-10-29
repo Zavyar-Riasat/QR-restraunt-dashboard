@@ -37,7 +37,7 @@ function loadDotenvIfNeeded() {
         }
       });
     }
-  } catch (_) {}
+  } catch  {}
 }
 
 /**
@@ -72,7 +72,7 @@ export function getEncryptionKey() {
     if (b64Buf.length === 32) {
       return b64Buf;
     }
-  } catch (_) {}
+  } catch  {}
 
   throw new Error(
     `PASSWORD_ENCRYPTION_KEY must be exactly 32 bytes (or 64 hex characters). Provided length: ${utf8Buf.length} bytes.`
@@ -154,7 +154,7 @@ export function comparePassword(enteredPassword, encryptedObj, customKey) {
     }
 
     return crypto.timingSafeEqual(enteredBuf, decryptedBuf);
-  } catch (err) {
+  } catch  {
     return false;
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   Bike,
   Phone,
@@ -9,14 +9,8 @@ import {
   Navigation,
   ExternalLink,
   AlertCircle,
-  FileText,
-  DollarSign,
-  Package,
-  ShieldCheck,
   Check,
-  Store,
-  ChevronDown,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { orderService } from '../services/orderService';
 import {
   formatPKR,

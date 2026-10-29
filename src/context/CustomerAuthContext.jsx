@@ -131,7 +131,7 @@ export function CustomerAuthProvider({ children }) {
     if (isSupabaseConfigured()) {
       try {
         await supabase.auth.signOut();
-      } catch (_) {}
+      } catch  {}
     }
   };
 

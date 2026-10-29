@@ -56,7 +56,12 @@ function nominatimGeocodePlugin() {
 // Authentication & Reversible Password Management API plugin
 function authApiPlugin() {
   const handler = async (req, res, next) => {
-    if (req.url && (req.url.startsWith('/api/auth') || req.url.startsWith('/api/admin'))) {
+    if (
+      req.url &&
+      (req.url.startsWith('/api/auth') ||
+        req.url.startsWith('/api/admin') ||
+        req.url.startsWith('/api/staff'))
+    ) {
       try {
         const { handleAuthApi } = await import('./server/authHandler.js');
         return await handleAuthApi(req, res);

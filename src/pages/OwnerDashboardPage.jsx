@@ -6,13 +6,17 @@ import OrdersFeed from '../components/OrdersFeed';
 import { restaurantService } from '../services/restaurantService';
 import { orderService, playKitchenChime, playLoudKitchenAlarm, unlockAudioContext } from '../services/orderService';
 import { useAuth } from '../context/AuthContext';
-import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users, CheckCircle2, Wallet, UtensilsCrossed } from 'lucide-react';
+import { getRoleTierConfig } from '../services/authService';
+import { Store, Layers, Utensils, Bell, Printer, LayoutGrid, Plus, Users, CheckCircle2, Wallet, UtensilsCrossed, Copy, Check, FileText, ShieldCheck } from 'lucide-react';
 import { printerService } from '../services/printer/printerService';
 import { customerKhataService } from '../services/customerKhataService';
 import PrinterReconnectBanner from '../components/Printer/PrinterReconnectBanner';
+import PrinterStatusBadge from '../components/Printer/PrinterStatusBadge';
+import InstallAppButton from '../components/PWA/InstallAppButton';
 import OfflineBanner from '../components/PWA/OfflineBanner';
 import NotificationPromptBanner from '../components/PWA/NotificationPromptBanner';
 import { pwaService } from '../services/pwaService';
+import { getAppBaseUrl } from '../config/appConfig.js';
 
 // Lazy-loaded Dashboard Tabs & Heavy Modals to keep initial Dashboard bundle minimal
 const StoreSettings = lazy(() => import('../components/StoreSettings'));
@@ -22,6 +26,7 @@ const QRCodeManager = lazy(() => import('../components/QRCodeManager'));
 const TableManager = lazy(() => import('../components/TableManagement/TableManager'));
 const CustomerManager = lazy(() => import('../components/Customers/CustomerManager'));
 const CashFlowManager = lazy(() => import('../components/CashFlow/CashFlowManager'));
+const StaffRoleManager = lazy(() => import('../components/Staff/StaffRoleManager'));
 const NewOrderModal = lazy(() => import('../components/POS/NewOrderModal'));
 const PrinterSetupWizard = lazy(() => import('../components/Printer/PrinterSetupWizard'));
 const TodaySalesSummaryModal = lazy(() => import('../components/Reports/TodaySalesSummaryModal'));
@@ -44,24 +49,37 @@ export default function OwnerDashboardPage() {
   const { restaurantSlug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const tierConfig = useMemo(() => getRoleTierConfig(user?.role), [user?.role]);
 
-  const [activeTab, setActiveTabState] = useState(() => searchParams.get('tab') || 'orders');
+  const [activeTab, setActiveTabState] = useState(() => {
+    const requested = searchParams.get('tab');
+    const cfg = getRoleTierConfig(user?.role);
+    if (requested && cfg.allowedTabs.includes(requested)) {
+      return requested;
+    }
+    return cfg.defaultTab || 'orders';
+  });
 
   const setActiveTab = useCallback((tab) => {
+    if (!tierConfig.allowedTabs.includes(tab)) {
+      return;
+    }
     setActiveTabState(tab);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('tab', tab);
       return next;
     }, { replace: true });
-  }, [setSearchParams]);
+  }, [setSearchParams, tierConfig.allowedTabs]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && tab !== activeTab) {
+    if (tab && tierConfig.allowedTabs.includes(tab) && tab !== activeTab) {
       setActiveTabState(tab);
+    } else if (!tierConfig.allowedTabs.includes(activeTab)) {
+      setActiveTabState(tierConfig.defaultTab);
     }
-  }, [searchParams, activeTab]);
+  }, [searchParams, activeTab, tierConfig]);
 
   // Synchronously hydrate initial state on first render for instant FCP & LCP (zero loading spinner shift)
   const initialSyncData = useMemo(() => {
@@ -500,6 +518,15 @@ export default function OwnerDashboardPage() {
     }
   };
 
+  const [menuUrlCopied, setMenuUrlCopied] = useState(false);
+  const handleCopyMenuUrl = () => {
+    const origin = getAppBaseUrl();
+    const menuUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}`;
+    navigator.clipboard.writeText(menuUrl);
+    setMenuUrlCopied(true);
+    setTimeout(() => setMenuUrlCopied(false), 2000);
+  };
+
   const handlePrintTodaySalesSummary = async () => {
     try {
       setIsPrintingSummary(true);
@@ -665,21 +692,76 @@ export default function OwnerDashboardPage() {
         {/* Friendly Printer Reconnect / Auto-Detect Banner */}
         <PrinterReconnectBanner onOpenSettings={() => setIsPrinterModalOpen(true)} />
 
-        {/* Top Executive ROI KPI Cards */}
+        {/* Top Executive ROI KPI Cards & Role-Aware Shift Overview */}
         <section className="no-print space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-[#F0E4D7]">
-            <div>
-              <div className="flex items-center gap-2">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white/70 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-[#F0E4D7]">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight">
-                  Business Performance & Shift Overview
+                  {user?.role === 'waiter'
+                    ? 'Floor & Table Service Station'
+                    : user?.role === 'cashier'
+                    ? 'Counter POS & Order Billing Station'
+                    : 'Business Performance & Shift Overview'}
                 </h2>
-                <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
-                  Live Shift
-                </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
-                Real-time gross revenue, order volume, and daily register metrics
+                {user?.role === 'waiter'
+                  ? 'Occupy tables according to customer need, punch dine-in orders, and manage floor seating'
+                  : user?.role === 'cashier'
+                  ? 'Manage active kitchen orders, counter takeaway/dine-in POS, and customer bill checkout'
+                  : 'Real-time gross revenue, order volume, and daily register metrics'}
               </p>
+            </div>
+
+            {/* Quick Shift & Store Action Controls */}
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
+              {user?.role !== 'waiter' && (
+                <PrinterStatusBadge onOpenSettings={() => setIsPrinterModalOpen(true)} />
+              )}
+
+              {tierConfig.canViewRevenue && (
+                <button
+                  type="button"
+                  onClick={handleCopyMenuUrl}
+                  className="inline-flex items-center gap-1.5 h-8 sm:h-9 px-2.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer whitespace-nowrap shrink-0 shadow-2xs"
+                  title="Copy customer menu URL to share with customers"
+                >
+                  {menuUrlCopied ? (
+                    <Check className="w-3.5 h-3.5 text-[#1F9D55] shrink-0" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-[#7A6A5C] shrink-0" />
+                  )}
+                  <span>{menuUrlCopied ? 'Copied!' : 'Copy Menu URL'}</span>
+                </button>
+              )}
+
+              <InstallAppButton />
+
+              {tierConfig.canViewReports && (
+                <button
+                  id="print-today-summary-navbar-btn"
+                  type="button"
+                  disabled={isPrintingSummary}
+                  onClick={handlePrintTodaySalesSummary}
+                  className="h-8 sm:h-9 inline-flex items-center gap-1.5 px-2.5 sm:px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold border border-slate-800 transition cursor-pointer shadow-2xs whitespace-nowrap shrink-0 disabled:opacity-50"
+                  title="View Sales Reports & Order History"
+                >
+                  <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{isPrintingSummary ? 'Loading...' : 'Reports'}</span>
+                </button>
+              )}
+
+              <button
+                id="new-order-navbar-btn"
+                type="button"
+                onClick={() => handleOpenNewOrder(null, 'dine_in')}
+                className="h-8 sm:h-9 inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#F5A623] hover:from-[#E05A0C] hover:to-[#E59512] active:scale-95 text-white text-xs sm:text-sm font-black shadow-md shadow-orange-500/25 transition cursor-pointer border border-amber-300/30 whitespace-nowrap shrink-0"
+                title="Open In-Store POS to place a new Dine-in, Takeaway, or Delivery order"
+              >
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3] shrink-0" />
+                <span>New Order</span>
+              </button>
             </div>
           </div>
 
@@ -693,137 +775,170 @@ export default function OwnerDashboardPage() {
             </div>
           )}
 
-          <ExecutiveKPIs
-            restaurant={restaurant}
-            menuItems={menuItems}
-            orderStats={orderStats}
-            totalCustomers={khataSummary.totalCustomers}
-            onNavigateToKhata={handleNavigateToKhata}
-          />
+          {tierConfig.canViewRevenue && (
+            <ExecutiveKPIs
+              restaurant={restaurant}
+              menuItems={menuItems}
+              orderStats={orderStats}
+              totalCustomers={khataSummary.totalCustomers}
+              onNavigateToKhata={handleNavigateToKhata}
+            />
+          )}
         </section>
 
         {/* Tab Navigation */}
         <div className="no-print flex items-center gap-1 sm:gap-1.5 border-b border-[#F0E4D7] pb-2 sm:pb-2.5 overflow-x-auto no-scrollbar scrollbar-none -mx-3 px-3 sm:-mx-0 sm:px-0">
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'orders'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <Bell className="w-3.5 h-3.5 text-amber-300" />
-            <span>Orders</span>
-            {activeOrdersCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse">
-                {activeOrdersCount}
-              </span>
-            )}
-          </button>
+          {tierConfig.allowedTabs.includes('orders') && (
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'orders'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <Bell className="w-3.5 h-3.5 text-amber-300" />
+              <span>Orders</span>
+              {activeOrdersCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse">
+                  {activeOrdersCount}
+                </span>
+              )}
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('completed')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'completed'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <CheckCircle2 className={`w-3.5 h-3.5 ${activeTab === 'completed' ? 'text-white' : 'text-emerald-500'}`} />
-            <span className="inline xl:hidden">Completed</span>
-            <span className="hidden xl:inline">Completed Orders</span>
-            {completedOrdersCount > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono ${
-                activeTab === 'completed' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
-              }`}>
-                {completedOrdersCount}
-              </span>
-            )}
-          </button>
+          {tierConfig.allowedTabs.includes('completed') && (
+            <button
+              onClick={() => setActiveTab('completed')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'completed'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <CheckCircle2 className={`w-3.5 h-3.5 ${activeTab === 'completed' ? 'text-white' : 'text-emerald-500'}`} />
+              <span className="inline xl:hidden">Completed</span>
+              <span className="hidden xl:inline">Completed Orders</span>
+              {completedOrdersCount > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono ${
+                  activeTab === 'completed' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {completedOrdersCount}
+                </span>
+              )}
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setActiveTab('customers');
-              setKhataFilter('all');
-            }}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'customers'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Customers</span>
-          </button>
+          {tierConfig.allowedTabs.includes('customers') && (
+            <button
+              onClick={() => {
+                setActiveTab('customers');
+                setKhataFilter('all');
+              }}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'customers'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Customers</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('cashflow')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'cashflow'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <Wallet className="w-3.5 h-3.5" />
-            <span>Cash In / Out</span>
-          </button>
+          {tierConfig.allowedTabs.includes('cashflow') && (
+            <button
+              onClick={() => setActiveTab('cashflow')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'cashflow'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>Cash In / Out</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('items')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'items'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <Utensils className="w-3.5 h-3.5" />
-            <span className="inline xl:hidden">Menu ({menuItems.length})</span>
-            <span className="hidden xl:inline">Menu Items ({menuItems.length})</span>
-          </button>
+          {tierConfig.allowedTabs.includes('items') && (
+            <button
+              onClick={() => setActiveTab('items')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'items'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <Utensils className="w-3.5 h-3.5" />
+              <span className="inline xl:hidden">Menu ({menuItems.length})</span>
+              <span className="hidden xl:inline">Menu Items ({menuItems.length})</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('categories')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'categories'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Categories ({categories.length})</span>
-          </button>
+          {tierConfig.allowedTabs.includes('categories') && (
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'categories'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Categories ({categories.length})</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('tables')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'tables'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>Tables</span>
-          </button>
+          {tierConfig.allowedTabs.includes('tables') && (
+            <button
+              onClick={() => setActiveTab('tables')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'tables'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Tables</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('qr')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'qr'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print QR</span>
-          </button>
+          {tierConfig.allowedTabs.includes('qr') && (
+            <button
+              onClick={() => setActiveTab('qr')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'qr'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print QR</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'settings'
-                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-              }`}
-          >
-            <Store className="w-3.5 h-3.5" />
-            <span>Settings</span>
-          </button>
+          {tierConfig.allowedTabs.includes('staff') && (
+            <button
+              onClick={() => setActiveTab('staff')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'staff'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Staff & Roles</span>
+            </button>
+          )}
+
+          {tierConfig.canAccessSettings && (
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'settings'
+                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+                }`}
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Settings</span>
+            </button>
+          )}
         </div>
 
         {/* Tab View Panels */}
         <div>
-          {activeTab === 'orders' && (
+          {activeTab === 'orders' && tierConfig.allowedTabs.includes('orders') && (
             <OrdersFeed
               orders={orders}
               feedMode="active"
@@ -844,7 +959,7 @@ export default function OwnerDashboardPage() {
             />
           )}
 
-          {activeTab === 'completed' && (
+          {activeTab === 'completed' && tierConfig.allowedTabs.includes('completed') && (
             <OrdersFeed
               orders={orders}
               feedMode="completed"
@@ -864,7 +979,7 @@ export default function OwnerDashboardPage() {
             />
           )}
 
-          {activeTab === 'tables' && (
+          {activeTab === 'tables' && tierConfig.allowedTabs.includes('tables') && (
             <Suspense fallback={<TabPanelSkeleton />}>
               <TableManager
                 restaurant={restaurant}
@@ -876,7 +991,7 @@ export default function OwnerDashboardPage() {
             </Suspense>
           )}
 
-          {activeTab === 'items' && (
+          {activeTab === 'items' && tierConfig.allowedTabs.includes('items') && (
             <Suspense fallback={<TabPanelSkeleton />}>
               <MenuItemManager
                 categories={categories}
@@ -888,16 +1003,16 @@ export default function OwnerDashboardPage() {
             </Suspense>
           )}
 
-          {activeTab === 'qr' && (
+          {activeTab === 'qr' && tierConfig.allowedTabs.includes('qr') && (
             <Suspense fallback={<TabPanelSkeleton />}>
               <QRCodeManager
                 restaurant={restaurant}
-                onNavigateToSettings={() => setActiveTab('settings')}
+                onNavigateToSettings={() => tierConfig.canAccessSettings && setActiveTab('settings')}
               />
             </Suspense>
           )}
 
-          {activeTab === 'categories' && (
+          {activeTab === 'categories' && tierConfig.allowedTabs.includes('categories') && (
             <Suspense fallback={<TabPanelSkeleton />}>
               <CategoryManager
                 categories={categories}
@@ -909,7 +1024,7 @@ export default function OwnerDashboardPage() {
             </Suspense>
           )}
 
-          {activeTab === 'customers' && (
+          {activeTab === 'customers' && tierConfig.allowedTabs.includes('customers') && (
             <Suspense fallback={<TabPanelSkeleton />}>
               <CustomerManager
                 restaurant={restaurant}
@@ -931,7 +1046,7 @@ export default function OwnerDashboardPage() {
             </Suspense>
           )}
 
-          {activeTab === 'cashflow' && (
+          {activeTab === 'cashflow' && tierConfig.allowedTabs.includes('cashflow') && (
             <Suspense fallback={<TabPanelSkeleton />}>
               <CashFlowManager
                 restaurant={restaurant}
@@ -940,7 +1055,16 @@ export default function OwnerDashboardPage() {
             </Suspense>
           )}
 
-          {activeTab === 'settings' && (
+          {activeTab === 'staff' && tierConfig.allowedTabs.includes('staff') && (
+            <Suspense fallback={<TabPanelSkeleton />}>
+              <StaffRoleManager
+                restaurant={restaurant}
+                currentUser={user}
+              />
+            </Suspense>
+          )}
+
+          {activeTab === 'settings' && tierConfig.canAccessSettings && (
             <Suspense fallback={<TabPanelSkeleton />}>
               <StoreSettings
                 restaurant={restaurant}

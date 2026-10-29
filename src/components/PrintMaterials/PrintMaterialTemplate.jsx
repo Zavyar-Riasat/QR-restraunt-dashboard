@@ -4,17 +4,13 @@ import {
   Phone,
   Smartphone,
   Headphones,
-  MessageCircle,
   QrCode,
   CheckCircle2,
   Clock,
   Truck,
-  ShieldCheck,
   Utensils,
-  Store,
   ChevronRight,
   Move,
-  Bold,
   Trash2,
   Edit3,
   Check,
@@ -207,7 +203,7 @@ function BrandedQRCode({
             onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              onQuickResize && onQuickResize(-15);
+              if (onQuickResize) { onQuickResize(-15);; }
             }}
             className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 font-black text-sm flex items-center justify-center cursor-pointer transition active:scale-90"
             title="Make QR Smaller (-15px)"
@@ -225,7 +221,7 @@ function BrandedQRCode({
             onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              onQuickResize && onQuickResize(15);
+              if (onQuickResize) { onQuickResize(15);; }
             }}
             className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 font-black text-sm flex items-center justify-center cursor-pointer transition active:scale-90"
             title="Make QR Larger (+15px)"
@@ -448,7 +444,7 @@ function TemplateQrSlot({
       onTouchStart={onStartDrag}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect && onSelect('qr');
+        if (onSelect) { onSelect('qr');; }
       }}
       className={`cursor-grab active:cursor-grabbing group select-none relative inline-flex transition-transform hover:scale-[1.02] ${className}`}
       title="Click to select & copy, drag to reposition anywhere in card"
@@ -549,7 +545,7 @@ function InteractiveTemplateText({
         range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
-      } catch (err) {}
+      } catch  {}
     }
   }, [isEditing]);
 
@@ -558,36 +554,36 @@ function InteractiveTemplateText({
       e.stopPropagation();
       return;
     }
-    onSelect && onSelect(id);
-    onStartDragText && onStartDragText(e, id);
+    if (onSelect) { onSelect(id);; }
+    if (onStartDragText) { onStartDragText(e, id);; }
   };
 
   const handleTouchStart = (e) => {
     if (isEditing) return;
-    onSelect && onSelect(id);
-    onStartDragText && onStartDragText(e, id);
+    if (onSelect) { onSelect(id);; }
+    if (onStartDragText) { onStartDragText(e, id);; }
   };
 
   const handleDoubleClick = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    onSelect && onSelect(id);
+    if (onSelect) { onSelect(id);; }
     setIsEditing(true);
   };
 
   const handleBlur = (e) => {
     setIsEditing(false);
-    onUpdateText && onUpdateText(id, e.currentTarget.innerText.trim());
+    if (onUpdateText) { onUpdateText(id, e.currentTarget.innerText.trim());; }
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       setIsEditing(false);
-      textRef.current && textRef.current.blur();
+      if (textRef.current) { textRef.current.blur();; }
     } else if (e.key === 'Escape') {
       setIsEditing(false);
-      textRef.current && textRef.current.blur();
+      if (textRef.current) { textRef.current.blur();; }
     }
   };
 
@@ -603,7 +599,7 @@ function InteractiveTemplateText({
       onDoubleClick={handleDoubleClick}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect && onSelect(id);
+        if (onSelect) { onSelect(id);; }
       }}
       style={{
         width: width ? `${width}px` : undefined,
@@ -633,7 +629,7 @@ function InteractiveTemplateText({
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditing(false);
-                textRef.current && textRef.current.blur();
+                if (textRef.current) { textRef.current.blur();; }
               }}
               className="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] flex items-center gap-1 cursor-pointer transition shadow-xs"
               title="Finish editing"
@@ -888,7 +884,7 @@ export function InteractivePhoneLogo({
     <div
       onClick={(e) => {
         e.stopPropagation();
-        onSelect && onSelect('phoneLogo');
+        if (onSelect) { onSelect('phoneLogo');; }
       }}
       onMouseDown={(e) => onStartDrag && onStartDrag(e, 'phoneLogo')}
       onTouchStart={(e) => onStartDrag && onStartDrag(e, 'phoneLogo')}
@@ -1059,8 +1055,8 @@ export function InteractivePhoneLogo({
 function InteractiveTemplateHeadline({
   isFreelyMoved,
   text,
-  urduText,
-  language,
+  _urduText,
+  _language,
   config,
   selectedElementId,
   defaultColor,
@@ -1115,7 +1111,7 @@ function InteractiveTemplateHeadline({
         range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
-      } catch (err) {}
+      } catch  {}
     }
   }, [isEditing]);
 
@@ -1125,35 +1121,35 @@ function InteractiveTemplateHeadline({
       e.stopPropagation();
       return;
     }
-    onSelect && onSelect('headline');
-    onStartDragText && onStartDragText(e, 'headline');
+    if (onSelect) { onSelect('headline');; }
+    if (onStartDragText) { onStartDragText(e, 'headline');; }
   };
 
   const handleTouchStart = (e) => {
     if (isEditing) return;
-    onSelect && onSelect('headline');
-    onStartDragText && onStartDragText(e, 'headline');
+    if (onSelect) { onSelect('headline');; }
+    if (onStartDragText) { onStartDragText(e, 'headline');; }
   };
 
   // Double click to enter text box
   const handleDoubleClick = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    onSelect && onSelect('headline');
+    if (onSelect) { onSelect('headline');; }
     setIsEditing(true);
   };
 
   // Blur finishes editing
   const handleBlur = (e) => {
     setIsEditing(false);
-    onUpdateText && onUpdateText('headline', e.currentTarget.innerText);
+    if (onUpdateText) { onUpdateText('headline', e.currentTarget.innerText);; }
   };
 
   // Escape exits editing
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       setIsEditing(false);
-      textRef.current && textRef.current.blur();
+      if (textRef.current) { textRef.current.blur();; }
     }
   };
 
@@ -1167,7 +1163,7 @@ function InteractiveTemplateHeadline({
       onDoubleClick={handleDoubleClick}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect && onSelect('headline');
+        if (onSelect) { onSelect('headline');; }
       }}
       style={{
         width: width ? `${width}px` : undefined,
@@ -1202,7 +1198,7 @@ function InteractiveTemplateHeadline({
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditing(false);
-                textRef.current && textRef.current.blur();
+                if (textRef.current) { textRef.current.blur();; }
               }}
               className="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] flex items-center gap-1 cursor-pointer transition shadow-xs"
               title="Finish editing"
@@ -1463,7 +1459,7 @@ function InteractiveTemplateSubtitle({
         range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
-      } catch (err) {}
+      } catch  {}
     }
   }, [isEditing]);
 
@@ -1473,35 +1469,35 @@ function InteractiveTemplateSubtitle({
       e.stopPropagation();
       return;
     }
-    onSelect && onSelect('subtitle');
-    onStartDragText && onStartDragText(e, 'subtitle');
+    if (onSelect) { onSelect('subtitle');; }
+    if (onStartDragText) { onStartDragText(e, 'subtitle');; }
   };
 
   const handleTouchStart = (e) => {
     if (isEditing) return;
-    onSelect && onSelect('subtitle');
-    onStartDragText && onStartDragText(e, 'subtitle');
+    if (onSelect) { onSelect('subtitle');; }
+    if (onStartDragText) { onStartDragText(e, 'subtitle');; }
   };
 
   // Double click to enter text box
   const handleDoubleClick = (e) => {
     e.stopPropagation();
     e.preventDefault();
-    onSelect && onSelect('subtitle');
+    if (onSelect) { onSelect('subtitle');; }
     setIsEditing(true);
   };
 
   // Blur finishes editing
   const handleBlur = (e) => {
     setIsEditing(false);
-    onUpdateText && onUpdateText('subtitle', e.currentTarget.innerText);
+    if (onUpdateText) { onUpdateText('subtitle', e.currentTarget.innerText);; }
   };
 
   // Escape exits editing
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       setIsEditing(false);
-      textRef.current && textRef.current.blur();
+      if (textRef.current) { textRef.current.blur();; }
     }
   };
 
@@ -1515,7 +1511,7 @@ function InteractiveTemplateSubtitle({
       onDoubleClick={handleDoubleClick}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect && onSelect('subtitle');
+        if (onSelect) { onSelect('subtitle');; }
       }}
       style={{
         width: width ? `${width}px` : undefined,
@@ -1550,7 +1546,7 @@ function InteractiveTemplateSubtitle({
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditing(false);
-                textRef.current && textRef.current.blur();
+                if (textRef.current) { textRef.current.blur();; }
               }}
               className="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] flex items-center gap-1 cursor-pointer transition shadow-xs"
               title="Finish editing"
@@ -1836,7 +1832,7 @@ export default function PrintMaterialTemplate({
   const palette = getThemePalette(theme, customColor);
   const storeName = customRestaurantName || restaurant?.name || 'Burger & Smoke Co.';
   const defaultPhone = restaurant?.phone || restaurant?.whatsapp_number || '923001234567';
-  const effectiveFooter = customFooter ? customFooter : `+${defaultPhone}`;
+  const _effectiveFooter = customFooter ? customFooter : `+${defaultPhone}`;
   const logoUrl = restaurant?.logo_url;
   const isDarkTheme = palette.isDark;
   const hasBg = Boolean(bgImage);
@@ -2029,7 +2025,7 @@ export default function PrintMaterialTemplate({
             onTouchStart={onStartDrag}
             onClick={(e) => {
               e.stopPropagation();
-              onSelectElement && onSelectElement('qr');
+              if (onSelectElement) { onSelectElement('qr');; }
             }}
             className="cursor-grab active:cursor-grabbing group select-none transition-all duration-75"
           >
@@ -2079,7 +2075,7 @@ export default function PrintMaterialTemplate({
               onTouchStart={(e) => onStartDragAdditionalQr && onStartDragAdditionalQr(e, extraQr.id)}
               onClick={(e) => {
                 e.stopPropagation();
-                onSelectElement && onSelectElement(extraQr.id);
+                if (onSelectElement) { onSelectElement(extraQr.id);; }
               }}
               className="cursor-grab active:cursor-grabbing group select-none transition-all duration-75"
             >
@@ -2328,7 +2324,7 @@ export default function PrintMaterialTemplate({
           onTouchStart={(e) => onStartDragText && onStartDragText(e, 'phoneLogo')}
           onClick={(e) => {
             e.stopPropagation();
-            onSelectElement && onSelectElement('phoneLogo');
+            if (onSelectElement) { onSelectElement('phoneLogo');; }
           }}
           className={`cursor-grab active:cursor-grabbing select-none p-1 rounded-lg transition ${
             selectedElementId === 'phoneLogo'
@@ -2594,7 +2590,7 @@ export default function PrintMaterialTemplate({
           onTouchStart={onStartDragSide2Qr}
           onClick={(e) => {
             e.stopPropagation();
-            onSelectElement && onSelectElement('side2-qr');
+            if (onSelectElement) { onSelectElement('side2-qr');; }
           }}
           className="cursor-grab active:cursor-grabbing group select-none transition-all duration-75"
         >
@@ -2847,7 +2843,7 @@ export default function PrintMaterialTemplate({
                     onTouchStart={onStartDragSide2Qr}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onSelectElement && onSelectElement('side2-qr');
+                      if (onSelectElement) { onSelectElement('side2-qr');; }
                     }}
                     className="cursor-grab active:cursor-grabbing group select-none relative inline-flex transition-transform hover:scale-[1.02]"
                     title="Click to select & copy, drag to reposition anywhere in card"

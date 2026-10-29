@@ -1,9 +1,9 @@
 import React from 'react';
 import { formatPKR } from '../utils/currencyUtils';
-import { Users, ArrowRight, Utensils, ShoppingBag, DollarSign } from 'lucide-react';
+import { Users, ArrowRight } from 'lucide-react';
 
 export default function ExecutiveKPIs({
-  restaurant,
+  restaurant: _restaurant,
   menuItems = [],
   orderStats,
   totalCustomers = 0,

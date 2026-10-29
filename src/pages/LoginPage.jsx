@@ -10,8 +10,6 @@ import {
   ArrowRight,
   ShieldCheck,
   AlertCircle,
-  ExternalLink,
-  Store,
 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -267,54 +265,91 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2.5">
-                {/* 1. Restaurant Manager */}
-                <div className="p-3 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] hover:border-[#F26B1D]/40 transition group">
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-xl bg-white text-[#F26B1D] flex items-center justify-center border border-[#F0E4D7] shrink-0 shadow-2xs">
-                        <Store className="w-3.5 h-3.5" />
-                      </div>
+                {[
+                  {
+                    tierBadge: 'Owner',
+                    badgeClass: 'bg-[#FFF1E6] text-[#D95A12] border-[#FCD8BF]',
+                    title: 'Restaurant Owner (Full Access)',
+                    subtitle: 'All Tabs + Store Settings + Manages Manager',
+                    email: 'owner@burgersmoke.com',
+                    pass: 'OwnerPass123!',
+                    btnClass: 'bg-[#F26B1D] hover:bg-[#D95A12]',
+                  },
+                  {
+                    tierBadge: 'Manager',
+                    badgeClass: 'bg-[#F5EFEA] text-[#2B2118] border-[#E5D9CE]',
+                    title: 'Shift Manager (No Settings)',
+                    subtitle: 'Operations + Manages Cashier & Waiter Credentials',
+                    email: 'manager@burgersmoke.com',
+                    pass: 'ManagerPass123!',
+                    btnClass: 'bg-[#2B2118] hover:bg-[#3D3024]',
+                  },
+                  {
+                    tierBadge: 'Cashier',
+                    badgeClass: 'bg-[#FEF6E7] text-[#B4690E] border-[#F7DFB5]',
+                    title: 'Counter Cashier (POS Only)',
+                    subtitle: 'Orders & Billing • No Today Revenue or Reports',
+                    email: 'cashier@burgersmoke.com',
+                    pass: 'CashierPass123!',
+                    btnClass: 'bg-[#D97706] hover:bg-[#B45309]',
+                  },
+                  {
+                    tierBadge: 'Waiter',
+                    badgeClass: 'bg-[#EEF6F0] text-[#1F7A4C] border-[#CBE6D2]',
+                    title: 'Floor Waiter (Tables Only)',
+                    subtitle: 'Occupy Tables by Customer Need & Take Orders',
+                    email: 'waiter@burgersmoke.com',
+                    pass: 'WaiterPass123!',
+                    btnClass: 'bg-[#1F7A4C] hover:bg-[#166534]',
+                  },
+                ].map((acct) => (
+                  <div
+                    key={acct.email}
+                    className="p-3 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] hover:border-[#F26B1D]/40 transition group"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-[#2B2118] truncate">
-                          Restaurant Manager
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border ${acct.badgeClass}`}>
+                            {acct.tierBadge}
+                          </span>
+                          <span className="text-xs font-bold text-[#2B2118] truncate">
+                            {acct.title}
+                          </span>
                         </div>
                         <div className="text-[10px] text-[#7A6A5C] truncate">
-                          Burger & Smoke Dashboard
+                          {acct.subtitle}
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => handleQuickLogin(acct.email, acct.pass)}
+                        className={`px-2.5 py-1.5 rounded-xl text-white text-[11px] font-bold transition flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs hover:scale-[1.02] disabled:opacity-50 ${acct.btnClass}`}
+                        title={`1-Click Login as ${acct.tierBadge}`}
+                      >
+                        <span>1-Click Login</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleQuickLogin('owner@burgersmoke.com', 'OwnerPass123!')}
-                      className="px-2.5 py-1.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-[11px] font-bold transition flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs hover:scale-[1.02] disabled:opacity-50"
-                      title="1-Click Login to Restaurant Dashboard"
-                    >
-                      <span>1-Click Login</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#F0E4D7]/70 text-[11px] font-mono text-[#7A6A5C]">
-                    <div className="truncate">
-                      <span className="text-[#9E8E81]">Email:</span>{' '}
-                      <span className="text-[#2B2118] font-bold">owner@burgersmoke.com</span>
+                    <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#F0E4D7]/70 text-[11px] font-mono text-[#7A6A5C]">
+                      <div className="truncate">
+                        <span className="text-[#9E8E81]">Email:</span>{' '}
+                        <span className="text-[#2B2118] font-bold">{acct.email}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleFillCredentials(acct.email, acct.pass)}
+                        className="text-[10px] font-sans font-bold text-[#F26B1D] hover:underline shrink-0 cursor-pointer"
+                      >
+                        Fill Form
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleFillCredentials('owner@burgersmoke.com', 'OwnerPass123!')}
-                      className="text-[10px] font-sans font-bold text-[#F26B1D] hover:underline shrink-0 cursor-pointer"
-                    >
-                      Fill Form
-                    </button>
                   </div>
-                  <div className="text-[11px] font-mono text-[#7A6A5C]">
-                    <span className="text-[#9E8E81]">Pass:</span>{' '}
-                    <span className="text-[#2B2118] font-bold">OwnerPass123!</span>
-                  </div>
-                </div>
+                ))}
 
-                {/* 2. Platform Super Admin */}
+                {/* Platform Super Admin */}
                 <div className="p-3 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] hover:border-purple-300 transition group">
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-2 min-w-0">
@@ -354,10 +389,6 @@ export default function LoginPage() {
                     >
                       Fill Form
                     </button>
-                  </div>
-                  <div className="text-[11px] font-mono text-[#7A6A5C]">
-                    <span className="text-[#9E8E81]">Pass:</span>{' '}
-                    <span className="text-[#2B2118] font-bold">AdminPass123!</span>
                   </div>
                 </div>
               </div>

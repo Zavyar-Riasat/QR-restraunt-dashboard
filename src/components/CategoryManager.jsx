@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Layers, Plus, Trash2, Tag, FolderPlus, Edit2, Check, X } from 'lucide-react';
+import { Plus, Trash2, Tag, FolderPlus, Edit2, Check, X } from 'lucide-react';
 
 export default function CategoryManager({
   categories = [],

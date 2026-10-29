@@ -18,7 +18,6 @@ import { isWebUSBSupported, isWebSerialSupported } from '../capabilities.js';
 import {
   isUsbPrinterDevice,
   matchesUsbPrinterProfile,
-  KNOWN_ESCPOS_VENDORS,
   WEBUSB_PRINTER_FILTERS,
   formatVidPid,
 } from '../usbRegistry.js';
@@ -238,7 +237,7 @@ export class UsbThermalDriver extends BaseDriver {
           }
           try {
             await matchedDevice.claimInterface(0);
-          } catch (_) {}
+          } catch  {}
 
           if (typeof window !== 'undefined') {
             window.dispatchEvent(
@@ -306,7 +305,7 @@ export class UsbThermalDriver extends BaseDriver {
     }
     try {
       await device.claimInterface(0);
-    } catch (_) {}
+    } catch  {}
 
     const info = {
       name: device.productName || 'USB Thermal Receipt Printer',
@@ -340,7 +339,7 @@ export class UsbThermalDriver extends BaseDriver {
       try {
         const detected = await electron.autoDetectPrinter();
         if (detected) return detected;
-      } catch (e) {}
+      } catch  {}
     }
 
     // 2. Check already paired WebUSB devices
@@ -357,7 +356,7 @@ export class UsbThermalDriver extends BaseDriver {
             deviceClass: candidate.deviceClass,
           };
         }
-      } catch (e) {}
+      } catch  {}
     }
 
     // 3. Fallback: prompt user to pick from known printer vendors or printer class
@@ -437,7 +436,7 @@ export class UsbThermalDriver extends BaseDriver {
     if (this.usbDevice?.opened) {
       try {
         await this.usbDevice.close();
-      } catch (e) {}
+      } catch  {}
     }
     this.usbDevice = null;
 

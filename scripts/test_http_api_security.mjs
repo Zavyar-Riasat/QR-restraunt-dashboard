@@ -41,7 +41,7 @@ async function apiRequest(baseUrl, path, method = 'GET', body = null, token = nu
   let json = null;
   try {
     json = JSON.parse(text);
-  } catch (_) {}
+  } catch  {}
 
   return { status: res.status, headers: res.headers, body: json, text };
 }

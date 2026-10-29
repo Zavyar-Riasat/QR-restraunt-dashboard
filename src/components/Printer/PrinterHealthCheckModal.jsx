@@ -13,10 +13,9 @@ import {
   AlertTriangle,
   ChevronDown,
   ShieldCheck,
-  Zap,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { printerService } from '../../services/printer/printerService';
-import { DRIVER_IDS, PAPER_SIZES } from '../../services/printer/printerTypes';
+import { DRIVER_IDS } from '../../services/printer/printerTypes';
 import { getPlatformDiagnostics, isIOS } from '../../services/printer/capabilities';
 
 export default function PrinterHealthCheckModal({
@@ -123,7 +122,7 @@ export default function PrinterHealthCheckModal({
     }
   }, [isOpen, initialPrinterId, runDiagnostic]);
 
-  const renderTypeIcon = (type) => {
+  const _renderTypeIcon = (type) => {
     switch (type) {
       case DRIVER_IDS.USB:
         return <Usb className="w-4 h-4 text-sky-600" />;

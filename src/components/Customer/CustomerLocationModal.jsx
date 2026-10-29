@@ -14,12 +14,10 @@ import {
   Navigation,
   Search,
   X,
-  Compass,
   ArrowLeft,
   Check,
   AlertCircle,
-  Building,
-} from 'lucide-react';
+  } from 'lucide-react';
 
 const modalPinIcon = L.icon({
   iconRetinaUrl: markerIcon2x,
@@ -321,7 +319,7 @@ export default function CustomerLocationModal({
   };
 
   // Select Preset Popular Area
-  const handleSelectPreset = (area) => {
+  const _handleSelectPreset = (area) => {
     applyLocationToMap(area.lat, area.lng, area.name, 14);
   };
 
@@ -376,7 +374,7 @@ export default function CustomerLocationModal({
   };
 
   // Handle Sharing current location (Where I am now)
-  const handleShareCurrentLocation = async (customCoords = null) => {
+  const _handleShareCurrentLocation = async (customCoords = null) => {
     const lat = customCoords?.lat || selectedPin.lat;
     const lng = customCoords?.lng || selectedPin.lng;
     const name = customCoords?.name || selectedPin.name || 'My Location';

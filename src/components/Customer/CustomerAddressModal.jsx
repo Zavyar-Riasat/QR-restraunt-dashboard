@@ -18,9 +18,7 @@ import {
   X,
   AlertCircle,
   Check,
-  FileText,
-  Building,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { PAKISTAN_MAJOR_CITIES } from './CustomerLocationModal';
 
 const modalPinIcon = L.icon({
@@ -52,6 +50,7 @@ export default function CustomerAddressModal({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -146,7 +145,7 @@ export default function CustomerAddressModal({
               }));
             }
           }
-        } catch (_) {}
+        } catch  {}
       });
 
       // On map click: move marker
@@ -233,7 +232,7 @@ export default function CustomerAddressModal({
           }
         }
       }
-    } catch (err) {
+    } catch  {
       if (!matchedCity) {
         setErrorMsg('Search failed. Please try dragging the pin directly.');
       }
@@ -288,7 +287,7 @@ export default function CustomerAddressModal({
           mapRef.current.setView([lat, lng], 15);
         }
       },
-      (err) => {
+      (_err) => {
         setIsLocating(false);
         setErrorMsg('GPS detection failed. Please search or drag the pin on map.');
       },

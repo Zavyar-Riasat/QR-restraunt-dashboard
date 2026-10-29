@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useId } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Phone,
-  MapPin,
+  
   FileText,
   AlertCircle,
   Truck,
@@ -10,7 +10,7 @@ import {
   Utensils,
   ArrowLeft,
   CheckCircle2,
-  Navigation,
+  
   CreditCard,
   Banknote,
   Loader2,
@@ -109,8 +109,8 @@ export default function DirectOrderCheckout({
   const [honeypot, setHoneypot] = useState(''); // Bot trap
   const [idempotencyKey] = useState(() => `idemp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`);
 
-  const [isLocating, setIsLocating] = useState(false);
-  const [locationSuccess, setLocationSuccess] = useState(false);
+  const [_isLocating, setIsLocating] = useState(false);
+  const [_locationSuccess, setLocationSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -145,7 +145,7 @@ export default function DirectOrderCheckout({
   const phoneValidation = customer.phone ? validatePakistaniPhone(customer.phone) : null;
 
   // Geolocation quick filler
-  const handleGetLocation = () => {
+  const _handleGetLocation = () => {
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser.');
       return;
@@ -697,7 +697,7 @@ export default function DirectOrderCheckout({
           isOpen={showSignInModal}
           onClose={() => setShowSignInModal(false)}
           initialPhone={customer.phone}
-          onSuccess={(logged) => {
+          onSuccess={(_logged) => {
             setShowSignInModal(false);
           }}
           title="Sign in to your account"

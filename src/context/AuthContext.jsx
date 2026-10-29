@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
     initAuth();
 
     // Listen to Supabase auth state change
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, _newSession) => {
       if (event === 'SIGNED_OUT') {
         setUser(null);
         setSession(null);

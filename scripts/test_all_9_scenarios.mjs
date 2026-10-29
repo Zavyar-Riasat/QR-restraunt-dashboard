@@ -107,7 +107,7 @@ async function runAsyncTest(name, fn) {
 
 // Dynamically import application services
 const { marketplaceService } = await import('../src/services/marketplaceService.js');
-const { geoValidation, isPointInPolygon, checkRestaurantDeliveryCoverage, haversineKm } = await import('../src/utils/geoValidation.js');
+const { geoValidation: _geoValidation, isPointInPolygon, checkRestaurantDeliveryCoverage, haversineKm } = await import('../src/utils/geoValidation.js');
 const { orderService } = await import('../src/services/orderService.js');
 const { customerService } = await import('../src/services/customerService.js');
 const { customerAuthService } = await import('../src/services/customerAuthService.js');

@@ -41,7 +41,7 @@ export class NetworkDriver extends BaseDriver {
           if (!settled) {
             settled = true;
             clearTimeout(timeout);
-            try { ws.close(); } catch (_) {}
+            try { ws.close(); } catch  {}
             resolve(true);
           }
         };
@@ -52,7 +52,7 @@ export class NetworkDriver extends BaseDriver {
             resolve(false);
           }
         };
-      } catch (_) {
+      } catch  {
         if (!settled) {
           settled = true;
           clearTimeout(timeout);
@@ -215,11 +215,11 @@ export class NetworkDriver extends BaseDriver {
     // 1. Try local QZ Tray helper first
     try {
       return await this.printViaQZTray(ip, port, base64Data);
-    } catch (_qzErr) {
+    } catch  {
       // 2. Try direct ePOS web service
       try {
         return await this.printViaEpsonEpos(ip, escposBytes);
-      } catch (_eposErr) {
+      } catch  {
         throw new Error(
           `Could not reach network printer at ${ip}:${port}. ` +
           `Tip: If your printer is not an ePOS web printer, ensure the local QZ Tray print helper is running on this computer.`

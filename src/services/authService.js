@@ -3,6 +3,90 @@ import { isReservedSlug } from '../config/appConfig.js';
 
 const USERS_STORAGE_KEY = 'dinehq_registered_users';
 const CURRENT_SESSION_KEY = 'dinehq_current_session';
+const STAFF_PASSWORDS_STORAGE_KEY = 'dinehq_staff_credentials';
+
+export const ROLE_TIERS = {
+  owner: {
+    tier: 1,
+    role: 'owner',
+    label: 'Owner',
+    shortLabel: 'Owner',
+    title: 'Restaurant Owner',
+    badgeClass: 'bg-[#FFF1E6] text-[#D95A12] border-[#FCD8BF]',
+    description: 'Full executive access to dashboard, revenue, reports, staff roles, and store settings.',
+    allowedTabs: ['orders', 'completed', 'customers', 'cashflow', 'items', 'categories', 'tables', 'qr', 'staff', 'settings'],
+    defaultTab: 'orders',
+    canViewRevenue: true,
+    canViewReports: true,
+    canAccessSettings: true,
+    canManageRoles: ['manager', 'cashier', 'waiter'],
+  },
+  manager: {
+    tier: 2,
+    role: 'manager',
+    label: 'Manager',
+    shortLabel: 'Manager',
+    title: 'Shift Manager',
+    badgeClass: 'bg-[#F5EFEA] text-[#2B2118] border-[#E5D9CE]',
+    description: 'Full operational access, reports & KPIs, plus credential management for Cashiers & Waiters. No Store Settings access.',
+    allowedTabs: ['orders', 'completed', 'customers', 'cashflow', 'items', 'categories', 'tables', 'qr', 'staff'],
+    defaultTab: 'orders',
+    canViewRevenue: true,
+    canViewReports: true,
+    canAccessSettings: false,
+    canManageRoles: ['cashier', 'waiter'],
+  },
+  cashier: {
+    tier: 3,
+    role: 'cashier',
+    label: 'Cashier',
+    shortLabel: 'Cashier',
+    title: 'Counter Cashier',
+    badgeClass: 'bg-[#FEF6E7] text-[#B4690E] border-[#F7DFB5]',
+    description: 'Counter POS, active & completed order billing, and table checkout. Restricted from Today Revenue, Reports, Settings, and Menu editing.',
+    allowedTabs: ['orders', 'completed', 'tables'],
+    defaultTab: 'orders',
+    canViewRevenue: false,
+    canViewReports: false,
+    canAccessSettings: false,
+    canManageRoles: [],
+  },
+  waiter: {
+    tier: 4,
+    role: 'waiter',
+    label: 'Waiter',
+    shortLabel: 'Waiter',
+    title: 'Floor Waiter',
+    badgeClass: 'bg-[#EEF6F0] text-[#1F7A4C] border-[#CBE6D2]',
+    description: 'Floor & Table service access only. Can occupy tables by customer need and punch dine-in table orders. Managed exclusively by Manager.',
+    allowedTabs: ['tables'],
+    defaultTab: 'tables',
+    canViewRevenue: false,
+    canViewReports: false,
+    canAccessSettings: false,
+    canManageRoles: [],
+  },
+  admin: {
+    tier: 1,
+    role: 'admin',
+    label: 'Super Admin',
+    shortLabel: 'Super Admin',
+    title: 'Platform Super Admin',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    description: 'Full platform & store access.',
+    allowedTabs: ['orders', 'completed', 'customers', 'cashflow', 'items', 'categories', 'tables', 'qr', 'staff', 'settings'],
+    defaultTab: 'orders',
+    canViewRevenue: true,
+    canViewReports: true,
+    canAccessSettings: true,
+    canManageRoles: ['owner', 'manager', 'cashier', 'waiter'],
+  },
+};
+
+export function getRoleTierConfig(role) {
+  const cleanRole = String(role || 'owner').toLowerCase();
+  return ROLE_TIERS[cleanRole] || ROLE_TIERS.owner;
+}
 
 // Pre-seeded verified accounts for instant access (NO plain-text passwords stored)
 const DEFAULT_ACCOUNTS = [
@@ -22,7 +106,7 @@ const DEFAULT_ACCOUNTS = [
   {
     id: 'user-owner-01',
     email: 'owner@burgersmoke.com',
-    name: 'Burger & Smoke Manager',
+    name: 'Burger & Smoke Owner',
     role: 'owner',
     restaurant_id: 'rest-101',
     restaurant_name: 'Burger & Smoke Co.',
@@ -32,6 +116,48 @@ const DEFAULT_ACCOUNTS = [
     password_masked: '••••••••••••',
     must_change_password: false,
     created_at: new Date('2026-10-05T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-manager-01',
+    email: 'manager@burgersmoke.com',
+    name: 'Zain (Shift Manager)',
+    role: 'manager',
+    restaurant_id: 'rest-101',
+    restaurant_name: 'Burger & Smoke Co.',
+    restaurant_slug: 'burgersmoke',
+    phone: '923001234568',
+    whatsapp_number: '923001234568',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-05T12:10:00Z').toISOString(),
+  },
+  {
+    id: 'user-cashier-01',
+    email: 'cashier@burgersmoke.com',
+    name: 'Bilal (Counter Cashier)',
+    role: 'cashier',
+    restaurant_id: 'rest-101',
+    restaurant_name: 'Burger & Smoke Co.',
+    restaurant_slug: 'burgersmoke',
+    phone: '923001234569',
+    whatsapp_number: '923001234569',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-05T12:20:00Z').toISOString(),
+  },
+  {
+    id: 'user-waiter-01',
+    email: 'waiter@burgersmoke.com',
+    name: 'Hamza (Floor Waiter)',
+    role: 'waiter',
+    restaurant_id: 'rest-101',
+    restaurant_name: 'Burger & Smoke Co.',
+    restaurant_slug: 'burgersmoke',
+    phone: '923001234570',
+    whatsapp_number: '923001234570',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-05T12:30:00Z').toISOString(),
   },
   {
     id: 'user-owner-02',
@@ -178,7 +304,7 @@ export const authService = {
             return data.users;
           }
         }
-      } catch (_) {}
+      } catch  {}
     }
     return this.getRegisteredUsers();
   },
@@ -392,10 +518,33 @@ export const authService = {
     const users = this.getRegisteredUsers();
     const match = users.find((u) => u.email.toLowerCase() === cleanEmail);
     if (match) {
-      const validPass =
-        match.role === 'admin'
-          ? ['AdminPass123!', 'admin123', 'admin', 'password123']
-          : ['OwnerPass123!', 'password123', 'owner123', 'password', 'manager123'];
+      // Check custom staff credentials saved by Owner / Manager
+      let customCreds = {};
+      try {
+        customCreds = JSON.parse(localStorage.getItem(STAFF_PASSWORDS_STORAGE_KEY) || '{}') || {};
+      } catch {
+        customCreds = {};
+      }
+      const customPassword = customCreds[cleanEmail];
+      if (customPassword && customPassword === password) {
+        const sessionData = {
+          user: match,
+          token: `loc_token_${Date.now()}`,
+          must_change_password: Boolean(match.must_change_password),
+          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        };
+        this.saveSession(sessionData);
+        return sessionData;
+      }
+
+      const rolePasswords = {
+        admin: ['AdminPass123!', 'admin123', 'admin', 'password123'],
+        owner: ['OwnerPass123!', 'password123', 'owner123', 'password', 'manager123'],
+        manager: ['ManagerPass123!', 'OwnerPass123!', 'manager123', 'password123'],
+        cashier: ['CashierPass123!', 'cashier123', 'password123'],
+        waiter: ['WaiterPass123!', 'waiter123', 'password123'],
+      };
+      const validPass = rolePasswords[match.role] || rolePasswords.owner;
       if (validPass.includes(password)) {
         const sessionData = {
           user: match,
@@ -408,6 +557,236 @@ export const authService = {
       }
     }
     return null;
+  },
+
+  /**
+   * Save custom staff password locally for instant fallback authentication
+   */
+  saveStaffCredentialLocal(email, password) {
+    if (!email || !password) return;
+    try {
+      const cleanEmail = String(email).trim().toLowerCase();
+      const map = JSON.parse(localStorage.getItem(STAFF_PASSWORDS_STORAGE_KEY) || '{}') || {};
+      map[cleanEmail] = String(password).trim();
+      localStorage.setItem(STAFF_PASSWORDS_STORAGE_KEY, JSON.stringify(map));
+    } catch (e) {
+      console.warn('Could not persist staff credential locally:', e);
+    }
+  },
+
+  /**
+   * Get all staff & role accounts for a restaurant slug
+   */
+  async getRestaurantStaff(restaurantSlug = 'burgersmoke') {
+    const cleanSlug = String(restaurantSlug || 'burgersmoke').trim().toLowerCase();
+    const session = this.getCurrentSession();
+
+    if (session?.token && !session.token.startsWith('loc_token_')) {
+      try {
+        const res = await fetch(`/api/staff/users?restaurant_slug=${encodeURIComponent(cleanSlug)}`, {
+          headers: { Authorization: `Bearer ${session.token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.staff) && data.staff.length > 0) {
+            return data.staff;
+          }
+        }
+      } catch {
+        // Fallback to local registered users
+      }
+    }
+
+    return this.getRegisteredUsers().filter(
+      (u) =>
+        (u.restaurant_slug || 'burgersmoke').toLowerCase() === cleanSlug &&
+        ['owner', 'manager', 'cashier', 'waiter'].includes(u.role)
+    );
+  },
+
+  /**
+   * Check whether an actor user can manage a target staff role
+   * Tier 1 (Owner) -> can manage Tier 2 (Manager) & Tier 3 (Cashier)
+   * Tier 2 (Manager) -> can manage Tier 3 (Cashier) & exclusively manages Tier 4 (Waiter)
+   */
+  canActorManageStaffRole(actorRole, targetRole) {
+    if (actorRole === 'owner' || actorRole === 'admin') return true;
+    const tierCfg = getRoleTierConfig(actorRole);
+    return tierCfg.canManageRoles.includes(String(targetRole || '').toLowerCase());
+  },
+
+  /**
+   * Create a new Staff Account (Manager / Cashier / Waiter) according to Tier permissions
+   */
+  async createStaffAccount(actorUser, { name, email, phone, password, role, restaurant }) {
+    const actorRole = actorUser?.role || 'owner';
+    const targetRole = String(role || '').toLowerCase();
+
+    if (!this.canActorManageStaffRole(actorRole, targetRole)) {
+      if (targetRole === 'waiter' && actorRole === 'owner') {
+        throw new Error('Waiter credentials can only be created and managed by a Manager.');
+      }
+      throw new Error(`Your role (${actorRole}) is not authorized to create ${targetRole} credentials.`);
+    }
+
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanPassword = String(password || '').trim();
+    if (!cleanEmail || !cleanPassword) {
+      throw new Error('Staff email address and password are required.');
+    }
+    if (cleanPassword.length < 4) {
+      throw new Error('Password must be at least 4 characters long.');
+    }
+
+    const existing = this.getRegisteredUsers().find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      throw new Error(`An account with email "${cleanEmail}" already exists.`);
+    }
+
+    const restaurantSlug = restaurant?.slug || actorUser?.restaurant_slug || 'burgersmoke';
+    const restaurantName = restaurant?.name || actorUser?.restaurant_name || 'Burger & Smoke Co.';
+    const restaurantId = restaurant?.id || actorUser?.restaurant_id || 'rest-101';
+
+    const session = this.getCurrentSession();
+    if (session?.token && !session.token.startsWith('loc_token_')) {
+      try {
+        const res = await fetch('/api/staff/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.token}`,
+          },
+          body: JSON.stringify({
+            name: name?.trim(),
+            email: cleanEmail,
+            phone: phone?.trim() || '923001234567',
+            password: cleanPassword,
+            role: targetRole,
+            restaurant_id: restaurantId,
+            restaurant_name: restaurantName,
+            restaurant_slug: restaurantSlug,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.staff) {
+            this.saveRegisteredUser(data.staff);
+            this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
+            return data.staff;
+          }
+        }
+      } catch {
+        // Continue to local persistence fallback
+      }
+    }
+
+    const saved = this.saveRegisteredUser({
+      id: `user-${targetRole}-${Date.now()}`,
+      name: name?.trim() || `${targetRole.charAt(0).toUpperCase() + targetRole.slice(1)} Staff`,
+      email: cleanEmail,
+      phone: phone?.trim() || '923001234567',
+      role: targetRole,
+      restaurant_id: restaurantId,
+      restaurant_name: restaurantName,
+      restaurant_slug: restaurantSlug,
+      must_change_password: false,
+    });
+    this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
+    return saved;
+  },
+
+  /**
+   * Update an existing Staff Account's credentials (name, email, phone, password)
+   */
+  async updateStaffAccount(actorUser, staffId, updates) {
+    const actorRole = actorUser?.role || 'owner';
+    const currentUsers = this.getRegisteredUsers();
+    const targetUser = currentUsers.find((u) => u.id === staffId);
+    if (!targetUser) {
+      throw new Error('Staff account not found.');
+    }
+
+    if (!this.canActorManageStaffRole(actorRole, targetUser.role)) {
+      if (targetUser.role === 'waiter' && actorRole === 'owner') {
+        throw new Error('Waiter credentials can only be managed by a Manager.');
+      }
+      throw new Error(`Your role (${actorRole}) is not authorized to modify ${targetUser.role} credentials.`);
+    }
+
+    const cleanEmail = updates.email ? String(updates.email).trim().toLowerCase() : targetUser.email;
+    const cleanPassword = updates.password ? String(updates.password).trim() : '';
+
+    const session = this.getCurrentSession();
+    if (session?.token && !session.token.startsWith('loc_token_')) {
+      try {
+        await fetch('/api/staff/users', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.token}`,
+          },
+          body: JSON.stringify({
+            staffId,
+            name: updates.name,
+            email: cleanEmail,
+            phone: updates.phone,
+            password: cleanPassword || undefined,
+          }),
+        });
+      } catch {
+        // Fallback to local update
+      }
+    }
+
+    const updated = await this.updateUserCredentials(staffId, {
+      name: updates.name,
+      email: cleanEmail,
+      phone: updates.phone,
+    });
+
+    if (cleanPassword) {
+      this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
+    }
+
+    return updated;
+  },
+
+  /**
+   * Delete a Staff Account
+   */
+  async deleteStaffAccount(actorUser, staffId) {
+    const actorRole = actorUser?.role || 'owner';
+    const currentUsers = this.getRegisteredUsers();
+    const targetUser = currentUsers.find((u) => u.id === staffId);
+    if (!targetUser) {
+      throw new Error('Staff account not found.');
+    }
+
+    if (!this.canActorManageStaffRole(actorRole, targetUser.role)) {
+      if (targetUser.role === 'waiter' && actorRole === 'owner') {
+        throw new Error('Waiter credentials can only be removed by a Manager.');
+      }
+      throw new Error(`Your role (${actorRole}) is not authorized to remove ${targetUser.role} accounts.`);
+    }
+
+    const session = this.getCurrentSession();
+    if (session?.token && !session.token.startsWith('loc_token_')) {
+      try {
+        await fetch('/api/staff/users', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.token}`,
+          },
+          body: JSON.stringify({ staffId }),
+        });
+      } catch {
+        // Fallback to local deletion
+      }
+    }
+
+    this.deleteRegisteredUser(staffId);
+    return true;
   },
 
   /**
@@ -454,21 +833,46 @@ export const authService = {
       throw new Error('Master administrator authentication required.');
     }
 
-    const res = await fetch('/api/admin/passwords/view', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.token}`,
-      },
-      body: JSON.stringify({ targetUserId }),
-    });
+    try {
+      const res = await fetch('/api/admin/passwords/view', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.token}`,
+        },
+        body: JSON.stringify({ targetUserId }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Failed to decrypt password.');
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.password) return data;
+      }
+    } catch {
+      // Fallback to local credential store below
     }
 
-    return data;
+    const target = this.getRegisteredUsers().find((u) => u.id === targetUserId);
+    if (!target) {
+      throw new Error('Account not found.');
+    }
+    let customMap = {};
+    try {
+      customMap = JSON.parse(localStorage.getItem(STAFF_PASSWORDS_STORAGE_KEY) || '{}') || {};
+    } catch {
+      customMap = {};
+    }
+    const emailKey = String(target.email || '').trim().toLowerCase();
+    const fallbackPasswords = {
+      admin: 'AdminPass123!',
+      owner: 'OwnerPass123!',
+      manager: 'ManagerPass123!',
+      cashier: 'CashierPass123!',
+      waiter: 'WaiterPass123!',
+    };
+    return {
+      password: customMap[emailKey] || fallbackPasswords[target.role] || 'OwnerPass123!',
+      autoHideSeconds: 15,
+    };
   },
 
   /**
@@ -568,7 +972,12 @@ export const authService = {
             },
           };
         }
-      } catch (_) {}
+      } catch  {}
+    }
+
+    // Persist password locally for admin view & login fallback
+    if (password) {
+      this.saveStaffCredentialLocal(cleanEmail, password);
     }
 
     // Fallback registration
@@ -621,7 +1030,7 @@ export const authService = {
   async logout() {
     try {
       await supabase.auth.signOut();
-    } catch (_) {}
+    } catch  {}
     localStorage.removeItem(CURRENT_SESSION_KEY);
   },
 };

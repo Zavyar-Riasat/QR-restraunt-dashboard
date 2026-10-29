@@ -22,15 +22,15 @@ export function generateReceiptHtml({
     showLogo = false, // Default is NO as requested by owner
     showPhone = true,
     footerMessage = 'Thank you for ordering with us! Visit again soon.',
-    language = 'en', // 'en'
+    language: _language = 'en', // 'en'
     fontSize = 'normal', // 'normal' | 'large'
   } = settings;
 
   const is58mm = paperSize === PAPER_SIZES.SIZE_58MM;
   const isA4 = paperSize === PAPER_SIZES.SIZE_A4;
   const isLarge = fontSize === 'large';
-  const showUrdu = false;
-  const showEnglish = true;
+  const _showUrdu = false;
+  const _showEnglish = true;
 
   const dateInfo = format12HourTime(order?.created_at);
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -39,7 +39,7 @@ export function generateReceiptHtml({
   if (table) params.set('table', table);
   if (order?.id) params.set('order', order.id);
   const qs = params.toString();
-  const reorderUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}${qs ? `?${qs}` : ''}`;
+  const _reorderUrl = `${origin}/${restaurant?.slug || 'burgersmoke'}${qs ? `?${qs}` : ''}`;
 
   // Font sizing styles
   const baseFontSize = is58mm ? (isLarge ? '11px' : '10px') : isA4 ? (isLarge ? '14px' : '12px') : isLarge ? '12px' : '11px';

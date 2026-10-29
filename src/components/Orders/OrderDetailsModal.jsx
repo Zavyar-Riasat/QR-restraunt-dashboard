@@ -8,17 +8,12 @@ import {
   Truck,
   ChefHat,
   CheckCircle2,
-  AlertCircle,
-  Printer,
   Navigation,
   ExternalLink,
   Bike,
   FileText,
-  DollarSign,
-  Plus,
-  CreditCard,
-} from 'lucide-react';
-import { formatPKR, computeOrderPaymentState, formatPaisa } from '../../utils/currencyUtils';
+  } from 'lucide-react';
+import { formatPKR, computeOrderPaymentState } from '../../utils/currencyUtils';
 import { format12HourTime } from '../../utils/dateUtils';
 import { buildGoogleMapsNavUrl, buildOsmNavUrl } from '../../config/mapConfig';
 import SendToRiderMenu from './SendToRiderMenu';
@@ -33,7 +28,7 @@ export default function OrderDetailsModal({
   restaurant,
   onUpdateStatus,
   onPrintTicket,
-  currentUser,
+  currentUser: _currentUser,
   onOrderUpdated,
 }) {
   const [activeOrder, setActiveOrder] = useState(order);
@@ -46,7 +41,7 @@ export default function OrderDetailsModal({
   if (!isOpen || !activeOrder) return null;
 
   const currentOrder = activeOrder;
-  const paymentState = computeOrderPaymentState(currentOrder);
+  const _paymentState = computeOrderPaymentState(currentOrder);
   const dateInfo = format12HourTime(currentOrder.created_at);
   const isDelivery = currentOrder.order_type === 'delivery';
   const lat = currentOrder.latitude || currentOrder.location_coords?.lat;

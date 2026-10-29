@@ -1,4 +1,4 @@
-import { toRupees, toPaisa, formatPKR } from '../utils/currencyUtils';
+import { toPaisa } from '../utils/currencyUtils';
 
 const STORAGE_PREFIX = 'dinehq_cashflow_';
 
@@ -147,7 +147,7 @@ export const cashFlowService = {
           if (migrated) {
             try {
               localStorage.setItem(key, JSON.stringify(parsed));
-            } catch (err) {}
+            } catch  {}
           }
           return parsed.sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
         }
@@ -159,7 +159,7 @@ export const cashFlowService = {
     // Seed default starter entries
     try {
       localStorage.setItem(key, JSON.stringify(DEFAULT_STARTER_ENTRIES));
-    } catch (e) {}
+    } catch  {}
     return [...DEFAULT_STARTER_ENTRIES].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   },
 
@@ -301,7 +301,7 @@ export const cashFlowService = {
   /**
    * Export entries to CSV
    */
-  exportCSV(restaurantId = 'rest-101', restaurantName = 'Restaurant') {
+  exportCSV(restaurantId = 'rest-101', _restaurantName = 'Restaurant') {
     const entries = this.getEntries(restaurantId);
     const headers = [
       'Transaction ID',

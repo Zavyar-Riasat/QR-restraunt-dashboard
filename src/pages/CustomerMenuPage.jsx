@@ -20,7 +20,7 @@ import {
   ChevronRight,
   AlertCircle,
   ArrowLeft,
-  Check,
+  
   ShoppingBag,
   MapPin,
   Clock,
@@ -145,7 +145,7 @@ export default function CustomerMenuPage() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   // Customer Saved Location & Delivery Areas
-  const [customerLocation, setCustomerLocation] = useState(() => {
+  const [customerLocation, _setCustomerLocation] = useState(() => {
     try {
       const saved = localStorage.getItem('dinehq_customer_location');
       if (saved) return JSON.parse(saved);
@@ -283,7 +283,7 @@ export default function CustomerMenuPage() {
           }
         }
       }
-    } catch (_) {}
+    } catch {}
     return null;
   }, [effectiveSlug]);
 
@@ -340,7 +340,7 @@ export default function CustomerMenuPage() {
           }, 300);
         }
       }
-    } catch (_) {}
+    } catch {}
   }, [menuItems, handleOpenCustomization]);
 
   const handleConfirmSwitchRestaurantCart = () => {
@@ -369,7 +369,7 @@ export default function CustomerMenuPage() {
         localStorage.setItem(`dinehq_cart_name_${effectiveSlug}`, restaurant.name);
       }
       window.dispatchEvent(new Event('dinehq_cart_updated'));
-    } catch (_) {}
+    } catch {}
 
     setCartConflictState(null);
     if (pendingItem) {

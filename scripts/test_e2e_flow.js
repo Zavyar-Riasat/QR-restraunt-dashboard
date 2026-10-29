@@ -80,14 +80,14 @@ try {
     writable: true,
     configurable: true,
   });
-} catch (_) {}
+} catch  {}
 
 // Import system services
-const { orderService, getAudioContext, unlockAudioContext, playKitchenChime, playLoudKitchenAlarm } = await import('../src/services/orderService.js');
+const { orderService, getAudioContext, unlockAudioContext: _unlockAudioContext, playKitchenChime, playLoudKitchenAlarm } = await import('../src/services/orderService.js');
 const { restaurantService } = await import('../src/services/restaurantService.js');
 const { tableService, TABLE_STATUS } = await import('../src/services/tableService.js');
 const { printerService } = await import('../src/services/printer/printerService.js');
-const { TEMPLATE_TYPES, PRINT_TARGETS } = await import('../src/services/printer/printerTypes.js');
+const { TEMPLATE_TYPES, PRINT_TARGETS: _PRINT_TARGETS } = await import('../src/services/printer/printerTypes.js');
 
 console.log('🚀 Starting Dineflow End-to-End System Tests...\n');
 
@@ -286,7 +286,7 @@ await runAsyncTest('3. Table QR Flow: Dine-In Order with Auto-Selected Table #5'
 // ---------------------------------------------------------------------------
 runTest('4. Real-Time Kitchen Audio Chimes and Synthesizers', () => {
   // Verify audio context methods operate gracefully in test and production
-  const ctx = getAudioContext();
+  const _ctx = getAudioContext();
   // Should not throw even in Node.js where AudioContext is undefined
   assert.doesNotThrow(() => playKitchenChime());
   assert.doesNotThrow(() => playLoudKitchenAlarm());

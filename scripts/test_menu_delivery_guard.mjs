@@ -16,7 +16,7 @@ assert.strictEqual(manifest.start_url, '/', 'PWA start_url must be "/"');
 console.log('✅ Test 1 Passed: PWA manifest start_url is "/"');
 
 // 2. Import geoValidation utilities
-const { checkRestaurantDeliveryCoverage, haversineKm, isPointInPolygon } = await import('../src/utils/geoValidation.js');
+const { checkRestaurantDeliveryCoverage, haversineKm, isPointInPolygon: _isPointInPolygon } = await import('../src/utils/geoValidation.js');
 
 // Test 2: Distance calculation
 const lahoreCenter = { lat: 31.5204, lng: 74.3587 };

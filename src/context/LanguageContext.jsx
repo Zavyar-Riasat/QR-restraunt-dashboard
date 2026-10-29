@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useCallback } from 'react';
 
 const LanguageContext = createContext(null);
 
@@ -191,7 +191,7 @@ export const TRANSLATIONS = {
 };
 
 export function LanguageProvider({ children }) {
-  const language = 'en';
+  const _language = 'en';
 
   // Apply lang and dir attributes to root document
   useEffect(() => {

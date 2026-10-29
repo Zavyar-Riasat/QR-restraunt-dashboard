@@ -14,9 +14,7 @@ import {
   ExternalLink,
   HelpCircle,
   Scissors,
-  DollarSign,
-  Zap,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { printerService } from '../../services/printer/printerService';
 import { DRIVER_IDS, PAPER_SIZES, PAPER_SIZE_SPECS } from '../../services/printer/printerTypes';
 import { getAvailableDrivers } from '../../services/printer/capabilities';

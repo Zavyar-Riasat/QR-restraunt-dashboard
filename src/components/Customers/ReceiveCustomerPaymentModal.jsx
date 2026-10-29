@@ -1,17 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import {
   X,
-  DollarSign,
-  Calendar,
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
   Sliders,
-  Check,
-  CreditCard,
-  Banknote,
-  FileText,
-} from 'lucide-react';
+  } from 'lucide-react';
 import {
   formatPKR,
   toPaisa,

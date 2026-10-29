@@ -27,7 +27,7 @@ function mockApiCall(url) {
             headers: this.headers,
             data: JSON.parse(body),
           });
-        } catch (e) {
+        } catch  {
           resolve({
             statusCode: this.statusCode,
             headers: this.headers,

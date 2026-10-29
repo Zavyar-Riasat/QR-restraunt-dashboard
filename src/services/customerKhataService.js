@@ -2,8 +2,6 @@ import { orderService } from './orderService.js';
 import {
   toPaisa,
   toRupees,
-  formatPKR,
-  formatPaisa,
   normalizePhone,
   formatPhone,
   computeOrderPaymentState,
@@ -165,13 +163,13 @@ export const customerKhataService = {
       // Sort orders descending by creation date
       c.orders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      const isOverdue = Boolean(
+      const _isOverdue = Boolean(
         c.due_date &&
         c.balance_due_paisa > 0 &&
         nowMs > new Date(c.due_date).getTime()
       );
 
-      const isCreditLimitExceeded = Boolean(
+      const _isCreditLimitExceeded = Boolean(
         c.credit_limit_paisa > 0 &&
         c.balance_due_paisa > c.credit_limit_paisa
       );

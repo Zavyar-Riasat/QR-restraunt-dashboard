@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Minus, ShoppingBag, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import DirectOrderCheckout from './DirectOrderCheckout';
 import CustomerOrderTracker from './CustomerOrderTracker';
 import ErrorBoundary from './ErrorBoundary';
@@ -10,7 +10,7 @@ export default function CustomerCartDrawer({
   onClose,
   cart,
   onUpdateQty,
-  onRemoveItem,
+  _onRemoveItem,
   restaurant,
   onCartClear,
   isDeliverableToCustomer = true,

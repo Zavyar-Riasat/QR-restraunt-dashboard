@@ -22,36 +22,67 @@ export const menuService = {
           .from('restaurants')
           .select('*')
           .eq('slug', slug)
-          .single();
+          .maybeSingle();
 
-        if (restError) throw restError;
-        if (!restaurantData) throw new Error('Restaurant not found');
+        if (!restError && restaurantData) {
+          const restaurant = restaurantService.mergeExtendedSettings(restaurantData);
 
-        const restaurant = restaurantService.mergeExtendedSettings(restaurantData);
+          // 2. Fetch categories & menu items in parallel
+          const [categoriesRes, itemsRes] = await Promise.all([
+            supabase
+              .from('categories')
+              .select('id, name')
+              .eq('restaurant_id', restaurant.id)
+              .order('name', { ascending: true }),
+            supabase
+              .from('menu_items')
+              .select('id, category_id, title, price, variants')
+              .eq('restaurant_id', restaurant.id)
+              .order('title', { ascending: true }),
+          ]);
 
-        // 2. Fetch categories & menu items in parallel
-        const [categoriesRes, itemsRes] = await Promise.all([
-          supabase
-            .from('categories')
-            .select('id, name')
-            .eq('restaurant_id', restaurant.id)
-            .order('name', { ascending: true }),
-          supabase
-            .from('menu_items')
-            .select('id, category_id, title, price, variants')
-            .eq('restaurant_id', restaurant.id)
-            .order('title', { ascending: true }),
-        ]);
+          if (!categoriesRes.error && !itemsRes.error) {
+            let resolvedCategories = categoriesRes.data || [];
+            let resolvedMenuItems = itemsRes.data || [];
 
-        if (categoriesRes.error) throw categoriesRes.error;
-        if (itemsRes.error) throw itemsRes.error;
+            // Merge locally saved categories/items if any were saved locally in Owner Dashboard
+            try {
+              const savedRaw =
+                localStorage.getItem(`${STORAGE_KEY}_${slug}`) ||
+                localStorage.getItem(`${STORAGE_KEY}_${restaurant.id}`);
+              if (savedRaw) {
+                const savedParsed = JSON.parse(savedRaw);
+                if (Array.isArray(savedParsed?.categories) && savedParsed.categories.length > 0) {
+                  const existingNames = new Set(
+                    resolvedCategories.map((c) => String(c.name || '').trim().toLowerCase())
+                  );
+                  const extras = savedParsed.categories.filter(
+                    (c) => c?.name && !existingNames.has(String(c.name).trim().toLowerCase())
+                  );
+                  if (extras.length > 0) {
+                    resolvedCategories = [...resolvedCategories, ...extras];
+                  }
+                }
+                if (Array.isArray(savedParsed?.menuItems) && savedParsed.menuItems.length > 0) {
+                  const existingIds = new Set(resolvedMenuItems.map((i) => i.id));
+                  const itemExtras = savedParsed.menuItems.filter(
+                    (i) => i?.id && !existingIds.has(i.id)
+                  );
+                  if (itemExtras.length > 0) {
+                    resolvedMenuItems = [...resolvedMenuItems, ...itemExtras];
+                  }
+                }
+              }
+            } catch {}
 
-        return {
-          restaurant,
-          categories: categoriesRes.data || [],
-          menuItems: itemsRes.data || [],
-          isLive: true,
-        };
+            return {
+              restaurant,
+              categories: resolvedCategories,
+              menuItems: resolvedMenuItems,
+              isLive: true,
+            };
+          }
+        }
       } catch (err) {
         console.warn('Supabase fetch by slug failed, checking local state:', err.message);
       }
@@ -102,7 +133,7 @@ export const menuService = {
           };
         }
       }
-    } catch (_) {}
+    } catch {}
 
     // Fallback to restaurantService getInitialState to load distinct restaurant profile & 5+ dishes
     const state = await restaurantService.getInitialState({ slug });

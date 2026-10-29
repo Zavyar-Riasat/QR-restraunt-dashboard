@@ -6,16 +6,12 @@ import {
   Store,
   Check,
   AlertCircle,
-  Send,
   Copy,
   Truck,
   ShoppingBag,
   Power,
   Clock,
   Shield,
-  Eye,
-  EyeOff,
-  Key,
   User,
   Save,
   CheckCircle2,
@@ -24,7 +20,6 @@ import {
   X,
   Lock,
   Palette,
-  Printer,
   Info,
   Bike,
   Trash2,
@@ -34,7 +29,7 @@ import {
 import { riderService } from '../services/riderService';
 import { useAuth } from '../context/AuthContext';
 import { printerService } from '../services/printer/printerService';
-import { DRIVER_IDS, PAPER_SIZE_SPECS } from '../services/printer/printerTypes';
+import { DRIVER_IDS } from '../services/printer/printerTypes';
 import PrintersSection from './Printer/PrintersSection';
 import PrintTemplatesSection from './Printer/PrintTemplatesSection';
 import LocationDeliverySection from './LocationDeliverySection';
@@ -52,15 +47,15 @@ const BRAND_PRESET_COLORS = [
 export default function StoreSettings({
   restaurant,
   onUpdate,
-  onOpenPrinterSettings,
+  _onOpenPrinterSettings,
   categories = [],
-  orders = [],
-  onOpenPosForTable,
+  _orders = [],
+  onOpenPosForTable: _onOpenPosForTable,
 }) {
   const { user, getRegisteredUsers, updateUserCredentials, changePassword } = useAuth();
   const [printerConfig, setPrinterConfig] = useState(() => printerService.getConfig());
-  const [isTestingPrint, setIsTestingPrint] = useState(false);
-  const [printTestStatus, setPrintTestStatus] = useState(null);
+  const [_isTestingPrint, setIsTestingPrint] = useState(false);
+  const [_printTestStatus, setPrintTestStatus] = useState(null);
 
   // Riders Fleet State
   const [riders, setRiders] = useState(() =>
@@ -115,7 +110,7 @@ export default function StoreSettings({
     return () => window.removeEventListener('dinehq_riders_updated', handleRidersChanged);
   }, [restaurant?.id]);
 
-  const handleTestPrint = async () => {
+  const _handleTestPrint = async () => {
     try {
       setIsTestingPrint(true);
       setPrintTestStatus(null);
@@ -143,7 +138,7 @@ export default function StoreSettings({
     }
   };
 
-  const getPrinterDriverLabel = () => {
+  const _getPrinterDriverLabel = () => {
     switch (printerConfig.driver) {
       case DRIVER_IDS.USB:
         return printerConfig.usbDeviceName ? `USB (${printerConfig.usbDeviceName})` : 'USB Thermal Printer';

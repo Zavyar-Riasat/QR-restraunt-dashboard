@@ -13,7 +13,6 @@
 
 import fs from 'fs';
 import path from 'path';
-import http from 'http';
 
 const ROOT_DIR = process.cwd();
 let passed = 0;

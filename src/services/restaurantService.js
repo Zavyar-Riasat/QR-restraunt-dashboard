@@ -1082,8 +1082,6 @@ export const ALL_SEED_RESTAURANTS = {
   },
 };
 
-const initialSeedData = ALL_SEED_RESTAURANTS.burgersmoke;
-
 const isSupabaseConfigured = () => {
   return Boolean(
     typeof import.meta !== 'undefined' &&
@@ -1092,6 +1090,9 @@ const isSupabaseConfigured = () => {
     !import.meta.env.VITE_SUPABASE_URL.includes('your-project-ref')
   );
 };
+
+const isUuid = (val) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
 
 export const restaurantService = {
   isConfigured: isSupabaseConfigured,
@@ -1135,7 +1136,7 @@ export const restaurantService = {
           return [...baseList, ...list.filter((r) => !existingSlugs.has(r.slug))];
         }
       }
-    } catch (e) {}
+    } catch  {}
 
     return baseList;
   },
@@ -1163,7 +1164,7 @@ export const restaurantService = {
       if (saved) {
         extended = { ...extended, ...JSON.parse(saved) };
       }
-    } catch (e) {}
+    } catch  {}
     return {
       ...restaurant,
       ...extended,
@@ -1186,7 +1187,7 @@ export const restaurantService = {
         const parsed = JSON.parse(byTargetKey);
         if (parsed?.restaurant) return this.mergeExtendedSettings(parsed.restaurant);
       }
-    } catch (_) {}
+    } catch  {}
 
     // 2. Check seed restaurants by slug or id
     if (ALL_SEED_RESTAURANTS[target]?.restaurant) {
@@ -1213,12 +1214,26 @@ export const restaurantService = {
       try {
         let restaurantQuery = supabase.from('restaurants').select('*');
 
-        if (restaurantId) {
+        // Resolve non-UUID seed restaurantId (e.g. 'rest-101') to its slug so we don't pass non-UUID to uuid column
+        let resolvedSlug = slug;
+        if (restaurantId && !isUuid(restaurantId) && !resolvedSlug) {
+          const matchedSeed = Object.values(ALL_SEED_RESTAURANTS).find(
+            (r) => r.restaurant?.id === restaurantId
+          );
+          if (matchedSeed?.restaurant?.slug) {
+            resolvedSlug = matchedSeed.restaurant.slug;
+          }
+        }
+
+        if (restaurantId && isUuid(restaurantId)) {
           restaurantQuery = restaurantQuery.eq('id', restaurantId);
-        } else if (slug) {
-          restaurantQuery = restaurantQuery.eq('slug', slug);
-        } else if (ownerId) {
+        } else if (resolvedSlug) {
+          restaurantQuery = restaurantQuery.eq('slug', resolvedSlug);
+        } else if (ownerId && isUuid(ownerId)) {
           restaurantQuery = restaurantQuery.eq('owner_id', ownerId);
+        } else if (restaurantId || ownerId) {
+          // Non-UUID local sandbox IDs should resolve directly from local sandbox state
+          return this.getInitialStateSync(filter);
         }
 
         const { data: restaurants, error: restError } = await restaurantQuery.limit(1);
@@ -1233,7 +1248,18 @@ export const restaurantService = {
           ]);
 
           let resolvedCategories = catRes.data || [];
-          let resolvedMenuItems = itemRes.data || [];
+          let resolvedMenuItems = (itemRes.data || []).map((item) => {
+            // Fix legacy USD seed prices (< 50) from initial schema.sql if present
+            if (Number(item.price) > 0 && Number(item.price) < 50 && restaurant.slug && ALL_SEED_RESTAURANTS[restaurant.slug]) {
+              const seedMatch = ALL_SEED_RESTAURANTS[restaurant.slug].menuItems.find(
+                (si) => si.title?.toLowerCase() === item.title?.toLowerCase()
+              );
+              if (seedMatch) {
+                return { ...item, price: seedMatch.price };
+              }
+            }
+            return item;
+          });
 
           // Merge or fallback to local saved state if RLS prevented writes to Supabase
           if (typeof localStorage !== 'undefined') {
@@ -1272,7 +1298,7 @@ export const restaurantService = {
                   }
                 }
               }
-            } catch (_) {}
+            } catch  {}
           }
 
           // If both Supabase and localStorage had 0 categories for a known seed slug, hydrate seed menu
@@ -1338,7 +1364,7 @@ export const restaurantService = {
             restaurant: this.mergeExtendedSettings(parsed.restaurant),
             isLive: false,
           };
-        } catch (e) {}
+        } catch  {}
       }
     }
 
@@ -1408,17 +1434,24 @@ export const restaurantService = {
       console.warn('Failed to save extended restaurant settings:', e);
     }
 
-    if (isSupabaseConfigured() && Object.keys(baseColumns).length > 0) {
-      const { data, error } = await supabase
-        .from('restaurants')
-        .update(baseColumns)
-        .eq('id', restaurantId)
-        .select()
-        .single();
+    if (isSupabaseConfigured() && isUuid(restaurantId) && Object.keys(baseColumns).length > 0) {
+      try {
+        const safeColumns = { ...baseColumns };
+        if (safeColumns.logo_url !== undefined) {
+          safeColumns.logo = safeColumns.logo_url;
+          delete safeColumns.logo_url;
+        }
+        const { data, error } = await supabase
+          .from('restaurants')
+          .update(safeColumns)
+          .eq('id', restaurantId)
+          .select()
+          .maybeSingle();
 
-      if (!error && data) {
-        return this.mergeExtendedSettings(data);
-      }
+        if (!error && data) {
+          return this.mergeExtendedSettings(data);
+        }
+      } catch  {}
     }
 
     return this.mergeExtendedSettings({ id: restaurantId, ...updates });

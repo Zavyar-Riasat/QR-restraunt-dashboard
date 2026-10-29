@@ -7,36 +7,21 @@ import {
   Trash2,
   UtensilsCrossed,
   ShoppingBag,
-  Truck,
-  PhoneCall,
   Printer,
   Send,
   Pause,
-  Percent,
-  Coins,
-  Check,
-  CheckCircle2,
   CreditCard,
   Banknote,
   Smartphone,
   AlertCircle,
-  Clock,
-  Layers,
-  FileText,
-  User,
-  Phone,
-  MapPin,
   ChevronRight,
   ChevronDown,
-  Maximize2,
-  RotateCcw,
-} from 'lucide-react';
+  } from 'lucide-react';
 import { formatPKR } from '../../utils/currencyUtils';
 import { orderService } from '../../services/orderService';
 import { tableService, TABLE_STATUS } from '../../services/tableService';
 import { printerService } from '../../services/printer/printerService';
 import { TEMPLATE_TYPES, PRINT_TARGETS } from '../../services/printer/printerTypes';
-import { validatePakistaniPhone } from '../../utils/checkoutUtils';
 import DeliveryLocationPicker from '../DeliveryLocationPicker';
 
 export default function NewOrderModal({

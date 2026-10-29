@@ -17,11 +17,11 @@ import {
   Star,
   Heart,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
+  
+  
   X,
   LogIn,
-  Globe,
+  
   SlidersHorizontal,
   Truck,
   ShoppingBag,
@@ -88,8 +88,8 @@ const formatCuisineWords = (store) => {
 
 export default function MarketplaceHomePage() {
   const navigate = useNavigate();
-  const { customer, favorites, toggleFavorite, addresses, isCustomerAuthenticated, saveAddress } = useCustomerAuth();
-  const { user } = useAuth();
+  const { customer, favorites, toggleFavorite, addresses: _addresses, isCustomerAuthenticated, saveAddress } = useCustomerAuth();
+  const { user: _user } = useAuth();
   const { t } = useLanguage();
   const searchInputRef = useRef(null);
   const morePopoverRef = useRef(null);
@@ -113,15 +113,15 @@ export default function MarketplaceHomePage() {
     setHomeMode(mode);
     try {
       localStorage.setItem('dinehq_home_mode', mode);
-    } catch (_) {}
+    } catch {}
     setSelectedCategory('ALL');
     setIsMoreCategoryOpen(false);
   };
 
   // Category Row Horizontal Scroll Navigation State
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [popoverPlacement, setPopoverPlacement] = useState('top'); // 'top' or 'bottom'
+  const [_canScrollLeft, setCanScrollLeft] = useState(false);
+  const [_canScrollRight, setCanScrollRight] = useState(false);
+  const [_popoverPlacement, setPopoverPlacement] = useState('top'); // 'top' or 'bottom'
 
   const updateScrollButtons = useCallback(() => {
     if (!categoryRowRef.current) return;
@@ -130,7 +130,7 @@ export default function MarketplaceHomePage() {
     setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 6);
   }, []);
 
-  const scrollCategoryRow = (delta) => {
+  const _scrollCategoryRow = (delta) => {
     if (!categoryRowRef.current) return;
     categoryRowRef.current.scrollBy({ left: delta, behavior: 'smooth' });
     setTimeout(updateScrollButtons, 350);
@@ -202,7 +202,7 @@ export default function MarketplaceHomePage() {
     setTheme(nextTheme);
     try {
       localStorage.setItem('dinehq_theme', nextTheme);
-    } catch (_) {}
+    } catch  {}
     if (nextTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -324,7 +324,7 @@ export default function MarketplaceHomePage() {
   const [isMoreCategoryOpen, setIsMoreCategoryOpen] = useState(false);
 
   // Toggle "More" popover with smart placement detection (opens UP if near bottom fold)
-  const handleToggleMorePopover = () => {
+  const _handleToggleMorePopover = () => {
     if (!isMoreCategoryOpen && moreButtonRef.current) {
       const rect = moreButtonRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
@@ -438,10 +438,10 @@ export default function MarketplaceHomePage() {
   // Active Category across modes (ALL or specific category)
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
-  const activeCategoryList = homeMode === 'food' ? FOOD_CATEGORIES : RESTAURANT_CUISINES;
+  const _activeCategoryList = homeMode === 'food' ? FOOD_CATEGORIES : RESTAURANT_CUISINES;
   const activeMoreCategoryList = homeMode === 'food' ? MORE_FOOD_CATEGORIES : MORE_RESTAURANT_CUISINES;
 
-  const handleCategorySelect = (cId) => {
+  const _handleCategorySelect = (cId) => {
     setSelectedCategory(cId);
     setRestaurantPage(1);
     setFoodCursor(0);
@@ -457,7 +457,7 @@ export default function MarketplaceHomePage() {
 
   const [restaurantPage, setRestaurantPage] = useState(1);
   const [restaurants, setRestaurants] = useState([]);
-  const [restaurantTotalCount, setRestaurantTotalCount] = useState(0);
+  const [_restaurantTotalCount, setRestaurantTotalCount] = useState(0);
   const [restaurantHasMore, setRestaurantHasMore] = useState(false);
   const [restaurantsLoading, setRestaurantsLoading] = useState(true);
 
@@ -518,9 +518,9 @@ export default function MarketplaceHomePage() {
   const [foodVegOnly, setFoodVegOnly] = useState(false);
   const [foodPriceRange, setFoodPriceRange] = useState('all'); // 'all' | 'under500' | '500to1200' | '1200plus'
 
-  const [foodCursor, setFoodCursor] = useState(0);
+  const [_foodCursor, setFoodCursor] = useState(0);
   const [foodDishes, setFoodDishes] = useState([]);
-  const [foodTotalCount, setFoodTotalCount] = useState(0);
+  const [_foodTotalCount, setFoodTotalCount] = useState(0);
   const [foodHasMore, setFoodHasMore] = useState(false);
   const [foodLoading, setFoodLoading] = useState(true);
 
@@ -635,7 +635,7 @@ export default function MarketplaceHomePage() {
           }
         }
       }
-    } catch (_) {}
+    } catch  {}
     return null;
   };
 
@@ -821,8 +821,8 @@ export default function MarketplaceHomePage() {
     toggleFavorite(restaurantId);
   };
 
-  const isMoreCategoryActive = activeMoreCategoryList.some((mc) => mc.id === selectedCategory);
-  const activeMoreCategory = activeMoreCategoryList.find((mc) => mc.id === selectedCategory);
+  const _isMoreCategoryActive = activeMoreCategoryList.some((mc) => mc.id === selectedCategory);
+  const _activeMoreCategory = activeMoreCategoryList.find((mc) => mc.id === selectedCategory);
 
   // Active filter count for badge
   const activeFilterCount =

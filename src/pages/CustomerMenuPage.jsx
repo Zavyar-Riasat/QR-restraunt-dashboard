@@ -186,6 +186,12 @@ export default function CustomerMenuPage() {
 
   const [deliveryAreas, setDeliveryAreas] = useState([]);
   const [showLeaveConfirmModal, setShowLeaveConfirmModal] = useState(false);
+  const isDevMode = Boolean(
+    import.meta.env?.DEV ||
+      (typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  );
+  const [devRangeBypass, setDevRangeBypass] = useState(false);
 
   // Desktop Checkout & Tracker States
   const [isDesktopCheckout, setIsDesktopCheckout] = useState(false);
@@ -283,8 +289,12 @@ export default function CustomerMenuPage() {
   // Calculate delivery coverage & distance to customer
   const deliveryCoverage = React.useMemo(() => {
     if (!restaurant) return { deliversToUser: true, distanceKm: null };
-    return checkRestaurantDeliveryCoverage(customerLocation, restaurant, deliveryAreas);
-  }, [customerLocation, restaurant, deliveryAreas]);
+    const coverage = checkRestaurantDeliveryCoverage(customerLocation, restaurant, deliveryAreas);
+    if (isDevMode && devRangeBypass) {
+      return { ...coverage, deliversToUser: true, devBypassed: true };
+    }
+    return coverage;
+  }, [customerLocation, restaurant, deliveryAreas, isDevMode, devRangeBypass]);
 
   // Find if another restaurant already has items in localStorage cart
   const findOtherRestaurantCart = React.useCallback(() => {
@@ -573,7 +583,7 @@ export default function CustomerMenuPage() {
               {deliveryCoverage.distanceKm != null ? ` — ${deliveryCoverage.distanceKm} km away` : ''}.
             </p>
           </div>
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+          <div className="pt-2 flex flex-col items-center justify-center gap-2.5">
             <Link
               to="/"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs sm:text-sm font-bold transition shadow-sm"
@@ -581,6 +591,18 @@ export default function CustomerMenuPage() {
               <ArrowLeft className="w-4 h-4" />
               <span>View Restaurants in Your Range</span>
             </Link>
+
+            {isDevMode && (
+              <button
+                type="button"
+                onClick={() => setDevRangeBypass(true)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-[#B45309] border border-dashed border-amber-300 text-xs sm:text-sm font-extrabold transition cursor-pointer"
+                title="Development Mode Only: Bypass delivery range check"
+              >
+                <span>⚡ Quick Enter (Dev Mode)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1366,6 +1388,7 @@ export default function CustomerMenuPage() {
         onRemoveItem={handleRemoveItem}
         restaurant={restaurant}
         isDeliverableToCustomer={deliveryCoverage?.deliversToUser}
+        devRangeBypass={isDevMode && devRangeBypass}
         deliveryAreas={deliveryAreas}
         onCartClear={() => {
           setCart([]);
@@ -1391,6 +1414,7 @@ export default function CustomerMenuPage() {
               cart={cart}
               restaurant={restaurant}
               isDeliverableToCustomer={deliveryCoverage?.deliversToUser}
+              devRangeBypass={isDevMode && devRangeBypass}
               deliveryAreas={deliveryAreas}
               onBack={() => setIsDesktopCheckout(false)}
               onOrderPlaced={(newOrder) => {

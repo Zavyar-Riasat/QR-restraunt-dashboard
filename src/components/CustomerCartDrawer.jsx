@@ -16,6 +16,7 @@ export default function CustomerCartDrawer({
   restaurant,
   onCartClear,
   isDeliverableToCustomer = true,
+  devRangeBypass = false,
   deliveryAreas = [],
 }) {
   const { customer, isCustomerAuthenticated } = useCustomerAuth();
@@ -103,6 +104,7 @@ export default function CustomerCartDrawer({
               cart={cart}
               restaurant={restaurant}
               isDeliverableToCustomer={isDeliverableToCustomer}
+              devRangeBypass={devRangeBypass}
               deliveryAreas={deliveryAreas}
               onBack={() => setStep('cart')}
               onOrderPlaced={handleOrderPlaced}

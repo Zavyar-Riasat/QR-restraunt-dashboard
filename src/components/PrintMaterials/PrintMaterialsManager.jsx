@@ -2286,48 +2286,52 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
       </div>
 
       {/* Tab Header */}
-      <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#F0E4D7]">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF]">
-              <Printer className="w-5 h-5" />
-            </span>
-            <div>
-              <h2 className="text-xl font-heading font-extrabold text-[#2B2118] tracking-tight flex items-center gap-2">
-                Print QR & Flyer Studio
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF]">
-                  Owner Control
-                </span>
-              </h2>
-              <p className="text-xs text-[#7A6A5C] mt-0.5">
-                Drag corners to resize QR, drag & drop elements, click text to edit & bold, add custom text boxes.
-              </p>
-            </div>
+      <div className="no-print p-5 rounded-3xl bg-gradient-to-r from-[#FFF9F2] via-[#FFFDF9] to-[#FFF9F2] border border-[#F0E4D7] flex flex-col xl:flex-row xl:items-center justify-between gap-4 shadow-2xs">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <span className="w-11 h-11 rounded-2xl bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF] flex items-center justify-center shrink-0 shadow-2xs">
+            <Printer className="w-5 h-5" />
+          </span>
+          <div>
+            <h2 className="text-lg sm:text-xl font-heading font-black text-[#2B2118] tracking-tight flex items-center gap-2 flex-wrap">
+              <span>Print QR & Flyer Studio</span>
+              <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#FFF1E6] text-[#D95A12] border border-[#FCD8BF]">
+                Owner Control
+              </span>
+            </h2>
+            <p className="text-xs text-[#7A6A5C] mt-0.5">
+              Drag corners to resize QR, drag & drop elements, click text to edit & bold, add custom text boxes.
+            </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleCopyLink}
-            className="px-3 py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition flex items-center gap-1.5 cursor-pointer"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-[#1F9D55]" /> : <Copy className="w-3.5 h-3.5 text-[#9E8E81]" />}
-            <span>{copied ? 'Copied' : 'Copy Menu URL'}</span>
-          </button>
+          {/* Utility Group */}
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white border border-[#F0E4D7] shadow-2xs">
+            <button
+              onClick={handleCopyLink}
+              className="px-3 py-1.5 rounded-xl bg-transparent hover:bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#F26B1D]" />}
+              <span>{copied ? 'Copied' : 'Copy Menu URL'}</span>
+            </button>
 
-          <button
-            onClick={handleDownloadSVG}
-            className="px-3 py-2 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition flex items-center gap-1.5 cursor-pointer"
-            title="Download Vector SVG of QR alone"
-          >
-            <FileCode className="w-3.5 h-3.5 text-[#9E8E81]" />
-            <span>QR SVG</span>
-          </button>
+            <div className="w-px h-4 bg-[#F0E4D7]" />
 
+            <button
+              onClick={handleDownloadSVG}
+              className="px-3 py-1.5 rounded-xl bg-transparent hover:bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              title="Download Vector SVG of QR alone"
+            >
+              <FileCode className="w-3.5 h-3.5 text-[#F26B1D]" />
+              <span>QR SVG</span>
+            </button>
+          </div>
+
+          {/* Export Group */}
           <button
             onClick={handleDownloadPNG}
             disabled={isExportingPNG}
-            className="px-3.5 py-2 rounded-xl bg-white border border-[#F26B1D] text-[#F26B1D] hover:bg-[#FFF1E6] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl bg-[#FFF1E6] hover:bg-[#FFE4CF] border border-[#FCD8BF] text-[#D95A12] text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5 text-[#F26B1D]" />
             <span>{isExportingPNG ? 'Rendering...' : 'Download PNG'}</span>
@@ -2336,30 +2340,30 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           <button
             onClick={handleDownloadPDF}
             disabled={isExportingPDF}
-            className="px-3.5 py-2 rounded-xl bg-[#2F6FED] hover:bg-[#1E5AD6] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl bg-[#2B2118] hover:bg-[#3D2F22] border border-[#2B2118] text-white text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
             title="Export 300 DPI PDF ready for professional print shops"
           >
-            <FileText className="w-3.5 h-3.5" />
+            <FileText className="w-3.5 h-3.5 text-[#FFA94D]" />
             <span>{isExportingPDF ? 'Generating PDF...' : 'Download PDF (300 DPI)'}</span>
           </button>
 
           <button
             onClick={handleExportAllTableQrs}
             disabled={isExportingAllTablePdf || availableTables.length === 0}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            className="px-3.5 py-2 rounded-xl bg-[#433022] hover:bg-[#2B2118] border border-[#5A4230] text-[#FFF1E6] text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
             title="Download all table QR standee cards as a single PDF"
           >
             {isExportingAllTablePdf ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FFA94D]" />
             ) : (
-              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <Download className="w-3.5 h-3.5 text-[#FFA94D]" />
             )}
             <span>{isExportingAllTablePdf ? 'Generating...' : 'All Table QRs (PDF)'}</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="px-4 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs sm:text-sm font-bold shadow-md shadow-[#F26B1D]/20 transition flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#D95A12] hover:from-[#D95A12] hover:to-[#C24E0D] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-[#F26B1D]/25 transition flex items-center gap-1.5 cursor-pointer"
           >
             <Printer className="w-4 h-4 stroke-[2.5]" />
             <span>Print Now</span>
@@ -2394,21 +2398,21 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
 
       {/* Visual Format Selector (Grid of 15 Cards) */}
       <div className="no-print space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#7A6A5C] flex items-center gap-1.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#FFF9F2]/80 border border-[#F0E4D7]">
+          <span className="text-xs font-extrabold uppercase tracking-wider text-[#2B2118] flex items-center gap-2 pl-1">
             <Layers className="w-4 h-4 text-[#F26B1D]" />
             Pick Print Format:
           </span>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
             {FORMAT_CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition whitespace-nowrap cursor-pointer ${
                   selectedCategory === cat.id
-                    ? 'bg-[#F26B1D] text-white shadow-xs'
-                    : 'bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118]'
+                    ? 'bg-[#2B2118] text-white shadow-xs'
+                    : 'bg-white text-[#7A6A5C] border border-[#F0E4D7] hover:border-[#F26B1D]/40 hover:text-[#2B2118]'
                 }`}
               >
                 {cat.label}
@@ -2464,16 +2468,20 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                     </div>
                   </div>
 
-                  <h3 className="text-xs font-bold text-slate-900 leading-tight group-hover:text-amber-700 transition">
+                  <h3 className="text-xs font-extrabold text-[#2B2118] leading-tight group-hover:text-[#F26B1D] transition">
                     {format.name}
                   </h3>
-                  <p className="text-[10px] text-slate-500 leading-tight mt-1 line-clamp-1">
+                  <p className="text-[10px] text-[#7A6A5C] leading-tight mt-1 line-clamp-1">
                     {format.tagline}
                   </p>
                 </div>
 
-                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                <div className="mt-2.5 pt-2 border-t border-[#F0E4D7]/80 flex items-center justify-between">
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                    isSelected
+                      ? 'bg-[#F26B1D] text-white'
+                      : 'bg-[#FFF9F2] text-[#7A6A5C] border border-[#F0E4D7]'
+                  }`}>
                     {format.badge}
                   </span>
                 </div>
@@ -2488,9 +2496,9 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
         {/* Left Column: Format & Owner Design Customizer Controls */}
         <div className="no-print lg:col-span-5 space-y-4">
           {/* Module 1: Format & Target Options */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+          <div className="p-4 rounded-2xl bg-[#FFF9F2]/75 border border-[#F0E4D7] space-y-3">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#F0E4D7]">
+              <span className="text-xs font-extrabold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-amber-600" />
                 Format: {selectedFormat.name}
               </span>
@@ -2508,7 +2516,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                     onClick={() => setSelectedSizeId(sz.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
                       selectedSize.id === sz.id
-                        ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                        ? 'bg-[#2B2118] border-[#2B2118] text-white shadow-xs'
                         : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
                     }`}
                   >
@@ -2539,9 +2547,9 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           </div>
 
           {/* Module 2: Background Photo & Atmosphere */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+          <div className="p-4 rounded-2xl bg-[#FFF9F2]/75 border border-[#F0E4D7] space-y-3.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#F0E4D7]">
+              <span className="text-xs font-extrabold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
                 <ImageIcon className="w-3.5 h-3.5 text-amber-600" />
                 Background Photo & Atmosphere
               </span>
@@ -2638,7 +2646,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                   onClick={() => setTextColorMode('auto')}
                   className={`py-1.5 px-2 rounded-xl text-xs font-bold transition border cursor-pointer text-center ${
                     textColorMode === 'auto'
-                      ? 'bg-slate-900 border-slate-900 text-white'
+                      ? 'bg-[#2B2118] border-[#2B2118] text-white'
                       : 'bg-white border-slate-200 text-slate-600'
                   }`}
                 >
@@ -2649,7 +2657,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                   onClick={() => setTextColorMode('light')}
                   className={`py-1.5 px-2 rounded-xl text-xs font-bold transition border cursor-pointer text-center ${
                     textColorMode === 'light'
-                      ? 'bg-slate-900 border-slate-900 text-white'
+                      ? 'bg-[#2B2118] border-[#2B2118] text-white'
                       : 'bg-white border-slate-200 text-slate-600'
                   }`}
                 >
@@ -2660,7 +2668,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                   onClick={() => setTextColorMode('dark')}
                   className={`py-1.5 px-2 rounded-xl text-xs font-bold transition border cursor-pointer text-center ${
                     textColorMode === 'dark'
-                      ? 'bg-slate-900 border-slate-900 text-white'
+                      ? 'bg-[#2B2118] border-[#2B2118] text-white'
                       : 'bg-white border-slate-200 text-slate-600'
                   }`}
                 >
@@ -2730,10 +2738,10 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           </div>
 
           {/* Module 2.5: Folded Card Inner Panels (Replaces Black Boxes) */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+          <div className="p-4 rounded-2xl bg-[#FFF9F2]/75 border border-[#F0E4D7] space-y-3.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#F0E4D7]">
               <div>
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-extrabold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-amber-600" />
                   Card Inner Panels (Replaces Black Card Area)
                 </span>
@@ -2869,9 +2877,9 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
 
           {/* Module 2.5: Fold Line & Bottom Panel (Side 2) Text Editor */}
           {selectedFormatId === 'table-tent' && (
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <div className="p-4 rounded-2xl bg-[#FFF9F2]/75 border border-[#F0E4D7] space-y-3.5">
+              <div className="flex items-center justify-between pb-2.5 border-b border-[#F0E4D7]">
+                <span className="text-xs font-extrabold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
                   <Edit3 className="w-3.5 h-3.5 text-amber-600" />
                   Fold Line & Bottom Panel Text
                 </span>
@@ -2994,9 +3002,9 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           )}
 
           {/* Module 3: QR Code Size, Corner Handles & Placement */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+          <div className="p-4 rounded-2xl bg-[#FFF9F2]/75 border border-[#F0E4D7] space-y-3.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#F0E4D7]">
+              <span className="text-xs font-extrabold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
                 QR Size & Corner Placement
               </span>
@@ -3142,9 +3150,9 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           </div>
 
           {/* Module 3.5: QR Center Logo Studio */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+          <div className="p-4 rounded-2xl bg-[#FFF9F2]/75 border border-[#F0E4D7] space-y-3.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#F0E4D7]">
+              <span className="text-xs font-extrabold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
                 QR Center Logo
               </span>
@@ -3223,7 +3231,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                     onClick={() => setLogoShape('rounded')}
                     className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition border cursor-pointer text-center ${
                       logoShape === 'rounded'
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        ? 'bg-[#2B2118] text-white border-[#2B2118] shadow-xs'
                         : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -3234,7 +3242,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                     onClick={() => setLogoShape('circle')}
                     className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition border cursor-pointer text-center ${
                       logoShape === 'circle'
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        ? 'bg-[#2B2118] text-white border-[#2B2118] shadow-xs'
                         : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -3253,7 +3261,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                     onClick={() => setLogoSize('medium')}
                     className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition border cursor-pointer text-center ${
                       logoSize === 'medium'
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        ? 'bg-[#2B2118] text-white border-[#2B2118] shadow-xs'
                         : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -3264,7 +3272,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                     onClick={() => setLogoSize('small')}
                     className={`py-1 px-1.5 rounded-lg text-[10px] font-bold transition border cursor-pointer text-center ${
                       logoSize === 'small'
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        ? 'bg-[#2B2118] text-white border-[#2B2118] shadow-xs'
                         : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -3284,9 +3292,9 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           </div>
 
           {/* Module 4: Custom Texts & Typography Studio (Owner Control) */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+          <div className="p-4 rounded-2xl bg-[#FFF9F2]/75 border border-[#F0E4D7] space-y-3.5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#F0E4D7]">
+              <span className="text-xs font-extrabold text-[#2B2118] uppercase tracking-wider flex items-center gap-1.5">
                 <Type className="w-3.5 h-3.5 text-amber-600" />
                 Typography & Custom Text
               </span>
@@ -3680,7 +3688,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           </div>
 
           {/* Module 5: Print Shop 3mm Bleed & Crop Marks */}
-          <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+          <div className="p-3.5 bg-[#FFF9F2]/75 rounded-2xl border border-[#F0E4D7] flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Scissors className="w-4 h-4 text-emerald-600" />
               <div>
@@ -3783,7 +3791,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           {/* Exact-Ratio Preview Canvas Container */}
           <div
             onClick={() => setSelectedElementId(null)}
-            className="relative p-4 sm:p-6 rounded-3xl bg-slate-100/90 border border-slate-200/90 flex items-center justify-center overflow-auto min-h-[500px]"
+            className="relative p-4 sm:p-6 rounded-3xl bg-[#FFF9F2]/90 border border-[#F0E4D7] flex items-center justify-center overflow-auto min-h-[500px]"
           >
             {/* Copy / Paste Toast Notification */}
             {copyToast && (
@@ -3895,7 +3903,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           </div>
 
           {/* Bottom Quality Status Bar */}
-          <div className="no-print p-3 rounded-2xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="no-print p-3 rounded-2xl bg-[#FFF9F2]/80 border border-[#F0E4D7] flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-slate-600">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>

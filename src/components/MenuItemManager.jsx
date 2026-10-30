@@ -49,6 +49,7 @@ function getFoodEmoji(title = '', category = '') {
 export default function MenuItemManager({
   categories = [],
   menuItems = [],
+  onCreateCategory,
   onCreateMenuItem,
   onUpdateMenuItem,
   onDeleteMenuItem,
@@ -528,6 +529,8 @@ export default function MenuItemManager({
         menuItems={menuItems}
         dealCategory={dealCategory}
         itemToEdit={itemToEdit}
+        onCreateCategory={onCreateCategory}
+        onCreateMenuItem={onCreateMenuItem}
         onSaveDeal={handleSaveDeal}
       />
 
@@ -537,6 +540,7 @@ export default function MenuItemManager({
         onClose={() => setIsDishModalOpen(false)}
         categories={categories}
         itemToEdit={itemToEdit}
+        onCreateCategory={onCreateCategory}
         onSaveDish={handleSaveDish}
       />
     </div>

@@ -29,17 +29,16 @@ import {
   Copy,
   Send,
   Pause,
-  Receipt,
   Bike,
   LayoutGrid,
   List,
   Calendar,
   Eye,
-  Edit2,
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
 import { filterOrdersByDate } from '../utils/orderReportUtils';
 import { orderService, playKitchenChime } from '../services/orderService';
+import { authService } from '../services/authService';
 import {
   buildGoogleMapsNavUrl,
   buildOsmNavUrl,
@@ -52,7 +51,6 @@ import ErrorBoundary from './ErrorBoundary';
 
 const LeafletMap = lazy(() => import('./Map/LeafletMap.jsx'));
 const PrintTemplateRenderer = lazy(() => import('./Printer/PrintTemplateRenderer'));
-const EditOrderItemsModal = lazy(() => import('./Orders/EditOrderItemsModal'));
 const OrderDetailsModal = lazy(() => import('./Orders/OrderDetailsModal'));
 
 export default function OrdersFeed({
@@ -70,9 +68,10 @@ export default function OrdersFeed({
   onUnlockAudio,
   onOpenPrinterSettings,
   onPrintSalesSummary: _onPrintSalesSummary,
-  onOpenNewOrder,
+  onOpenNewOrder: _onOpenNewOrder,
   onDismissOrderAlert,
-  menuItems = [],
+  menuItems: _menuItems = [],
+  currentUser = null,
 }) {
   const [filter, setFilter] = useState('all'); // all, active, new, preparing, out_for_delivery / dine_in, delivery, pickup
   useEffect(() => {
@@ -81,7 +80,6 @@ export default function OrdersFeed({
   const [search, setSearch] = useState('');
   const [orderStatusToast, setOrderStatusToast] = useState(null);
   const [printingOrder, setPrintingOrder] = useState(null);
-  const [editingOrderItems, setEditingOrderItems] = useState(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const [openMenuOrderId, setOpenMenuOrderId] = useState(null);
   const [activePrintMenuOrderId, setActivePrintMenuOrderId] = useState(null);
@@ -145,14 +143,30 @@ export default function OrdersFeed({
     const isCurrentlyPaid =
       order.payment_status === 'paid' && (order.explicit_paid || order.status === 'completed');
     const nextPaid = !isCurrentlyPaid;
-    orderService.updateOrderPaymentStatus(restaurant.id, order.id, nextPaid);
+    const isDineInTableOrder =
+      order.order_type === 'dine_in' || Boolean(order.table_number || order.table);
+
+    if (nextPaid && isDineInTableOrder && !order.waiter_marked_paid) {
+      setOrderStatusToast({
+        message: `Table ${order.table_number || order.table || 'Dine-In'} (Order #${order.id}): First the Waiter must mark the bill as Paid on the Tables page before Cashier can mark it Paid!`,
+        orderId: order.id,
+        isError: true,
+      });
+      setTimeout(() => setOrderStatusToast(null), 4500);
+      return;
+    }
+
+    const cashierName = currentUser?.name || currentUser?.email || 'Cashier';
+    orderService.updateOrderPaymentStatus(restaurant.id, order.id, nextPaid, cashierName);
     setOrderStatusToast({
       message: nextPaid
-        ? `Order #${order.id} bill marked as PAID (${formatPKR(order.total_payable || 0)})`
+        ? isDineInTableOrder
+          ? `Order #${order.id} (Table ${order.table_number || order.table}) marked PAID by ${cashierName} • Collected by Waiter: ${order.waiter_collected_by || order.waiter_name || 'Waiter'} (${formatPKR(order.total_payable || 0)})`
+          : `Order #${order.id} bill marked as PAID (${formatPKR(order.total_payable || 0)})`
         : `Order #${order.id} bill marked as UNPAID`,
       orderId: order.id,
     });
-    setTimeout(() => setOrderStatusToast(null), 3500);
+    setTimeout(() => setOrderStatusToast(null), 4000);
   };
 
   const isOrderPaid = (ord) =>
@@ -1106,9 +1120,35 @@ export default function OrdersFeed({
                           <div className="font-bold text-[#2B2118] truncate flex items-center gap-1">
                             <span>{order.customer_name || 'Walk-in Customer'}</span>
                           </div>
-                          <div className="text-[11px] text-[#7A6A5C] truncate flex items-center gap-1 mt-0.5">
-                            {order.order_type === 'dine_in' ? (
-                              <span className="text-purple-700 font-bold">Table {order.table_number || 'Dine-In'}</span>
+                          <div className="text-[11px] text-[#7A6A5C] mt-0.5">
+                            {order.order_type === 'dine_in' || order.table_number || order.table ? (
+                              (() => {
+                                const wInfo = authService.resolveWaiterDetails(order, restaurant?.slug, restaurant?.id);
+                                return (
+                                  <div className="space-y-0.5">
+                                    <div className="text-purple-700 font-bold">
+                                      Table {order.table_number || order.table || 'Dine-In'}
+                                    </div>
+                                    <div className="text-[10px] text-[#2B2118] truncate">
+                                      Waiter: <span className="font-bold">{wInfo.name}</span>{' '}
+                                      <span className="font-mono text-[#D95A12]">({wInfo.staff_code})</span>
+                                    </div>
+                                    <div className="text-[10px] text-[#7A6A5C] font-mono truncate">
+                                      📞 {wInfo.phone}
+                                    </div>
+                                    <div className="text-[10px] truncate">
+                                      Cash:{' '}
+                                      {order.waiter_marked_paid || isOrderPaid(order) ? (
+                                        <span className="font-bold text-emerald-700">
+                                          {wInfo.name} ({wInfo.staff_code})
+                                        </span>
+                                      ) : (
+                                        <span className="font-semibold text-amber-700">Pending Waiter</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()
                             ) : order.customer_address ? (
                               <span title={order.customer_address}>{order.customer_address}</span>
                             ) : order.customer_phone ? (
@@ -1237,27 +1277,54 @@ export default function OrdersFeed({
                         {/* Payment */}
                         <td className="py-3 px-2 text-center whitespace-nowrap">
                           {order.payment_status === 'paid' && (order.explicit_paid || order.status === 'completed') ? (
-                            <button
-                              type="button"
-                              onClick={(e) => order.status !== 'completed' && handleTogglePaymentStatus(order, e)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 ${
-                                order.status !== 'completed' ? 'hover:bg-amber-100 hover:text-amber-800 hover:border-amber-300 cursor-pointer transition' : ''
-                              }`}
-                              title={order.status !== 'completed' ? 'Bill Paid — Click to revert to Unpaid' : 'Bill Paid in Full'}
-                            >
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>PAID</span>
-                            </button>
-                          ) : (
-                            <div className="inline-flex items-center gap-1">
+                            <div className="inline-flex flex-col items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={(e) => order.status !== 'completed' && handleTogglePaymentStatus(order, e)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 ${
+                                  order.status !== 'completed' ? 'hover:bg-amber-100 hover:text-amber-800 hover:border-amber-300 cursor-pointer transition' : ''
+                                }`}
+                                title={order.status !== 'completed' ? 'Bill Paid — Click to revert to Unpaid' : 'Bill Paid in Full'}
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>PAID</span>
+                              </button>
+                              {(order.order_type === 'dine_in' || order.table_number || order.table) && (
+                                <span className="text-[9px] text-emerald-700 font-bold">
+                                  Waiter: {order.waiter_collected_by || order.waiter_name || 'Waiter'}
+                                </span>
+                              )}
+                            </div>
+                          ) : (order.order_type === 'dine_in' || order.table_number || order.table) && !order.waiter_marked_paid ? (
+                            <div className="inline-flex flex-col items-center gap-1">
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
                                 UNPAID
                               </span>
                               <button
                                 type="button"
                                 onClick={(e) => handleTogglePaymentStatus(order, e)}
-                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs"
-                                title="Click when customer pays the bill"
+                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300 cursor-not-allowed"
+                                title="Waiter must mark bill as paid on the Tables page first before Cashier can mark it paid"
+                              >
+                                🔒 Waiter Paid First
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="inline-flex flex-col items-center gap-1">
+                              {(order.order_type === 'dine_in' || order.table_number || order.table) && order.waiter_marked_paid ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  💵 Waiter: {order.waiter_collected_by || order.waiter_name || 'Waiter'}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+                                  UNPAID
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => handleTogglePaymentStatus(order, e)}
+                                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs"
+                                title="Cashier: Mark order bill as PAID"
                               >
                                 Mark Paid
                               </button>
@@ -1287,18 +1354,6 @@ export default function OrdersFeed({
                             >
                               <Printer className="w-3.5 h-3.5 text-[#F26B1D]" />
                             </button>
-
-                            {/* Edit Items (if not completed/cancelled) */}
-                            {order.status !== 'completed' && order.status !== 'cancelled' && (
-                              <button
-                                type="button"
-                                onClick={() => setEditingOrderItems(order)}
-                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
-                                title="Edit order items"
-                              >
-                                <Edit2 className="w-3.5 h-3.5 text-blue-600" />
-                              </button>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -1439,10 +1494,10 @@ export default function OrdersFeed({
 
                     {/* Delivery / Dining Location Info */}
                     <div className="py-2.5 space-y-2 text-xs text-[#7A6A5C] border-b border-[#F0E4D7]/70">
-                      {order.order_type === 'dine_in' ? (
-                        <div>
+                      {order.order_type === 'dine_in' || order.table_number || order.table ? (
+                        <div className="space-y-2">
                           {order.customer_phone && (
-                            <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="flex items-center gap-1.5">
                               <Phone className="w-3.5 h-3.5 text-[#9E8E81]" />
                               <span className="font-mono">+{order.customer_phone}</span>
                             </div>
@@ -1450,9 +1505,60 @@ export default function OrdersFeed({
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-start gap-1.5 flex-1 font-semibold text-purple-900">
                               <MapPin className="w-3.5 h-3.5 text-purple-600 shrink-0 mt-0.5" />
-                              <span>Table #{order.table_number || 'Dine-In Area'} (Restaurant Dine-in Guest)</span>
+                              <span>Table #{order.table_number || order.table || 'Dine-In Area'} (Restaurant Dine-in Guest)</span>
                             </div>
                           </div>
+                          {/* Complete Table & Waiter Attribution Record */}
+                          {(() => {
+                            const wInfo = authService.resolveWaiterDetails(order, restaurant?.slug, restaurant?.id);
+                            return (
+                              <div className="p-3 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2 text-[11px]">
+                                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[#F0E4D7]">
+                                  <div className="font-bold text-[#2B2118] flex items-center gap-1.5">
+                                    <span>👨‍🍳 Waiter: {wInfo.name}</span>
+                                    <span className="px-1.5 py-0.5 rounded bg-orange-100 text-[#D95A12] font-mono font-black text-[10px]">
+                                      ID: {wInfo.staff_code}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-semibold text-[#7A6A5C]">
+                                    {wInfo.role_label || 'Floor Waiter'} • {wInfo.shift || 'Main Shift'}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  <div>
+                                    <span className="text-[10px] text-[#7A6A5C] uppercase font-bold block">Waiter Contact</span>
+                                    <span className="font-mono font-bold text-[#2B2118] block">📞 {wInfo.phone}</span>
+                                    <span className="font-mono text-[10px] text-[#7A6A5C] truncate block">✉️ {wInfo.email}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-[#7A6A5C] uppercase font-bold block">Money Taken By</span>
+                                    {order.waiter_marked_paid || isOrderPaid(order) ? (
+                                      <span className="font-bold text-emerald-700">
+                                        💵 {wInfo.name} ({wInfo.staff_code})
+                                        {order.waiter_paid_at
+                                          ? ` at ${new Date(order.waiter_paid_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                          : ''}
+                                      </span>
+                                    ) : (
+                                      <span className="font-bold text-amber-700">⏳ Pending Waiter</span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-[#7A6A5C] uppercase font-bold block">Cashier Status</span>
+                                    {isOrderPaid(order) ? (
+                                      <span className="font-bold text-emerald-700">
+                                        ✓ Paid ({order.cashier_verified_by || 'Cashier'})
+                                      </span>
+                                    ) : order.waiter_marked_paid ? (
+                                      <span className="font-bold text-blue-700">⏳ Cashier Can Mark Paid</span>
+                                    ) : (
+                                      <span className="font-semibold text-slate-500">🔒 Waiter Paid First</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       ) : order.order_type === 'pickup' ? (
                         <div>
@@ -1632,17 +1738,6 @@ export default function OrdersFeed({
                         <p className="text-[11px] font-bold text-[#7A6A5C] uppercase tracking-wider">
                           Ordered Dishes ({order.items?.length || 0})
                         </p>
-                        {order.status !== 'completed' && order.status !== 'delivered' && order.status !== 'cancelled' && (
-                          <button
-                            type="button"
-                            onClick={() => setEditingOrderItems(order)}
-                            className="text-[11px] font-bold text-[#F26B1D] hover:text-[#D95A12] bg-[#FFF1E6] hover:bg-[#FFE3D0] px-2.5 py-1 rounded-lg border border-[#F26B1D]/30 transition flex items-center gap-1 cursor-pointer"
-                            title="Edit items, remove accidental items (e.g. water), or recalculate bill"
-                          >
-                            <Receipt className="w-3.5 h-3.5" />
-                            <span>Edit Bill / Items</span>
-                          </button>
-                        )}
                       </div>
                       <div className="space-y-1.5">
                         {order.items?.map((item, idx) => (
@@ -1733,6 +1828,15 @@ export default function OrdersFeed({
                               Mark Unpaid
                             </button>
                           )
+                        ) : (order.order_type === 'dine_in' || order.table_number || order.table) && !order.waiter_marked_paid ? (
+                          <button
+                            type="button"
+                            onClick={(e) => handleTogglePaymentStatus(order, e)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-slate-200 text-slate-600 border border-slate-300 cursor-not-allowed flex items-center gap-1"
+                            title="Waiter must mark bill as paid on the Tables page first before Cashier can mark it paid"
+                          >
+                            <span>🔒 Waiter Paid First</span>
+                          </button>
                         ) : (
                           <button
                             type="button"
@@ -2318,33 +2422,6 @@ export default function OrdersFeed({
         </div>
       )}
 
-      {/* Edit Order Items & Recalculate Bill Modal */}
-      {editingOrderItems && (
-        <Suspense fallback={null}>
-          <EditOrderItemsModal
-            isOpen={Boolean(editingOrderItems)}
-            onClose={() => setEditingOrderItems(null)}
-            order={editingOrderItems}
-            restaurant={restaurant}
-            menuItems={menuItems}
-            onOrderUpdated={() => {
-              setEditingOrderItems(null);
-            }}
-            onPrintBill={(updatedOrder, templateType) => {
-              handlePrintTicket(updatedOrder, templateType);
-            }}
-            onOpenPosForOrder={(ord) => {
-              setEditingOrderItems(null);
-              if (onOpenNewOrder) {
-                const tblNum = ord.table_number || ord.table;
-                const tableObj = tblNum ? { table_number: tblNum } : null;
-                onOpenNewOrder(tableObj, ord.order_type || 'dine_in', ord.id);
-              }
-            }}
-          />
-        </Suspense>
-      )}
-
       {/* Order Details Modal with Send to Rider Menu */}
       {selectedOrderDetails && (
         <Suspense fallback={null}>
@@ -2353,6 +2430,7 @@ export default function OrdersFeed({
             onClose={() => setSelectedOrderDetails(null)}
             order={selectedOrderDetails}
             restaurant={restaurant}
+            currentUser={currentUser}
             onUpdateStatus={handleOrderStatusChange}
             onPrintTicket={handlePrintTicket}
             onOrderUpdated={(updated) => {

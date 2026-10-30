@@ -28,12 +28,12 @@ export const ROLE_TIERS = {
     shortLabel: 'Manager',
     title: 'Shift Manager',
     badgeClass: 'bg-[#F5EFEA] text-[#2B2118] border-[#E5D9CE]',
-    description: 'Full operational access, reports & KPIs, plus credential management for Cashiers & Waiters. No Store Settings access.',
-    allowedTabs: ['orders', 'completed', 'customers', 'cashflow', 'items', 'categories', 'tables', 'qr', 'staff'],
+    description: 'Full operational & Store Settings access, reports & KPIs, plus credential management for Cashiers & Waiters. Cannot add a new Manager.',
+    allowedTabs: ['orders', 'completed', 'customers', 'cashflow', 'items', 'categories', 'tables', 'qr', 'staff', 'settings'],
     defaultTab: 'orders',
     canViewRevenue: true,
     canViewReports: true,
-    canAccessSettings: false,
+    canAccessSettings: true,
     canManageRoles: ['cashier', 'waiter'],
   },
   cashier: {
@@ -148,13 +148,13 @@ const DEFAULT_ACCOUNTS = [
   {
     id: 'user-waiter-01',
     email: 'waiter@burgersmoke.com',
-    name: 'Hamza (Floor Waiter)',
+    name: 'Hamza Ali',
     role: 'waiter',
     restaurant_id: 'rest-101',
     restaurant_name: 'Burger & Smoke Co.',
     restaurant_slug: 'burgersmoke',
-    phone: '923001234570',
-    whatsapp_number: '923001234570',
+    phone: '0300-9876541',
+    whatsapp_number: '0300-9876541',
     password_masked: '••••••••••••',
     must_change_password: false,
     created_at: new Date('2026-10-05T12:30:00Z').toISOString(),
@@ -358,6 +358,17 @@ export const authService = {
             delete userObj.password_encrypted;
             if (userObj.email && userObj.email.toLowerCase() === 'admin@dinehq.pk') {
               userObj.email = 'admin@dineflow.pk';
+            }
+            if (
+              userObj.id === 'user-waiter-01' ||
+              (userObj.role === 'waiter' &&
+                String(userObj.name || '').replace(/\s*\(.*?\)\s*/g, '').trim().toLowerCase() === 'hamza')
+            ) {
+              userObj.name = 'Hamza Ali';
+              if (!userObj.phone || userObj.phone === '923001234570') {
+                userObj.phone = '0300-9876541';
+                userObj.whatsapp_number = '0300-9876541';
+              }
             }
             emailMap.set(userObj.email.toLowerCase(), userObj);
           });
@@ -648,6 +659,191 @@ export const authService = {
     } catch (e) {
       console.warn('Could not persist staff credential locally:', e);
     }
+  },
+
+  /**
+   * Get all waiters (with full profile details: ID, badge code, phone, email, role, shift) for a restaurant
+   */
+  getRestaurantWaiters(restaurantSlug = 'burgersmoke', restaurantId = 'rest-101', restaurantName = 'Restaurant') {
+    const cleanSlug = String(restaurantSlug || 'burgersmoke').trim().toLowerCase();
+    const allUsers = this.getRegisteredUsers();
+
+    // Canonical default roster with distinct names, staff IDs, phones, and emails
+    const defaultRoster = [
+      {
+        id: `waiter-${cleanSlug}-1`,
+        staff_code: 'WTR-101',
+        name: 'Hamza Ali',
+        role: 'waiter',
+        role_label: 'Senior Floor Waiter',
+        phone: '0300-9876541',
+        email: `hamza.waiter@${cleanSlug}.com`,
+        shift: 'Morning & Evening Shift',
+        restaurant_id: restaurantId,
+        restaurant_slug: cleanSlug,
+        restaurant_name: restaurantName,
+      },
+      {
+        id: `waiter-${cleanSlug}-2`,
+        staff_code: 'WTR-102',
+        name: 'Usman Raza',
+        role: 'waiter',
+        role_label: 'Floor Waiter',
+        phone: '0321-4567892',
+        email: `usman.waiter@${cleanSlug}.com`,
+        shift: 'Evening & Dinner Shift',
+        restaurant_id: restaurantId,
+        restaurant_slug: cleanSlug,
+        restaurant_name: restaurantName,
+      },
+      {
+        id: `waiter-${cleanSlug}-3`,
+        staff_code: 'WTR-103',
+        name: 'Bilal Tariq',
+        role: 'waiter',
+        role_label: 'VIP & Family Hall Waiter',
+        phone: '0333-1122334',
+        email: `bilal.waiter@${cleanSlug}.com`,
+        shift: 'Full-Day Shift',
+        restaurant_id: restaurantId,
+        restaurant_slug: cleanSlug,
+        restaurant_name: restaurantName,
+      },
+    ];
+
+    const merged = [...defaultRoster];
+
+    // Append any custom manager-created waiters that aren't already in the default roster
+    const customWaiters = allUsers.filter(
+      (u) =>
+        (u.restaurant_slug || 'burgersmoke').toLowerCase() === cleanSlug &&
+        u.role === 'waiter'
+    );
+
+    customWaiters.forEach((u) => {
+      const rawCleanName = String(u.name || '')
+        .replace(/\s*\(.*?\)\s*/g, '')
+        .trim();
+      const normalizedName =
+        rawCleanName.toLowerCase() === 'hamza' ? 'Hamza Ali' : rawCleanName;
+      if (!normalizedName) return;
+
+      const alreadyExists = merged.some(
+        (m) =>
+          m.name.toLowerCase() === normalizedName.toLowerCase() ||
+          m.name.toLowerCase().split(/\s+/)[0] === normalizedName.toLowerCase().split(/\s+/)[0] ||
+          (u.email && m.email.toLowerCase() === u.email.toLowerCase()) ||
+          (u.staff_code && m.staff_code === u.staff_code)
+      );
+
+      if (!alreadyExists) {
+        const nextNum = 101 + merged.length;
+        merged.push({
+          id: u.id || `waiter-${cleanSlug}-${merged.length + 1}`,
+          staff_code: u.staff_code || `WTR-${nextNum}`,
+          name: normalizedName,
+          role: 'waiter',
+          role_label: u.role_label || 'Floor Waiter',
+          phone: u.phone || u.whatsapp_number || `0345-7788${nextNum}`,
+          email: u.email || `${normalizedName.toLowerCase().replace(/[^a-z0-9]/g, '')}@${cleanSlug}.com`,
+          shift: u.shift || 'Main Floor Shift',
+          restaurant_id: u.restaurant_id || restaurantId,
+          restaurant_slug: cleanSlug,
+          restaurant_name: u.restaurant_name || restaurantName,
+        });
+      }
+    });
+
+    return merged;
+  },
+
+  /**
+   * Resolve complete waiter profile details (name, staff_code, phone, email, role, shift)
+   * from an order object or waiter name string.
+   */
+  resolveWaiterDetails(orderOrName, restaurantSlug = 'burgersmoke', restaurantId = 'rest-101') {
+    const cleanSlug = String(restaurantSlug || 'burgersmoke').trim().toLowerCase();
+    const waiters = this.getRestaurantWaiters(cleanSlug, restaurantId);
+    const allStaff = this.getRegisteredUsers().filter(
+      (u) => (u.restaurant_slug || 'burgersmoke').toLowerCase() === cleanSlug
+    );
+
+    if (orderOrName && typeof orderOrName === 'object') {
+      const ord = orderOrName;
+      if (ord.waiter_details && ord.waiter_details.name && ord.waiter_details.phone) {
+        const rawClean = String(ord.waiter_details.name).replace(/\s*\(.*?\)\s*/g, '').trim();
+        const cleanName = rawClean.toLowerCase() === 'hamza' ? 'Hamza Ali' : rawClean;
+        const cleanEmail = String(ord.waiter_details.email || '')
+          .replace(/@dineflow\.pk$/i, `@${cleanSlug}.com`);
+        return {
+          ...ord.waiter_details,
+          name: cleanName || ord.waiter_details.name,
+          email: cleanEmail || ord.waiter_details.email,
+        };
+      }
+      const rawName =
+        ord.order_taken_by ||
+        ord.waiter_name ||
+        ord.waiter_collected_by ||
+        ord.staff_name ||
+        '';
+      const cleanRaw = String(rawName).trim();
+
+      // Match against waiter roster first
+      if (cleanRaw && cleanRaw.toLowerCase() !== 'waiter' && !cleanRaw.toLowerCase().includes('manager')) {
+        const matchedWaiter = waiters.find(
+          (w) =>
+            w.name.toLowerCase() === cleanRaw.toLowerCase() ||
+            w.name.toLowerCase().includes(cleanRaw.toLowerCase()) ||
+            cleanRaw.toLowerCase().includes(w.name.toLowerCase().split('(')[0].trim())
+        );
+        if (matchedWaiter) return matchedWaiter;
+
+        const matchedStaff = allStaff.find(
+          (s) => s.name && s.name.toLowerCase() === cleanRaw.toLowerCase()
+        );
+        if (matchedStaff) {
+          return {
+            id: matchedStaff.id || 'staff-01',
+            staff_code: matchedStaff.staff_code || (matchedStaff.role === 'waiter' ? 'WTR-101' : 'STF-101'),
+            name: matchedStaff.name,
+            role: matchedStaff.role || 'waiter',
+            role_label: matchedStaff.role === 'waiter' ? 'Floor Waiter' : 'Floor Staff',
+            phone: matchedStaff.phone || matchedStaff.whatsapp_number || '0300-9876541',
+            email: matchedStaff.email || `staff@${cleanSlug}.com`,
+            shift: 'Main Floor Shift',
+          };
+        }
+
+        return {
+          id: ord.waiter_id || 'waiter-custom',
+          staff_code: ord.waiter_code || 'WTR-101',
+          name: cleanRaw,
+          role: 'waiter',
+          role_label: 'Floor Waiter',
+          phone: ord.waiter_phone || '0300-9876541',
+          email: ord.waiter_email || `${cleanRaw.toLowerCase().replace(/[^a-z0-9]/g, '')}@${cleanSlug}.com`,
+          shift: 'Main Floor Shift',
+        };
+      }
+
+      // Deterministic assignment by table number so every table order shows a real waiter with full details
+      const tblNum = parseInt(String(ord.table_number || ord.table || '1').replace(/\D/g, ''), 10) || 1;
+      const picked = waiters[(tblNum - 1) % waiters.length] || waiters[0];
+      return picked;
+    }
+
+    // String name lookup
+    const nameStr = String(orderOrName || '').trim();
+    if (nameStr && nameStr.toLowerCase() !== 'waiter') {
+      const found = waiters.find(
+        (w) =>
+          w.name.toLowerCase() === nameStr.toLowerCase() ||
+          w.name.toLowerCase().includes(nameStr.toLowerCase())
+      );
+      if (found) return found;
+    }
+    return waiters[0];
   },
 
   /**

@@ -78,6 +78,11 @@ export default function LeafletMap({
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
   const isDraggingRef = useRef(false);
+  const onLocationChangeRef = useRef(onLocationChange);
+
+  useEffect(() => {
+    onLocationChangeRef.current = onLocationChange;
+  }, [onLocationChange]);
   const [isAttributionOpen, setIsAttributionOpen] = useState(false);
   const [shouldInitMap, setShouldInitMap] = useState(() => Boolean(interactive));
 
@@ -176,7 +181,7 @@ export default function LeafletMap({
       marker.bindPopup(popupText);
     }
 
-    if (draggable && onLocationChange) {
+    if (draggable) {
       marker.on('dragstart', () => {
         isDraggingRef.current = true;
       });
@@ -185,10 +190,10 @@ export default function LeafletMap({
         const pos = e.target.getLatLng();
         const fixedLat = Number(Number(pos.lat).toFixed(6));
         const fixedLng = Number(Number(pos.lng).toFixed(6));
+        onLocationChangeRef.current?.({ lat: fixedLat, lng: fixedLng });
         setTimeout(() => {
           isDraggingRef.current = false;
-        }, 150);
-        onLocationChange({ lat: fixedLat, lng: fixedLng });
+        }, 250);
       });
 
       // Also allow clicking anywhere on map to reposition marker
@@ -196,7 +201,7 @@ export default function LeafletMap({
         const fixedLat = Number(Number(e.latlng.lat).toFixed(6));
         const fixedLng = Number(Number(e.latlng.lng).toFixed(6));
         marker.setLatLng([fixedLat, fixedLng]);
-        onLocationChange({ lat: fixedLat, lng: fixedLng });
+        onLocationChangeRef.current?.({ lat: fixedLat, lng: fixedLng });
       });
     }
 

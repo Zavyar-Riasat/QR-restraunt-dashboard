@@ -474,7 +474,7 @@ export default function OwnerDashboardPage() {
   };
 
   const handleCreateMenuItem = async (itemData) => {
-    if (!restaurant) return;
+    if (!restaurant) return null;
     const newItem = await restaurantService.createMenuItem({
       ...itemData,
       restaurant_id: restaurant.id,
@@ -482,6 +482,7 @@ export default function OwnerDashboardPage() {
     const updatedItems = [...menuItems, newItem];
     setMenuItems(updatedItems);
     persistChanges(restaurant, categories, updatedItems);
+    return newItem;
   };
 
   const handleUpdateMenuItem = async (itemId, itemData) => {
@@ -960,6 +961,7 @@ export default function OwnerDashboardPage() {
                 }
                 onDismissOrderAlert={() => setNewOrderAlert(null)}
                 menuItems={menuItems}
+                currentUser={user}
               />
             )}
 
@@ -977,6 +979,7 @@ export default function OwnerDashboardPage() {
             <MenuItemManager
               categories={categories}
               menuItems={menuItems}
+              onCreateCategory={handleCreateCategory}
               onCreateMenuItem={handleCreateMenuItem}
               onUpdateMenuItem={handleUpdateMenuItem}
               onDeleteMenuItem={handleDeleteMenuItem}

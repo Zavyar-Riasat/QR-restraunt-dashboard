@@ -29,6 +29,7 @@ export default function DirectOrderCheckout({
   onBack,
   onOrderPlaced,
   isDeliverableToCustomer = true,
+  devRangeBypass = false,
   deliveryAreas = [],
 }) {
   const primaryColor = restaurant?.primary_color || '#F26B1D';
@@ -131,9 +132,12 @@ export default function DirectOrderCheckout({
     ? { lat: Number(deliveryLocation.latitude), lng: Number(deliveryLocation.longitude) }
     : null;
 
-  const chosenAddressCoverage = chosenAddressCoords && restaurant
+  const rawChosenAddressCoverage = chosenAddressCoords && restaurant
     ? checkRestaurantDeliveryCoverage(chosenAddressCoords, restaurant, deliveryAreas)
     : null;
+  const chosenAddressCoverage = rawChosenAddressCoverage && devRangeBypass
+    ? { ...rawChosenAddressCoverage, deliversToUser: true }
+    : rawChosenAddressCoverage;
 
   // Calculate pricing & dynamic zone fee
   const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);

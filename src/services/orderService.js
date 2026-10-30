@@ -158,6 +158,72 @@ export const generateRiderToken = () => {
   return token;
 };
 
+const DEFAULT_WAITER_PROFILES = [
+  {
+    id: 'waiter-101',
+    staff_code: 'WTR-101',
+    name: 'Hamza Ali',
+    role: 'waiter',
+    role_label: 'Senior Floor Waiter',
+    phone: '0300-9876541',
+    email: 'hamza.waiter@dineflow.pk',
+    shift: 'Morning & Evening Shift',
+  },
+  {
+    id: 'waiter-102',
+    staff_code: 'WTR-102',
+    name: 'Usman Raza',
+    role: 'waiter',
+    role_label: 'Floor Waiter',
+    phone: '0321-4567892',
+    email: 'usman.waiter@dineflow.pk',
+    shift: 'Evening & Dinner Shift',
+  },
+  {
+    id: 'waiter-103',
+    staff_code: 'WTR-103',
+    name: 'Bilal Tariq',
+    role: 'waiter',
+    role_label: 'Family Hall Waiter',
+    phone: '0333-1122334',
+    email: 'bilal.waiter@dineflow.pk',
+    shift: 'Full-Day Shift',
+  },
+];
+
+const resolveDefaultWaiterForOrder = (order) => {
+  if (order?.waiter_details && order.waiter_details.name && order.waiter_details.phone && order.waiter_details.staff_code) {
+    return order.waiter_details;
+  }
+  const tblNum = parseInt(String(order?.table_number || order?.table || '1').replace(/\D/g, ''), 10) || 1;
+  const fallbackProfile = DEFAULT_WAITER_PROFILES[(tblNum - 1) % DEFAULT_WAITER_PROFILES.length] || DEFAULT_WAITER_PROFILES[0];
+  const rawName = String(order?.order_taken_by || order?.waiter_name || '').trim();
+  const isGenericOrManager =
+    !rawName ||
+    rawName.toLowerCase() === 'waiter' ||
+    rawName.toLowerCase().includes('manager') ||
+    rawName.toLowerCase().includes('owner');
+
+  if (!isGenericOrManager) {
+    const matched = DEFAULT_WAITER_PROFILES.find((p) =>
+      rawName.toLowerCase().includes(p.name.toLowerCase()) ||
+      p.name.toLowerCase().includes(rawName.toLowerCase())
+    );
+    if (matched) return matched;
+    return {
+      id: order?.waiter_id || fallbackProfile.id,
+      staff_code: order?.waiter_code || fallbackProfile.staff_code,
+      name: rawName,
+      role: 'waiter',
+      role_label: order?.waiter_role_label || 'Floor Waiter',
+      phone: order?.waiter_phone || fallbackProfile.phone,
+      email: order?.waiter_email || `${rawName.toLowerCase().replace(/[^a-z0-9]/g, '')}@dineflow.pk`,
+      shift: order?.waiter_shift || fallbackProfile.shift,
+    };
+  }
+  return fallbackProfile;
+};
+
 // Starter initial orders for new or demo restaurants so the orders board is immediately functional
 const getStarterOrders = (restaurantId, _restaurantName) => [
   {
@@ -844,8 +910,24 @@ export const orderService = {
     const newOrder = {
       id: cleanId,
       restaurant_id: restId,
+      restaurant_name: restaurant?.name || customerDetails?.restaurant_name || null,
+      restaurant_slug: restaurant?.slug || customerDetails?.restaurant_slug || null,
       order_source: customerDetails?.order_source || (customerDetails?.isManagerOrder ? 'manager' : 'customer'),
       staff_name: customerDetails?.staff_name || null,
+      waiter_name: customerDetails?.waiter_details?.name || customerDetails?.waiter_name || (orderType === 'dine_in' ? (customerDetails?.staff_name || 'Hamza Ali') : null),
+      order_taken_by: customerDetails?.waiter_details?.name || customerDetails?.order_taken_by || customerDetails?.waiter_name || customerDetails?.staff_name || (orderType === 'dine_in' ? 'Hamza Ali' : null),
+      waiter_id: customerDetails?.waiter_details?.id || customerDetails?.waiter_id || null,
+      waiter_code: customerDetails?.waiter_details?.staff_code || customerDetails?.waiter_code || (orderType === 'dine_in' ? 'WTR-101' : null),
+      waiter_phone: customerDetails?.waiter_details?.phone || customerDetails?.waiter_phone || (orderType === 'dine_in' ? '0300-9876541' : null),
+      waiter_email: customerDetails?.waiter_details?.email || customerDetails?.waiter_email || null,
+      waiter_role_label: customerDetails?.waiter_details?.role_label || customerDetails?.waiter_role_label || (orderType === 'dine_in' ? 'Floor Waiter' : null),
+      waiter_shift: customerDetails?.waiter_details?.shift || customerDetails?.waiter_shift || (orderType === 'dine_in' ? 'Main Floor Shift' : null),
+      waiter_details: customerDetails?.waiter_details || (orderType === 'dine_in' ? resolveDefaultWaiterForOrder({ table_number: tableNumber, waiter_name: customerDetails?.waiter_name }) : null),
+      waiter_marked_paid: Boolean(customerDetails?.waiter_marked_paid),
+      waiter_collected_by: customerDetails?.waiter_collected_by || null,
+      waiter_paid_at: customerDetails?.waiter_paid_at || null,
+      cashier_verified_by: customerDetails?.cashier_verified_by || null,
+      cashier_paid_at: customerDetails?.cashier_paid_at || null,
       customer_name: customerDetails?.name?.trim() || (orderType === 'dine_in' ? `Table ${tableNumber || 'Guest'}` : 'Direct Guest'),
       customer_phone: customerDetails?.phone?.trim() || '',
       customer_id: customerDetails?.customer_id || null,
@@ -1065,9 +1147,46 @@ export const orderService = {
             if (copy.total_payable_paisa == null && copy.total_payable != null) {
               copy.total_payable_paisa = toPaisa(copy.total_payable);
             }
+            if (copy.order_type === 'dine_in' || copy.table_number || copy.table) {
+              const resolvedWaiter = resolveDefaultWaiterForOrder(copy);
+              if (
+                !copy.waiter_details ||
+                !copy.waiter_code ||
+                !copy.waiter_phone ||
+                copy.waiter_name === 'Waiter' ||
+                copy.order_taken_by === 'Waiter' ||
+                (copy.order_taken_by && copy.order_taken_by.toLowerCase().includes('manager'))
+              ) {
+                copy.waiter_details = resolvedWaiter;
+                copy.waiter_id = resolvedWaiter.id;
+                copy.waiter_code = resolvedWaiter.staff_code;
+                copy.waiter_phone = resolvedWaiter.phone;
+                copy.waiter_email = resolvedWaiter.email;
+                copy.waiter_role_label = resolvedWaiter.role_label;
+                copy.waiter_shift = resolvedWaiter.shift;
+                copy.waiter_name = resolvedWaiter.name;
+                copy.order_taken_by = resolvedWaiter.name;
+                if (
+                  copy.waiter_collected_by === 'Waiter' ||
+                  (copy.waiter_collected_by && copy.waiter_collected_by.toLowerCase().includes('manager'))
+                ) {
+                  copy.waiter_collected_by = resolvedWaiter.name;
+                  copy.waiter_collected_details = resolvedWaiter;
+                }
+                hasMissingTokens = true;
+              }
+            }
             const isOrderCompleted = copy.status === 'completed' || copy.status === 'delivered';
             const isExplicitlyPaid = Boolean(copy.explicit_paid) || isOrderCompleted;
             if (isExplicitlyPaid) {
+              if (copy.order_type === 'dine_in' || copy.table_number || copy.table) {
+                copy.waiter_marked_paid = true;
+                copy.waiter_collected_by = copy.waiter_collected_by || copy.waiter_name || 'Hamza Ali';
+                copy.waiter_collected_details = copy.waiter_collected_details || copy.waiter_details || resolveDefaultWaiterForOrder(copy);
+                copy.waiter_paid_at = copy.waiter_paid_at || copy.completed_at || copy.created_at;
+                copy.cashier_verified_by = copy.cashier_verified_by || 'Cashier';
+                copy.cashier_paid_at = copy.cashier_paid_at || copy.completed_at || copy.created_at;
+              }
               if (copy.payment_status !== 'paid' || !copy.explicit_paid) {
                 hasMissingTokens = true;
               }
@@ -1249,36 +1368,47 @@ export const orderService = {
       return orders;
     }
     let updatedOrder = null;
-    const updated =
-      newStatus === 'cancelled'
-        ? orders.filter((o) => o.id !== orderId && o.status !== 'cancelled')
-        : orders.map((o) => {
-            if (o.id === orderId) {
-              const isCompleting = newStatus === 'completed' || newStatus === 'delivered';
-              const isAlreadyPaid =
-                Boolean(o.payment_status === 'paid' && (o.explicit_paid || o.status === 'completed' || o.status === 'delivered')) ||
-                Boolean(additionalUpdates.payment_status === 'paid' && additionalUpdates.explicit_paid);
-              if (isCompleting && !isAlreadyPaid) {
-                updatedOrder = o;
-                return o;
+    const updated = orders.map((o) => {
+      if (o.id === orderId) {
+        if (newStatus === 'cancelled') {
+          updatedOrder = {
+            ...o,
+            status: 'cancelled',
+            cancelled_at: additionalUpdates.cancelled_at || o.cancelled_at || new Date().toISOString(),
+            cancelled_by: additionalUpdates.cancelled_by || 'restaurant',
+            payment_status: 'unpaid',
+            explicit_paid: false,
+            amount_received: 0,
+            payments: [],
+            ...additionalUpdates,
+          };
+          return updatedOrder;
+        }
+        const isCompleting = newStatus === 'completed' || newStatus === 'delivered';
+        const isAlreadyPaid =
+          Boolean(o.payment_status === 'paid' && (o.explicit_paid || o.status === 'completed' || o.status === 'delivered')) ||
+          Boolean(additionalUpdates.payment_status === 'paid' && additionalUpdates.explicit_paid);
+        if (isCompleting && !isAlreadyPaid) {
+          updatedOrder = o;
+          return o;
+        }
+        updatedOrder = {
+          ...o,
+          status: newStatus,
+          ...(isCompleting
+            ? {
+                payment_status: 'paid',
+                explicit_paid: true,
+                amount_received: o.total_payable,
+                completed_at: additionalUpdates.completed_at || o.completed_at || new Date().toISOString(),
               }
-              updatedOrder = {
-                ...o,
-                status: newStatus,
-                ...(isCompleting
-                  ? {
-                      payment_status: 'paid',
-                      explicit_paid: true,
-                      amount_received: o.total_payable,
-                      completed_at: additionalUpdates.completed_at || o.completed_at || new Date().toISOString(),
-                    }
-                  : {}),
-                ...additionalUpdates,
-              };
-              return updatedOrder;
-            }
-            return o;
-          });
+            : {}),
+          ...additionalUpdates,
+        };
+        return updatedOrder;
+      }
+      return o;
+    });
 
     this._ordersCache.delete(restaurantId);
 
@@ -1323,12 +1453,71 @@ export const orderService = {
   },
 
   /**
-   * Explicitly mark an order as paid or unpaid
+   * Step 1 for Dine-In Table Orders: Waiter marks the bill as paid (collected money from table)
    */
-  updateOrderPaymentStatus(restaurantId, orderId, isPaid = true) {
+  markOrderPaidByWaiter(restaurantId, orderId, waiterNameOrDetails = 'Waiter', tableNumber = null) {
     const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
     const orders = this.getOrders(restaurantId);
     let updatedOrder = null;
+    const nowIso = new Date().toISOString();
+    const isDetailsObj = waiterNameOrDetails && typeof waiterNameOrDetails === 'object';
+    const cleanWaiter = isDetailsObj
+      ? (waiterNameOrDetails.name || 'Hamza Ali')
+      : ((waiterNameOrDetails || '').trim() || 'Hamza Ali');
+
+    const updated = orders.map((o) => {
+      if (o.id === orderId) {
+        const resolvedDetails = isDetailsObj
+          ? waiterNameOrDetails
+          : (o.waiter_details || resolveDefaultWaiterForOrder({ ...o, waiter_name: cleanWaiter, table_number: o.table_number || tableNumber }));
+        updatedOrder = {
+          ...o,
+          table_number: o.table_number || tableNumber || o.table || null,
+          waiter_name: o.waiter_name || resolvedDetails.name || cleanWaiter,
+          order_taken_by: o.order_taken_by || o.waiter_name || resolvedDetails.name || cleanWaiter,
+          waiter_details: o.waiter_details || resolvedDetails,
+          waiter_code: o.waiter_code || resolvedDetails.staff_code || 'WTR-101',
+          waiter_phone: o.waiter_phone || resolvedDetails.phone || '0300-9876541',
+          waiter_email: o.waiter_email || resolvedDetails.email || null,
+          waiter_role_label: o.waiter_role_label || resolvedDetails.role_label || 'Floor Waiter',
+          waiter_shift: o.waiter_shift || resolvedDetails.shift || 'Main Floor Shift',
+          waiter_marked_paid: true,
+          waiter_collected_by: resolvedDetails.name || cleanWaiter,
+          waiter_collected_details: resolvedDetails,
+          waiter_paid_at: nowIso,
+        };
+        return updatedOrder;
+      }
+      return o;
+    });
+
+    this._ordersCache.delete(restaurantId);
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('dinehq_order_status_updated', {
+            detail: { restaurantId, orderId, status: updatedOrder?.status, order: updatedOrder },
+          })
+        );
+      }
+    } catch (e) {
+      console.warn('Failed to mark order paid by waiter:', e);
+    }
+
+    return updatedOrder;
+  },
+
+  /**
+   * Explicitly mark an order as paid or unpaid (Step 2 by Cashier on Orders page for table orders)
+   */
+  updateOrderPaymentStatus(restaurantId, orderId, isPaid = true, cashierName = null) {
+    const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
+    const orders = this.getOrders(restaurantId);
+    let updatedOrder = null;
+    const nowIso = new Date().toISOString();
     const updated = orders.map((o) => {
       if (o.id === orderId) {
         if ((o.status === 'completed' || o.status === 'delivered') && !isPaid) {
@@ -1342,6 +1531,8 @@ export const orderService = {
           payment_status: isPaid ? 'paid' : 'unpaid',
           explicit_paid: Boolean(isPaid),
           amount_received: isPaid ? payable : 0,
+          cashier_verified_by: isPaid ? (cashierName || o.cashier_verified_by || 'Cashier') : null,
+          cashier_paid_at: isPaid ? nowIso : null,
           payments: isPaid
             ? [
                 {
@@ -1350,7 +1541,8 @@ export const orderService = {
                   amount_paisa: payablePaisa,
                   amount: payable,
                   method: o.payment_method || 'cash',
-                  date: new Date().toISOString(),
+                  date: nowIso,
+                  recorded_by: cashierName || 'Cashier',
                   is_void: false,
                 },
               ]
@@ -1378,6 +1570,10 @@ export const orderService = {
     }
 
     return updated;
+  },
+
+  updatePaymentStatus(orderId, statusStr, restaurantId = 'rest-101', staffName = null) {
+    return this.updateOrderPaymentStatus(restaurantId, orderId, statusStr === 'paid', staffName);
   },
 
   /**
@@ -1602,7 +1798,7 @@ export const orderService = {
   /**
    * Append newly added items to an existing running table order
    */
-  appendItemsToOrder(restaurantId, orderId, newCartItems = []) {
+  appendItemsToOrder(restaurantId, orderId, newCartItems = [], staffInfo = {}) {
     const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
     const orders = this.getOrders(restaurantId);
     const existing = orders.find((o) => o.id === orderId);
@@ -1642,6 +1838,10 @@ export const orderService = {
     const appendPaymentState = computeOrderPaymentState(baseUpdatedOrder);
     const updatedOrder = {
       ...baseUpdatedOrder,
+      waiter_name: existing.waiter_name || staffInfo?.waiterName || staffInfo?.staffName || 'Waiter',
+      order_taken_by: existing.order_taken_by || existing.waiter_name || staffInfo?.waiterName || staffInfo?.staffName || 'Waiter',
+      last_added_by: staffInfo?.staffName || existing.last_added_by || null,
+      waiter_marked_paid: addedSubtotal > 0 ? false : Boolean(existing.waiter_marked_paid),
       total_payable_paisa: appendPaymentState.totalPayablePaisa,
       payment_status: appendPaymentState.paymentStatus,
       explicit_paid: appendPaymentState.paymentStatus === 'paid',

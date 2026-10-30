@@ -1,1 +1,9 @@
-{}
+{
+  "cashier@burgersmoke.com": {
+    "attempts": [
+      1793361949749
+    ],
+    "lockedUntil": 0,
+    "lastFailed": 1793361949749
+  }
+}

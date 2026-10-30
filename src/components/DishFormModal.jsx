@@ -74,6 +74,7 @@ export default function DishFormModal({
   onClose,
   categories = [],
   itemToEdit = null,
+  onCreateCategory,
   onSaveDish,
 }) {
   // Only non-deal categories for single dishes
@@ -101,9 +102,13 @@ export default function DishFormModal({
   const [compressingImage, setCompressingImage] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [hasDraftNotice, setHasDraftNotice] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   const fileInputRef = useRef(null);
   const titleInputRef = useRef(null);
+  const newCategoryInputRef = useRef(null);
 
   const categoryMismatch = checkCategoryMismatch(title, categoryId, categories);
 
@@ -118,6 +123,8 @@ export default function DishFormModal({
     setMoreOptionsOpen(false);
     setValidationError('');
     setHasDraftNotice(false);
+    setIsAddingCategory(false);
+    setNewCategoryName('');
   }, [dishCategories, categories]);
 
   // Initialize or restore state when modal opens
@@ -343,12 +350,59 @@ export default function DishFormModal({
     });
   };
 
+  const handleCreateNewCategoryInline = async () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      setValidationError('Please enter a name for the new category.');
+      newCategoryInputRef.current?.focus();
+      return null;
+    }
+    const existing = categories.find(
+      (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      setCategoryId(existing.id);
+      setIsAddingCategory(false);
+      setNewCategoryName('');
+      setValidationError('');
+      return existing;
+    }
+    if (!onCreateCategory) {
+      setValidationError('Category creation is unavailable.');
+      return null;
+    }
+    try {
+      setIsCreatingCategory(true);
+      setValidationError('');
+      const created = await onCreateCategory(trimmed);
+      if (created?.id) {
+        setCategoryId(created.id);
+        setIsAddingCategory(false);
+        setNewCategoryName('');
+        return created;
+      }
+      return null;
+    } catch (err) {
+      setValidationError(err.message || 'Could not create category.');
+      return null;
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
+
   // Save handler
   const handleSubmit = async (e) => {
     e?.preventDefault();
 
-    if (!categoryId) {
-      setValidationError('Please select a category.');
+    let resolvedCategoryId = categoryId;
+    if (isAddingCategory && newCategoryName.trim()) {
+      const createdCat = await handleCreateNewCategoryInline();
+      if (!createdCat?.id) return;
+      resolvedCategoryId = createdCat.id;
+    }
+
+    if (!resolvedCategoryId) {
+      setValidationError('Please select or add a category.');
       return;
     }
     if (!title.trim()) {
@@ -356,8 +410,21 @@ export default function DishFormModal({
       titleInputRef.current?.focus();
       return;
     }
-    if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
-      setValidationError('Please enter a valid price in Rs.');
+    const parsedSellingPrice = parseFloat(price);
+    if (!price || isNaN(parsedSellingPrice) || parsedSellingPrice <= 0) {
+      setValidationError('Please enter a valid selling price in Rs.');
+      return;
+    }
+
+    const hasOriginalPriceInput = String(originalPrice ?? '').trim() !== '';
+    const parsedOriginalPrice = hasOriginalPriceInput ? parseFloat(originalPrice) : null;
+    if (
+      hasOriginalPriceInput &&
+      (isNaN(parsedOriginalPrice) || parsedOriginalPrice <= parsedSellingPrice)
+    ) {
+      setValidationError(
+        `Original Price (Rs. ${originalPrice}) must be greater than the Selling / Discounted Price (Rs. ${parsedSellingPrice}).`
+      );
       return;
     }
 
@@ -367,8 +434,6 @@ export default function DishFormModal({
         ...grp,
         options: grp.options.filter((opt) => opt.name.trim() !== ''),
       }));
-
-    const parsedOriginalPrice = originalPrice && parseFloat(originalPrice) > 0 ? parseFloat(originalPrice) : null;
 
     const variantsPayload = {
       is_available: itemToEdit?.variants?.is_available ?? true,
@@ -384,7 +449,7 @@ export default function DishFormModal({
 
       await onSaveDish({
         itemId: itemToEdit?.id,
-        category_id: categoryId,
+        category_id: resolvedCategoryId,
         title: title.trim(),
         price: parseFloat(price),
         original_price: parsedOriginalPrice,
@@ -458,35 +523,111 @@ export default function DishFormModal({
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
           {/* 1. Category */}
           <div>
-            <label
-              htmlFor="dish-category-select"
-              className="block text-base font-bold text-slate-800 mb-1.5"
-            >
-              Category
-              <span className="text-rose-500 ml-1">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="dish-category-select"
+                className="block text-base font-bold text-slate-800"
+              >
+                Category
+                <span className="text-rose-500 ml-1">*</span>
+              </label>
+
+              {!isAddingCategory && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingCategory(true);
+                    setValidationError('');
+                    setTimeout(() => newCategoryInputRef.current?.focus(), 50);
+                  }}
+                  className="text-xs font-extrabold text-[#F26B1D] hover:text-[#D95A12] bg-[#FFF1E6] hover:bg-[#FFE4CF] px-3 py-1 rounded-xl border border-[#F26B1D]/30 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Add New Category</span>
+                </button>
+              )}
+            </div>
+
             <select
               id="dish-category-select"
-              value={categoryId}
+              value={isAddingCategory ? '__ADD_NEW__' : categoryId}
               onChange={(e) => {
-                setCategoryId(e.target.value);
-                setValidationError('');
+                const val = e.target.value;
+                if (val === '__ADD_NEW__') {
+                  setIsAddingCategory(true);
+                  setValidationError('');
+                  setTimeout(() => newCategoryInputRef.current?.focus(), 50);
+                } else {
+                  setIsAddingCategory(false);
+                  setCategoryId(val);
+                  setValidationError('');
+                }
               }}
-              required
+              required={!isAddingCategory}
               className="w-full h-13 px-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-base font-medium focus:outline-none focus:border-slate-800 focus:bg-white cursor-pointer transition"
             >
-              {dishCategories.length === 0 ? (
+              {dishCategories.length === 0 && (
                 <option value="" disabled>
-                  No categories found
+                  No categories found — add one below
                 </option>
-              ) : (
-                dishCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))
               )}
+              {dishCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+              <option value="__ADD_NEW__" className="font-bold text-[#F26B1D]">
+                + Add New Category...
+              </option>
             </select>
+
+            {isAddingCategory && (
+              <div className="mt-2.5 p-3.5 rounded-2xl bg-[#FFF9F2] border border-[#F26B1D]/40 space-y-2.5 animate-in fade-in">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-[#2B2118]">
+                  New Category Name
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    ref={newCategoryInputRef}
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => {
+                      setNewCategoryName(e.target.value);
+                      setValidationError('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCreateNewCategoryInline();
+                      }
+                    }}
+                    placeholder="e.g. Desserts, Starters, BBQ & Grill..."
+                    className="flex-1 h-11 px-3.5 rounded-xl bg-white border border-[#F0E4D7] text-slate-900 text-sm font-medium focus:outline-none focus:border-[#F26B1D]"
+                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isCreatingCategory}
+                      onClick={handleCreateNewCategoryInline}
+                      className="h-11 px-4 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] disabled:opacity-60 text-white text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>{isCreatingCategory ? 'Adding...' : 'Add Category'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingCategory(false);
+                        setNewCategoryName('');
+                      }}
+                      className="h-11 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-bold transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 2. Dish Name */}
@@ -582,20 +723,40 @@ export default function DishFormModal({
                   inputMode="numeric"
                   pattern="[0-9]*"
                   step="1"
-                  min="0"
+                  min={parseFloat(price) > 0 ? Math.floor(parseFloat(price)) + 1 : 1}
                   value={originalPrice}
                   onChange={(e) => {
                     setOriginalPrice(e.target.value);
+                    setValidationError('');
                   }}
-                  placeholder="1000"
-                  className="w-full h-13 pl-16 pr-3 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-xl font-extrabold font-mono placeholder:text-slate-300 focus:outline-none focus:border-slate-800 focus:bg-white transition"
+                  placeholder={parseFloat(price) > 0 ? String(Math.round(parseFloat(price) * 1.2)) : '1000'}
+                  className={`w-full h-13 pl-16 pr-3 rounded-2xl border text-slate-900 text-xl font-extrabold font-mono placeholder:text-slate-300 focus:outline-none transition ${
+                    String(originalPrice ?? '').trim() !== '' &&
+                    parseFloat(price) > 0 &&
+                    (isNaN(parseFloat(originalPrice)) || parseFloat(originalPrice) <= parseFloat(price))
+                      ? 'bg-rose-50/40 border-rose-400 focus:border-rose-600 focus:bg-white'
+                      : 'bg-slate-50 border-slate-200 focus:border-slate-800 focus:bg-white'
+                  }`}
                 />
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Shown crossed out second in menu.
+                Must be greater than selling price. Shown crossed out in menu.
               </p>
             </div>
           </div>
+
+          {/* Invalid Original Price Warning Banner */}
+          {String(originalPrice ?? '').trim() !== '' &&
+            parseFloat(price) > 0 &&
+            (isNaN(parseFloat(originalPrice)) || parseFloat(originalPrice) <= parseFloat(price)) && (
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-center gap-2 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>
+                  <strong>Original Price</strong> must be greater than the{' '}
+                  <strong>Selling / Discounted Price (Rs. {parseFloat(price).toLocaleString()})</strong>.
+                </span>
+              </div>
+            )}
 
           {/* Discount Active Preview Banner */}
           {parseFloat(price) > 0 && parseFloat(originalPrice) > parseFloat(price) && (

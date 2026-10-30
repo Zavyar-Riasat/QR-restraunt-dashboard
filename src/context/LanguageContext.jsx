@@ -105,7 +105,7 @@ export const TRANSLATIONS = {
     profileTitle: 'Customer Profile',
     profileSubtitle: 'Manage your name, contact email, and avatar',
     fullName: 'Full Name',
-    phoneNumber: 'Phone Number (Verified)',
+    phoneNumber: 'Phone Number',
     emailAddress: 'Email Address',
     avatarUrl: 'Avatar Photo URL',
     generateRandom: 'Generate Random',

@@ -9,7 +9,6 @@ import {
   ShoppingBag,
   Printer,
   Send,
-  Pause,
   CreditCard,
   Banknote,
   Smartphone,
@@ -19,6 +18,7 @@ import {
   } from 'lucide-react';
 import { formatPKR } from '../../utils/currencyUtils';
 import { orderService } from '../../services/orderService';
+import { authService } from '../../services/authService';
 import { tableService, TABLE_STATUS } from '../../services/tableService';
 import { printerService } from '../../services/printer/printerService';
 import { TEMPLATE_TYPES, PRINT_TARGETS } from '../../services/printer/printerTypes';
@@ -47,6 +47,67 @@ export default function NewOrderModal({
   
   // Table selection for Dine-in
   const [selectedTable, setSelectedTable] = useState(initialTable || null);
+  const restaurantWaiters = useMemo(
+    () => authService.getRestaurantWaiters(restaurant?.slug, restaurant?.id, restaurant?.name),
+    [restaurant?.slug, restaurant?.id, restaurant?.name]
+  );
+  const [selectedWaiterId, setSelectedWaiterId] = useState(() => {
+    if (currentUser?.role === 'waiter' && currentUser?.id) return currentUser.id;
+    return '';
+  });
+  // If the selected table is ALREADY occupied by a waiter, lock this table to that waiter
+  const lockedTableWaiter = useMemo(() => {
+    if (!selectedTable) return null;
+    const isTblOccupied =
+      selectedTable.status === TABLE_STATUS.OCCUPIED ||
+      selectedTable.status === TABLE_STATUS.BILL_PENDING ||
+      selectedTable.is_manually_occupied ||
+      Boolean(selectedTable.activeOrder);
+    if (!isTblOccupied) return null;
+
+    if (selectedTable.waiter_details && selectedTable.waiter_details.name) {
+      return authService.resolveWaiterDetails(
+        selectedTable.waiter_details.name,
+        restaurant?.slug,
+        restaurant?.id
+      );
+    }
+    if (selectedTable.activeOrder) {
+      return authService.resolveWaiterDetails(
+        selectedTable.activeOrder,
+        restaurant?.slug,
+        restaurant?.id
+      );
+    }
+    if (selectedTable.occupied_by) {
+      return authService.resolveWaiterDetails(
+        selectedTable.occupied_by,
+        restaurant?.slug,
+        restaurant?.id
+      );
+    }
+    return null;
+  }, [selectedTable, restaurant?.slug, restaurant?.id]);
+
+  const selectedWaiter = useMemo(() => {
+    // 1. If table is already occupied by a waiter, no other waiter can occupy/override it
+    if (lockedTableWaiter) return lockedTableWaiter;
+
+    if (selectedWaiterId) {
+      const found = restaurantWaiters.find((w) => w.id === selectedWaiterId || w.name === selectedWaiterId);
+      if (found) return found;
+    }
+    if (currentUser?.role === 'waiter') {
+      return authService.resolveWaiterDetails(
+        currentUser.name || currentUser.email || 'Waiter',
+        restaurant?.slug,
+        restaurant?.id
+      );
+    }
+    if (selectedTable?.waiter_details) return selectedTable.waiter_details;
+    const tblNum = parseInt(String(selectedTable?.table_number || '1').replace(/\D/g, ''), 10) || 1;
+    return restaurantWaiters[(tblNum - 1) % restaurantWaiters.length] || restaurantWaiters[0];
+  }, [lockedTableWaiter, selectedWaiterId, restaurantWaiters, currentUser, selectedTable, restaurant?.slug, restaurant?.id]);
   const [showTablePicker, setShowTablePicker] = useState(!initialTable);
   const [appendToExistingOrderId, setAppendToExistingOrderId] = useState(null);
   const [tableSearchQuery, setTableSearchQuery] = useState('');
@@ -377,6 +438,37 @@ export default function NewOrderModal({
 
   // Handle table selection click
   const handleSelectTable = (tbl) => {
+    const isTblOccupied =
+      tbl.status === TABLE_STATUS.OCCUPIED ||
+      tbl.status === TABLE_STATUS.BILL_PENDING ||
+      tbl.is_manually_occupied ||
+      Boolean(tbl.activeOrder);
+
+    if (isTblOccupied && currentUser?.role === 'waiter') {
+      const tblWaiter =
+        tbl.waiter_details ||
+        (tbl.activeOrder
+          ? authService.resolveWaiterDetails(tbl.activeOrder, restaurant?.slug, restaurant?.id)
+          : tbl.occupied_by
+          ? authService.resolveWaiterDetails(tbl.occupied_by, restaurant?.slug, restaurant?.id)
+          : null);
+      const myWaiter = authService.resolveWaiterDetails(
+        currentUser.name || currentUser.email || '',
+        restaurant?.slug,
+        restaurant?.id
+      );
+      if (
+        tblWaiter &&
+        tblWaiter.staff_code !== myWaiter.staff_code &&
+        tblWaiter.name.toLowerCase() !== myWaiter.name.toLowerCase()
+      ) {
+        setErrorMsg(
+          `Table #${tbl.table_number} is already occupied by ${tblWaiter.name} (${tblWaiter.staff_code}). Another waiter cannot occupy this table.`
+        );
+        return;
+      }
+    }
+
     setSelectedTable(tbl);
     setShowTablePicker(false);
 
@@ -491,10 +583,12 @@ export default function NewOrderModal({
 
       // 1. If appending to an existing order tab
       if (appendToExistingOrderId) {
+        const tableWaiterName = selectedWaiter?.name || selectedTable?.occupied_by || staffName || 'Hamza Ali';
         const appendRes = orderService.appendItemsToOrder(
           restId,
           appendToExistingOrderId,
-          cart
+          cart,
+          { staffName, waiterName: tableWaiterName, waiterDetails: selectedWaiter }
         );
 
         // Auto print KOT for the new round of items
@@ -563,6 +657,9 @@ export default function NewOrderModal({
           order_source: orderSourceName,
           phone_order_mode: orderType === 'phone' ? phoneOrderMode : null,
           staff_name: staffName,
+          waiter_name: resolvedOrderType === 'dine_in' ? (selectedWaiter?.name || selectedTable?.occupied_by || 'Hamza Ali') : null,
+          order_taken_by: resolvedOrderType === 'dine_in' ? (selectedWaiter?.name || selectedTable?.occupied_by || 'Hamza Ali') : staffName,
+          waiter_details: resolvedOrderType === 'dine_in' ? selectedWaiter : null,
           orderType: resolvedOrderType,
           tableNumber: selectedTable?.table_number || null,
           name: customerName || (selectedTable ? `Table ${selectedTable.table_number}` : (orderType === 'phone' ? (phoneOrderMode === 'delivery' ? 'Phone Delivery' : 'Phone Pickup') : 'Walk-in Customer')),
@@ -590,6 +687,17 @@ export default function NewOrderModal({
         deliveryFee: activeDeliveryFee,
         finalTotal: grandTotal,
       });
+
+      // Lock the table to this waiter so no other waiter can occupy it while active
+      if (resolvedOrderType === 'dine_in' && selectedTable?.id && selectedWaiter) {
+        tableService.occupyTable(restId, selectedTable.id, {
+          guestCount: selectedTable.guest_count || selectedTable.capacity || 2,
+          guestName: customerName || selectedTable.guest_name || `Table ${selectedTable.table_number}`,
+          note: selectedTable.occupancy_note || '',
+          occupiedBy: selectedWaiter.name,
+          waiterDetails: selectedWaiter,
+        });
+      }
 
       // 3. Print Kitchen Order Ticket (KOT)
       if (actionType === 'kitchen' || actionType === 'kitchen_bill') {
@@ -1240,6 +1348,53 @@ export default function NewOrderModal({
                       placeholder="Guest / Table Name (optional)"
                       className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D]"
                     />
+
+                    {/* Serving Waiter Assignment & Full Details */}
+                    <div className="p-2.5 rounded-xl bg-white border border-[#F0E4D7] space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C]">
+                          👨‍🍳 Waiter Taking Order:
+                        </span>
+                        {lockedTableWaiter ? (
+                          <span
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-extrabold text-amber-900 flex items-center gap-1"
+                            title="This table is already occupied by this waiter. Another waiter cannot occupy this table."
+                          >
+                            🔒 {lockedTableWaiter.name} ({lockedTableWaiter.staff_code})
+                          </span>
+                        ) : (
+                          <select
+                            value={selectedWaiter?.id || ''}
+                            onChange={(e) => setSelectedWaiterId(e.target.value)}
+                            className="px-2 py-1 rounded-lg bg-[#FFF9F2] border border-[#F0E4D7] text-[11px] font-bold text-[#2B2118] focus:outline-none focus:border-[#F26B1D]"
+                          >
+                            {restaurantWaiters.map((w) => (
+                              <option key={w.id} value={w.id}>
+                                {w.name} ({w.staff_code})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      {lockedTableWaiter && (
+                        <div className="px-2 py-1 rounded-lg bg-amber-50/70 border border-amber-200/70 text-[10px] font-bold text-amber-800">
+                          🔒 Occupied by {lockedTableWaiter.name} — Other waiters cannot occupy this table until it is closed.
+                        </div>
+                      )}
+                      {selectedWaiter && (
+                        <div className="pt-1 border-t border-slate-100 grid grid-cols-2 gap-1 text-[10px] text-[#7A6A5C]">
+                          <div>
+                            ID: <strong className="font-mono text-[#2B2118]">{selectedWaiter.staff_code}</strong> • {selectedWaiter.role_label || 'Floor Waiter'}
+                          </div>
+                          <div className="text-right font-mono text-[#2B2118]">
+                            📞 {selectedWaiter.phone}
+                          </div>
+                          <div className="col-span-2 truncate text-[#7A6A5C]">
+                            ✉️ {selectedWaiter.email} • 🕒 {selectedWaiter.shift || 'Main Floor Shift'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : orderType === 'takeaway' ? (
                   <div className="space-y-2">
@@ -1634,8 +1789,8 @@ export default function NewOrderModal({
                 </div>
               </div>
 
-              {/* Action Buttons: Send to Kitchen, Send & Print Bill, Hold */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* Action Buttons: Send to Kitchen, Send & Print Bill */}
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   disabled={submitting || cart.length === 0}
@@ -1656,17 +1811,6 @@ export default function NewOrderModal({
                 >
                   <Printer className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span className="truncate">{appendToExistingOrderId ? 'Add & Single Bill' : 'Send & Bill'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={submitting || cart.length === 0}
-                  onClick={() => handleProcessOrder('hold')}
-                  className="px-2 py-2.5 rounded-xl bg-[#FFF9F2] hover:bg-[#FFF1E6] active:scale-98 text-[#7A6A5C] hover:text-[#2B2118] font-bold text-xs border border-[#F0E4D7] flex items-center justify-center gap-1 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Hold order as draft to resume later"
-                >
-                  <Pause className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Hold</span>
                 </button>
               </div>
 

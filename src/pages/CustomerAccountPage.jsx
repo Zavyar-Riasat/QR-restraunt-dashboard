@@ -31,7 +31,6 @@ import {
   UtensilsCrossed,
   Phone,
   Mail,
-  ShieldCheck,
   Star,
   X,
   Settings,
@@ -43,7 +42,6 @@ import {
   Info,
   Camera,
   Upload,
-  Sparkles,
   ZoomIn,
 } from 'lucide-react';
 
@@ -116,6 +114,11 @@ export default function CustomerAccountPage() {
   // Rating Modal state for completed orders
   const [ratingModalOrder, setRatingModalOrder] = useState(null);
 
+  // Reorder Confirmation Modal state
+  const [reorderConfirmOrder, setReorderConfirmOrder] = useState(null);
+  const [isReordering, setIsReordering] = useState(false);
+  const [reorderSuccessNotice, setReorderSuccessNotice] = useState('');
+
   // Orders Date Filter State: 'today' | 'yesterday' | 'month' | 'custom'
   const [orderDateFilter, setOrderDateFilter] = useState('month');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -169,6 +172,35 @@ export default function CustomerAccountPage() {
       loadAccountData();
     }
   }, [customer, favorites, isCustomerAuthenticated]);
+
+  // Real-time sync when an order is cancelled or updated from the restaurant dashboard
+  useEffect(() => {
+    if (!isCustomerAuthenticated) return;
+    const refreshOrders = () => {
+      if (!customer?.id && !customer?.phone) return;
+      const latestOrders = customerService.getCustomerOrders(customer.phone, customer.id);
+      setCustomerOrders(latestOrders);
+      setSelectedOrderDetails((prev) => {
+        if (!prev) return null;
+        return latestOrders.find((o) => o.id === prev.id) || prev;
+      });
+    };
+
+    const handleStorageChange = (e) => {
+      if (!e.key || e.key.startsWith('dineflow_orders_') || e.key === 'dinehq_active_order') {
+        refreshOrders();
+      }
+    };
+
+    window.addEventListener('dinehq_order_status_updated', refreshOrders);
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', refreshOrders);
+    return () => {
+      window.removeEventListener('dinehq_order_status_updated', refreshOrders);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', refreshOrders);
+    };
+  }, [customer, isCustomerAuthenticated]);
 
   // Filter Orders by Date
   const filteredOrders = useMemo(() => {
@@ -234,14 +266,6 @@ export default function CustomerAccountPage() {
     }
   };
 
-  const handleRandomizeAvatar = () => {
-    const styles = ['adventurer', 'avataaars', 'lorelei', 'fun-emoji', 'bottts', ' initials'];
-    const style = styles[Math.floor(Math.random() * styles.length)].trim();
-    const seed = Math.random().toString(36).slice(2, 9);
-    const randomUrl = `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}&backgroundColor=ffdfbf,ffd5dc,c0aede,d1d4f9,b6e3f4`;
-    handleSelectAvatar(randomUrl);
-  };
-
   // Handle photo upload from device gallery or camera
   const handleAvatarFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -281,6 +305,80 @@ export default function CustomerAccountPage() {
   const handleDeleteAddress = async (addressId) => {
     if (window.confirm('Delete this delivery address?')) {
       await deleteAddress(addressId);
+    }
+  };
+
+  // Automatic Reorder Handler (places order directly after confirmation)
+  const handleConfirmReorder = async () => {
+    if (!reorderConfirmOrder || isReordering) return;
+    try {
+      setIsReordering(true);
+      const ord = reorderConfirmOrder;
+      const orderItems = Array.isArray(ord.items) ? ord.items : [];
+      const cartPayload = orderItems.map((it) => {
+        const title = it.title || it.name || it.item_name || it.item?.title || 'Menu Item';
+        const unitPrice =
+          Number(it.unitPrice ?? it.price) ||
+          (orderItems.length === 1 ? Number(ord.subtotal || ord.total_payable || 0) / (Number(it.quantity) || 1) : 0);
+        return {
+          item: { title },
+          title,
+          quantity: Number(it.quantity) || 1,
+          unitPrice,
+          choiceDetails: it.choices || [],
+          notes: it.notes || null,
+        };
+      });
+
+      const subtotalVal =
+        Number(ord.subtotal) ||
+        Number(ord.total_payable) ||
+        (ord.total_payable_paisa ? Number(ord.total_payable_paisa) / 100 : 0);
+      const deliveryFeeVal = Number(ord.delivery_fee) || 0;
+      const finalTotalVal =
+        Number(ord.total_payable) ||
+        (ord.total_payable_paisa ? Number(ord.total_payable_paisa) / 100 : subtotalVal + deliveryFeeVal);
+
+      const newPlacedOrder = await orderService.createOrder({
+        restaurant: {
+          id: ord.restaurant_id || 'rest-101',
+          name: ord.restaurant_name || ord.restaurant?.name || 'Restaurant Order',
+          slug: ord.restaurant_slug || ord.restaurant?.slug || 'burgersmoke',
+        },
+        customerDetails: {
+          name: customer?.name || ord.customer_name || 'Guest Diner',
+          phone: customer?.phone || ord.customer_phone || '',
+          customer_id: customer?.id || ord.customer_id || null,
+          orderType: ord.order_type || 'delivery',
+          tableNumber: ord.table_number || null,
+          address: ord.customer_address || '',
+          latitude: ord.latitude ?? null,
+          longitude: ord.longitude ?? null,
+          houseFlat: ord.house_flat || null,
+          areaLandmark: ord.area_landmark || null,
+          deliveryNotes: ord.delivery_notes || ord.customer_notes || '',
+          notes: ord.customer_notes || '',
+          paymentMethod:
+            ord.payment_method || (ord.order_type === 'delivery' ? 'Cash on Delivery' : 'Pay at Counter'),
+          payment_status: 'unpaid',
+          restaurant_name: ord.restaurant_name || ord.restaurant?.name || 'Restaurant Order',
+          restaurant_slug: ord.restaurant_slug || ord.restaurant?.slug || 'burgersmoke',
+        },
+        cart: cartPayload,
+        subtotal: subtotalVal,
+        deliveryFee: deliveryFeeVal,
+        finalTotal: finalTotalVal,
+      });
+
+      const updatedOrders = customerService.getCustomerOrders(customer?.phone, customer?.id);
+      setCustomerOrders(updatedOrders);
+      setReorderConfirmOrder(null);
+      setReorderSuccessNotice(`Order #${newPlacedOrder.id} has been placed and sent to the kitchen!`);
+      setTimeout(() => setReorderSuccessNotice(''), 5000);
+    } catch (err) {
+      alert(err.message || 'Could not place reorder. Please try again.');
+    } finally {
+      setIsReordering(false);
     }
   };
 
@@ -333,9 +431,11 @@ export default function CustomerAccountPage() {
           </span>
         );
       case 'cancelled':
+      case 'rejected':
         return (
-          <span className="px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 text-[10px] font-bold border border-rose-200 dark:border-rose-800">
-            Cancelled
+          <span className="px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 text-[10px] font-bold border border-rose-200 dark:border-rose-800 flex items-center gap-1">
+            <X className="w-3.5 h-3.5" />
+            <span>Cancelled</span>
           </span>
         );
       default:
@@ -702,7 +802,7 @@ export default function CustomerAccountPage() {
                         Profile Photo & Avatar
                       </h3>
                       <p className="text-[11px] text-[#7A6A5C] dark:text-[#CBB8A8]">
-                        Upload a photo from your device, choose a preset avatar below, or generate a random style. Changes preview immediately in the front.
+                        Upload a photo from your device or choose a preset avatar below. Changes preview immediately in the front.
                       </p>
                     </div>
 
@@ -715,15 +815,6 @@ export default function CustomerAccountPage() {
                       >
                         <Upload className="w-3.5 h-3.5" />
                         <span>{isUploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleRandomizeAvatar}
-                        className="px-3.5 py-2 min-h-[40px] rounded-xl bg-white dark:bg-[#221A14] hover:bg-[#FFF1E6] dark:hover:bg-[#35251C] text-xs font-bold text-[#F26B1D] border border-[#F0E4D7] dark:border-[#382B20] transition flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>{t('generateRandom')}</span>
                       </button>
 
                       <button
@@ -814,10 +905,6 @@ export default function CustomerAccountPage() {
                     dir="ltr"
                     className="w-full px-4 py-3 min-h-[48px] rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] bg-slate-100 dark:bg-[#1E1712] text-xs sm:text-sm font-mono font-bold text-[#7A6A5C] dark:text-[#8E7A6B] cursor-not-allowed"
                   />
-                  <span className="absolute top-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-600 flex items-center gap-1 right-3">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Verified</span>
-                  </span>
                 </div>
               </div>
 
@@ -1078,14 +1165,34 @@ export default function CustomerAccountPage() {
               </div>
             ) : (
               <div className="space-y-4">
+                {reorderSuccessNotice && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-between gap-2 animate-fadeIn">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span>{reorderSuccessNotice}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReorderSuccessNotice('')}
+                      className="p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
                 {filteredOrders.map((ord) => {
-                  const isLive = ['new', 'confirmed', 'preparing', 'out_for_delivery'].includes(ord.status);
+                  const isLive = ['new', 'confirmed', 'preparing', 'out_for_delivery', 'ready'].includes(ord.status);
+                  const isCancelled = ord.status === 'cancelled' || ord.status === 'rejected';
 
                   return (
                     <div
                       key={ord.id}
                       className={`card-warm p-5 space-y-4 ${
-                        isLive ? 'border-[#F26B1D]/50 ring-2 ring-[#F26B1D]/15' : 'border-[#F0E4D7] dark:border-[#382B20]'
+                        isCancelled
+                          ? 'border-rose-300 dark:border-rose-800/80 ring-1 ring-rose-500/15'
+                          : isLive
+                          ? 'border-[#F26B1D]/50 ring-2 ring-[#F26B1D]/15'
+                          : 'border-[#F0E4D7] dark:border-[#382B20]'
                       }`}
                     >
                       {/* Top Row: Order ID, Date, Status */}
@@ -1151,11 +1258,29 @@ export default function CustomerAccountPage() {
                         </div>
                       )}
 
+                      {/* Cancelled Order Banner */}
+                      {isCancelled && (
+                        <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 flex items-center justify-between gap-2 text-xs text-rose-700 dark:text-rose-300 font-bold">
+                          <div className="flex items-center gap-2">
+                            <X className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                            <span>This order was cancelled by the restaurant.</span>
+                          </div>
+                          {ord.cancelled_at && (
+                            <span className="text-[11px] font-medium text-rose-600/80 dark:text-rose-300/80 shrink-0">
+                              {new Date(ord.cancelled_at).toLocaleTimeString('en-GB', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       {/* Order Items Preview */}
                       <div className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8] space-y-1">
                         <p className="line-clamp-2">
                           {Array.isArray(ord.items)
-                            ? ord.items.map((i) => `${i.quantity}x ${i.name || i.item_name}`).join(', ')
+                            ? ord.items.map((i) => `${i.quantity}x ${i.title || i.name || i.item_name || i.item?.title || 'Menu Item'}`).join(', ')
                             : 'Menu items'}
                         </p>
                         {ord.customer_address && (
@@ -1203,13 +1328,16 @@ export default function CustomerAccountPage() {
                             <span>{t('details')}</span>
                           </button>
 
-                          <Link
-                            to={`/${ord.restaurant_slug || 'burgersmoke'}`}
-                            className="min-h-[48px] px-4 py-2 rounded-2xl bg-[#FFF1E6] hover:bg-[#FFE6D4] dark:bg-[#382417] dark:hover:bg-[#482E1E] text-[#F26B1D] border border-[#FCD8BF] dark:border-[#523522] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                            <span>{t('reorder')}</span>
-                          </Link>
+                          {!isCancelled && (
+                            <button
+                              type="button"
+                              onClick={() => setReorderConfirmOrder(ord)}
+                              className="min-h-[48px] px-4 py-2 rounded-2xl bg-[#FFF1E6] hover:bg-[#FFE6D4] dark:bg-[#382417] dark:hover:bg-[#482E1E] text-[#F26B1D] border border-[#FCD8BF] dark:border-[#523522] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                              <span>{t('reorder')}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1555,6 +1683,13 @@ export default function CustomerAccountPage() {
                 {renderOrderStatusBadge(selectedOrderDetails.status)}
               </div>
 
+              {(selectedOrderDetails.status === 'cancelled' || selectedOrderDetails.status === 'rejected') && (
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-bold flex items-center gap-2">
+                  <X className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                  <span>This order was cancelled by the restaurant.</span>
+                </div>
+              )}
+
               {/* Items Table */}
               <div className="space-y-2 border-t border-[#F0E4D7] dark:border-[#382B20] pt-3">
                 <span className="text-[11px] uppercase font-bold text-[#7A6A5C] dark:text-[#CBB8A8] block">
@@ -1564,7 +1699,7 @@ export default function CustomerAccountPage() {
                   selectedOrderDetails.items.map((it, idx) => (
                     <div key={idx} className="flex justify-between text-xs py-1">
                       <span>
-                        {it.quantity}x {it.name || it.item_name}
+                        {it.quantity}x {it.title || it.name || it.item_name || it.item?.title || 'Menu Item'}
                       </span>
                       <span className="font-bold">
                         {formatPKR((it.unitPrice || it.price || 0) * (it.quantity || 1))}
@@ -1612,6 +1747,107 @@ export default function CustomerAccountPage() {
                 className="btn-primary min-h-[48px] px-6 py-2 text-xs font-bold"
               >
                 {t('close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          Reorder Confirmation Modal
+          ======================================================== */}
+      {reorderConfirmOrder && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isReordering) setReorderConfirmOrder(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn"
+        >
+          <div className="bg-white dark:bg-[#221A14] rounded-3xl border border-[#F0E4D7] dark:border-[#382B20] shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#FFF1E6] dark:bg-[#382417] text-[#F26B1D] flex items-center justify-center border border-[#FCD8BF] dark:border-[#523522]">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-base text-[#2B2118] dark:text-[#FFF9F2]">
+                    Confirm Reorder
+                  </h3>
+                  <p className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8]">
+                    {reorderConfirmOrder.restaurant_name || reorderConfirmOrder.restaurant?.name || 'Restaurant Order'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isReordering}
+                onClick={() => setReorderConfirmOrder(null)}
+                className="p-2 rounded-xl text-[#9E8E81] hover:text-[#2B2118] dark:hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] space-y-2 text-xs">
+              <div className="font-bold text-[#2B2118] dark:text-[#FFF9F2] text-[11px] uppercase tracking-wider">
+                Items to Reorder
+              </div>
+              <div className="space-y-1 text-[#7A6A5C] dark:text-[#CBB8A8]">
+                {Array.isArray(reorderConfirmOrder.items) && reorderConfirmOrder.items.length > 0 ? (
+                  reorderConfirmOrder.items.map((it, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 font-medium text-[#2B2118] dark:text-[#FFF9F2]">
+                      <span>
+                        {it.quantity || 1}x {it.title || it.name || it.item_name || it.item?.title || 'Menu Item'}
+                      </span>
+                      {it.unitPrice || it.price ? (
+                        <span className="font-mono text-xs">
+                          {formatPKR((Number(it.unitPrice ?? it.price) || 0) * (Number(it.quantity) || 1))}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))
+                ) : (
+                  <p>Same items from Order #{reorderConfirmOrder.id}</p>
+                )}
+              </div>
+
+              {reorderConfirmOrder.customer_address && (
+                <div className="pt-2 border-t border-[#F0E4D7] dark:border-[#382B20] flex items-center gap-1.5 text-[11px] text-[#7A6A5C] dark:text-[#CBB8A8]">
+                  <MapPin className="w-3.5 h-3.5 text-[#F26B1D] shrink-0" />
+                  <span className="truncate">{reorderConfirmOrder.customer_address}</span>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-[#F0E4D7] dark:border-[#382B20] flex items-center justify-between font-heading font-extrabold text-sm text-[#2B2118] dark:text-[#FFF9F2]">
+                <span>{t('totalBill')}</span>
+                <span className="text-[#F26B1D]">
+                  {formatPKR(
+                    reorderConfirmOrder.total_payable ||
+                      (reorderConfirmOrder.total_payable_paisa
+                        ? reorderConfirmOrder.total_payable_paisa / 100
+                        : reorderConfirmOrder.total || 0)
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                disabled={isReordering}
+                onClick={() => setReorderConfirmOrder(null)}
+                className="flex-1 min-h-[46px] py-2.5 rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:bg-[#FFF9F2] dark:hover:bg-[#281D16] transition cursor-pointer"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={isReordering}
+                onClick={handleConfirmReorder}
+                className="flex-1 min-h-[46px] py-2.5 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold shadow-md shadow-[#F26B1D]/20 transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Check className="w-4 h-4 stroke-[2.5]" />
+                <span>{isReordering ? 'Placing Order...' : 'Confirm Reorder'}</span>
               </button>
             </div>
           </div>
@@ -1725,18 +1961,10 @@ export default function CustomerAccountPage() {
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={isUploadingAvatar}
-                className="flex-1 min-h-[44px] py-2.5 px-3 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full min-h-[44px] py-2.5 px-3 rounded-2xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>{isUploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleRandomizeAvatar}
-                className="min-h-[44px] py-2.5 px-3.5 rounded-2xl bg-[#FFF9F2] dark:bg-[#281D16] hover:bg-[#FFF1E6] text-[#F26B1D] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Random</span>
               </button>
             </div>
           </div>

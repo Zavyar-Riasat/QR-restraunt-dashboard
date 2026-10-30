@@ -20,6 +20,7 @@ import { buildGoogleMapsNavUrl, buildOsmNavUrl } from '../../config/mapConfig';
 import SendToRiderMenu from './SendToRiderMenu';
 import { TEMPLATE_TYPES } from '../../services/printer/printerTypes';
 import { orderService } from '../../services/orderService';
+import { authService } from '../../services/authService';
 
 const LeafletMap = lazy(() => import('../Map/LeafletMap.jsx'));
 
@@ -30,7 +31,7 @@ export default function OrderDetailsModal({
   restaurant,
   onUpdateStatus,
   onPrintTicket,
-  currentUser: _currentUser,
+  currentUser,
   onOrderUpdated,
 }) {
   const [activeOrder, setActiveOrder] = useState(order);
@@ -469,15 +470,38 @@ export default function OrderDetailsModal({
                       <button
                         type="button"
                         onClick={() => {
-                          orderService.updateOrderPaymentStatus(restaurant.id, currentOrder.id, true);
-                          const nextOrder = { ...currentOrder, payment_status: 'paid', explicit_paid: true };
+                          const isDineIn =
+                            currentOrder.order_type === 'dine_in' ||
+                            Boolean(currentOrder.table_number || currentOrder.table);
+                          if (isDineIn && !currentOrder.waiter_marked_paid) {
+                            setPaymentWarning(
+                              'First the Waiter must mark this table bill as Paid on the Tables page before the Cashier can mark it as Paid!'
+                            );
+                            return;
+                          }
+                          const cashierName = currentUser?.name || currentUser?.email || 'Cashier';
+                          orderService.updateOrderPaymentStatus(restaurant.id, currentOrder.id, true, cashierName);
+                          const nextOrder = {
+                            ...currentOrder,
+                            payment_status: 'paid',
+                            explicit_paid: true,
+                            cashier_verified_by: cashierName,
+                          };
                           setActiveOrder(nextOrder);
                           setPaymentWarning('');
                           if (onOrderUpdated) onOrderUpdated(nextOrder);
                         }}
-                        className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs"
+                        className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition shadow-2xs ${
+                          (currentOrder.order_type === 'dine_in' || currentOrder.table_number || currentOrder.table) &&
+                          !currentOrder.waiter_marked_paid
+                            ? 'bg-slate-200 text-slate-600 border border-slate-300 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                        }`}
                       >
-                        ✓ Mark Paid
+                        {(currentOrder.order_type === 'dine_in' || currentOrder.table_number || currentOrder.table) &&
+                        !currentOrder.waiter_marked_paid
+                          ? '🔒 Waiter Paid First'
+                          : '✓ Mark Paid'}
                       </button>
                     )}
                   </>
@@ -510,6 +534,56 @@ export default function OrderDetailsModal({
                   {currentOrder.payment_method || 'Cash on Delivery'}
                 </span>
               </div>
+              {(currentOrder.order_type === 'dine_in' || currentOrder.table_number || currentOrder.table) && (() => {
+                const wInfo = authService.resolveWaiterDetails(currentOrder, restaurant?.slug, restaurant?.id);
+                return (
+                  <div className="pt-2.5 mt-2 border-t border-[#F0E4D7] space-y-1.5">
+                    <div className="font-bold text-[#2B2118] uppercase text-[10px] tracking-wider">
+                      👨‍🍳 Serving Waiter Full Details (Table {currentOrder.table_number || currentOrder.table || 'Dine-In'})
+                    </div>
+                    <div className="p-3 rounded-xl bg-white border border-[#F0E4D7] space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span>Waiter Name & ID:</span>
+                        <span className="font-bold text-[#2B2118]">
+                          {wInfo.name} <span className="font-mono text-[#D95A12]">({wInfo.staff_code})</span>
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Role & Shift:</span>
+                        <span className="font-semibold text-[#2B2118]">
+                          {wInfo.role_label || 'Floor Waiter'} • {wInfo.shift || 'Main Floor Shift'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Waiter Phone & Email:</span>
+                        <span className="font-mono font-bold text-[#2B2118]">
+                          📞 {wInfo.phone} • ✉️ {wInfo.email}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1 border-t border-slate-100">
+                        <span>Money Collected By:</span>
+                        <span className="font-bold text-emerald-700">
+                          {currentOrder.waiter_marked_paid || isPaid
+                            ? `${wInfo.name} (${wInfo.staff_code})${
+                                currentOrder.waiter_paid_at
+                                  ? ` at ${new Date(currentOrder.waiter_paid_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                  : ''
+                              }`
+                            : '⏳ Pending Waiter Collection'}
+                        </span>
+                      </div>
+                      {isPaid && (
+                        <div className="flex justify-between items-center">
+                          <span>Cashier Marked Paid:</span>
+                          <span className="font-bold text-emerald-800">
+                            {currentOrder.cashier_verified_by || 'Cashier'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -3,7 +3,6 @@ import {
   Navigation,
   MapPin,
   Search,
-  ExternalLink,
   Check,
   AlertCircle,
   X,
@@ -11,14 +10,10 @@ import {
   Home,
   Building,
   FileText,
-  Copy,
   Loader2,
 } from 'lucide-react';
 import { geocodeService } from '../services/geocodeService.js';
 import {
-  buildGoogleMapsNavUrl,
-  buildOsmNavUrl,
-  buildShareableLocationLink,
   DEFAULT_FALLBACK_COORDS,
   DEFAULT_MAP_ZOOM,
 } from '../config/mapConfig.js';
@@ -45,13 +40,17 @@ export default function DeliveryLocationPicker({
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapZoom, setMapZoom] = useState(DEFAULT_MAP_ZOOM);
 
   const searchContainerRef = useRef(null);
   const requestSeqRef = useRef(0);
   const hasUserManuallyEditedAddressRef = useRef(Boolean(locationData.formattedAddress));
+  const locationDataRef = useRef(locationData);
+
+  useEffect(() => {
+    locationDataRef.current = locationData;
+  }, [locationData]);
 
   const hasCoordinates = Boolean(
     locationData.latitude != null &&
@@ -211,6 +210,9 @@ export default function DeliveryLocationPicker({
           // Never overwrite customer's manually edited address text
           if (!hasUserManuallyEditedAddressRef.current && revAddress) {
             handleLocationUpdate({
+              latitude: fixedLat,
+              longitude: fixedLng,
+              accuracy: roundedAccuracy,
               formattedAddress: revAddress,
             });
           }
@@ -262,6 +264,9 @@ export default function DeliveryLocationPicker({
 
       if (!hasUserManuallyEditedAddressRef.current && revAddress) {
         handleLocationUpdate({
+          latitude: fixedLat,
+          longitude: fixedLng,
+          accuracy: 10,
           formattedAddress: revAddress,
         });
       }
@@ -269,11 +274,13 @@ export default function DeliveryLocationPicker({
   };
 
   const handleLocationUpdate = (updates) => {
+    const nextData = {
+      ...locationDataRef.current,
+      ...updates,
+    };
+    locationDataRef.current = nextData;
     if (onChange) {
-      onChange({
-        ...locationData,
-        ...updates,
-      });
+      onChange(nextData);
     }
   };
 
@@ -288,30 +295,12 @@ export default function DeliveryLocationPicker({
     setGeoNotice(null);
   };
 
-  const handleCopyLink = () => {
-    if (!hasCoordinates) return;
-    const link = buildShareableLocationLink(locationData.latitude, locationData.longitude);
-    navigator.clipboard.writeText(link);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
   // Resolve map center (customer's pinned coordinates, or restaurant coords, or Faisalabad/Lahore fallback)
   const mapCenter = hasCoordinates
     ? { lat: Number(locationData.latitude), lng: Number(locationData.longitude) }
     : restaurant?.latitude && restaurant?.longitude
     ? { lat: Number(restaurant.latitude), lng: Number(restaurant.longitude) }
     : DEFAULT_FALLBACK_COORDS;
-
-  const directGoogleNavUrl = hasCoordinates
-    ? buildGoogleMapsNavUrl(locationData)
-    : locationData.formattedAddress
-    ? buildGoogleMapsNavUrl({ customer_address: locationData.formattedAddress })
-    : null;
-
-  const osmWebUrl = hasCoordinates
-    ? buildOsmNavUrl(locationData.latitude, locationData.longitude, 18)
-    : null;
 
   return (
     <div className="space-y-3.5">
@@ -331,10 +320,6 @@ export default function DeliveryLocationPicker({
           <div className="flex items-center gap-2 shrink-0">
             {hasCoordinates ? (
               <div className="flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#E7F6EC] border border-[#C0E9CE] text-[#1F9D55] text-[11px] font-bold">
-                  <Check className="w-3 h-3 stroke-[3]" />
-                  <span>Pinned {locationData.accuracy ? `(±${locationData.accuracy}m)` : ''}</span>
-                </span>
                 <button
                   type="button"
                   onClick={handleClearPin}
@@ -434,48 +419,6 @@ export default function DeliveryLocationPicker({
             <div className="flex items-center gap-1.5 font-bold text-[#2B2118]">
               <MapPin className="w-3.5 h-3.5 text-[#F26B1D]" />
               <span>Drag the pin to fine-tune your gate</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {hasCoordinates && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCopyLink}
-                    className="text-[#7A6A5C] hover:text-[#2B2118] font-bold flex items-center gap-1 text-[10px] cursor-pointer"
-                    title="Copy Location Coordinates Link"
-                  >
-                    <Copy className="w-2.5 h-2.5" />
-                    <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
-                  </button>
-
-                  {directGoogleNavUrl && (
-                    <a
-                      href={directGoogleNavUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#F26B1D] hover:underline font-bold flex items-center gap-1 text-[10px]"
-                      title="Open Google Maps direction (Free)"
-                    >
-                      <span>Navigate</span>
-                      <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                  )}
-
-                  {osmWebUrl && (
-                    <a
-                      href={osmWebUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#7A6A5C] hover:text-[#2B2118] font-bold flex items-center gap-1 text-[10px]"
-                      title="Open in OpenStreetMap.org"
-                    >
-                      <span>OSM</span>
-                      <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                  )}
-                </>
-              )}
             </div>
           </div>
 

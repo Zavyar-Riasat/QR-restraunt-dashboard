@@ -20,8 +20,10 @@ import {
 import { formatPKR, formatAmount } from '../utils/currencyUtils';
 import { compressImageFile } from '../utils/imageUtils';
 import { parseDealItems, getItemImage } from '../utils/dealUtils';
+import DishFormModal from './DishFormModal';
 
 const DRAFT_KEY = 'dinehq_deal_draft_v1';
+const CUSTOM_PROMO_TAGS_KEY = 'dinehq_custom_promo_tags_v1';
 
 const PROMO_TAG_OPTIONS = [
   'Hot Deal',
@@ -39,6 +41,8 @@ export default function DealFlowModal({
   menuItems = [],
   dealCategory,
   itemToEdit = null,
+  onCreateCategory,
+  onCreateMenuItem,
   onSaveDeal,
 }) {
   const [step, setStep] = useState(1); // 1: Name & Price, 2: Pick Items, 3: Done & Preview
@@ -60,6 +64,21 @@ export default function DealFlowModal({
   const [compressingImage, setCompressingImage] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [hasDraftNotice, setHasDraftNotice] = useState(false);
+  const [isAddDishModalOpen, setIsAddDishModalOpen] = useState(false);
+
+  // Custom promotional tags state
+  const [customPromoTags, setCustomPromoTags] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CUSTOM_PROMO_TAGS_KEY);
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isAddingPromoTag, setIsAddingPromoTag] = useState(false);
+  const [newPromoTagName, setNewPromoTagName] = useState('');
+  const [promoTagError, setPromoTagError] = useState('');
 
   const fileInputRef = useRef(null);
   const titleInputRef = useRef(null);
@@ -78,7 +97,55 @@ export default function DealFlowModal({
     setSelectedCategoryTab('ALL');
     setValidationError('');
     setHasDraftNotice(false);
+    setIsAddingPromoTag(false);
+    setNewPromoTagName('');
+    setPromoTagError('');
   }, []);
+
+  const allPromoTags = useMemo(() => {
+    const combined = [...PROMO_TAG_OPTIONS];
+    customPromoTags.forEach((tag) => {
+      if (tag && !combined.some((t) => t.toLowerCase() === tag.toLowerCase())) {
+        combined.push(tag);
+      }
+    });
+    if (
+      dealBadge &&
+      !combined.some((t) => t.toLowerCase() === dealBadge.toLowerCase())
+    ) {
+      combined.push(dealBadge);
+    }
+    return combined;
+  }, [customPromoTags, dealBadge]);
+
+  const handleAddPromoTag = () => {
+    const trimmed = newPromoTagName.trim();
+    if (!trimmed) {
+      setPromoTagError('Please enter a promotional tag name.');
+      return;
+    }
+    const existing = allPromoTags.find(
+      (t) => t.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      setDealBadge(existing);
+      setNewPromoTagName('');
+      setPromoTagError('');
+      setIsAddingPromoTag(false);
+      return;
+    }
+    const updatedCustom = [...customPromoTags, trimmed];
+    setCustomPromoTags(updatedCustom);
+    try {
+      localStorage.setItem(CUSTOM_PROMO_TAGS_KEY, JSON.stringify(updatedCustom));
+    } catch {
+      // Ignore storage errors
+    }
+    setDealBadge(trimmed);
+    setNewPromoTagName('');
+    setPromoTagError('');
+    setIsAddingPromoTag(false);
+  };
 
   // Available dishes to pick in Step 2 (exclude deals themselves and the deal being edited)
   const availableDishes = useMemo(() => {
@@ -688,24 +755,38 @@ export default function DealFlowModal({
           <div className="flex-1 flex flex-col min-h-0 bg-slate-50/50">
             {/* Search Box & Category Chips */}
             <div className="p-4 sm:p-5 pb-2 bg-white border-b border-slate-100 shrink-0 space-y-3">
-              {/* Search Box */}
-              <div className="relative">
-                <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search dishes (e.g. Karahi, Burger, Fries)..."
-                  className="w-full h-12 pl-11 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-base placeholder:text-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition"
-                />
-                {searchQuery && (
+              {/* Search Box + Add New Dish Button */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search dishes (e.g. Karahi, Burger, Fries)..."
+                    className="w-full h-12 pl-11 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 text-base placeholder:text-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {onCreateMenuItem && (
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+                    onClick={() => setIsAddDishModalOpen(true)}
+                    className="h-12 px-4 rounded-2xl bg-[#FFF1E6] hover:bg-[#FFE3CC] text-[#F26B1D] border-2 border-[#F26B1D]/40 text-xs sm:text-sm font-extrabold transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+                    title="Create a new dish and automatically include it in this deal"
                   >
-                    <X className="w-4 h-4" />
+                    <Plus className="w-4 h-4 stroke-[2.5]" />
+                    <span>Add New Dish</span>
                   </button>
                 )}
               </div>
@@ -746,12 +827,24 @@ export default function DealFlowModal({
             {/* Menu Items Grid */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5">
               {filteredDishes.length === 0 ? (
-                <div className="text-center py-12 px-4 bg-white rounded-2xl border border-dashed border-[#F0E4D7]">
-                  <Utensils className="w-8 h-8 text-[#9E8E81] mx-auto mb-2" />
-                  <p className="text-sm font-bold text-[#2B2118]">No dishes found</p>
-                  <p className="text-xs text-[#7A6A5C] mt-1">
-                    Try searching for something else or pick another category.
-                  </p>
+                <div className="text-center py-12 px-4 bg-white rounded-2xl border border-dashed border-[#F0E4D7] space-y-3">
+                  <Utensils className="w-8 h-8 text-[#9E8E81] mx-auto" />
+                  <div>
+                    <p className="text-sm font-bold text-[#2B2118]">No dishes found</p>
+                    <p className="text-xs text-[#7A6A5C] mt-1">
+                      Try searching for something else, pick another category, or add a new dish right now.
+                    </p>
+                  </div>
+                  {onCreateMenuItem && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddDishModalOpen(true)}
+                      className="px-4 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-extrabold transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Add New Dish</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -987,9 +1080,6 @@ export default function DealFlowModal({
                       </div>
                     </div>
 
-                    <div className="px-4 py-2 rounded-xl bg-[#F26B1D] text-white text-xs font-bold flex items-center gap-1.5 select-none shadow-sm shadow-orange-500/20">
-                      <span>Add to Cart</span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1016,12 +1106,79 @@ export default function DealFlowModal({
               {moreOptionsOpen && (
                 <div className="p-5 pt-2 border-t border-[#F0E4D7] space-y-5 bg-[#FFF9F2]/50">
                   {/* Promotional Tag Selector */}
-                  <div>
-                    <label className="block text-sm font-bold text-[#2B2118] mb-2">
-                      Promotional Tag
-                    </label>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="block text-sm font-bold text-[#2B2118]">
+                        Promotional Tag
+                      </label>
+                      {!isAddingPromoTag && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingPromoTag(true);
+                            setPromoTagError('');
+                          }}
+                          className="px-3 py-1 rounded-xl bg-white hover:bg-[#FFF1E6] border border-[#FCD8BF] text-[#F26B1D] text-xs font-bold transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add New Tag</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {isAddingPromoTag && (
+                      <div className="p-3 rounded-xl bg-white border border-[#FCD8BF] space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={newPromoTagName}
+                            onChange={(e) => {
+                              setNewPromoTagName(e.target.value);
+                              if (promoTagError) setPromoTagError('');
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddPromoTag();
+                              } else if (e.key === 'Escape') {
+                                setIsAddingPromoTag(false);
+                                setNewPromoTagName('');
+                                setPromoTagError('');
+                              }
+                            }}
+                            placeholder="e.g. Ramzan Special, Midnight Deal, Chef's Special"
+                            autoFocus
+                            className="flex-1 h-9 px-3 bg-[#FFF9F2] border border-[#F0E4D7] rounded-xl text-xs font-semibold text-[#2B2118] placeholder:text-slate-400 focus:outline-none focus:border-[#F26B1D]"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddPromoTag}
+                            className="h-9 px-3.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A11] text-white text-xs font-bold transition cursor-pointer shrink-0 flex items-center gap-1"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Add Tag</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingPromoTag(false);
+                              setNewPromoTagName('');
+                              setPromoTagError('');
+                            }}
+                            className="h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer shrink-0"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {promoTagError && (
+                          <p className="text-[11px] font-semibold text-rose-600">{promoTagError}</p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap gap-2">
-                      {PROMO_TAG_OPTIONS.map((tag) => (
+                      {allPromoTags.map((tag) => (
                         <button
                           key={tag}
                           type="button"
@@ -1035,6 +1192,19 @@ export default function DealFlowModal({
                           {tag}
                         </button>
                       ))}
+                      {!isAddingPromoTag && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingPromoTag(true);
+                            setPromoTagError('');
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer min-h-[38px] bg-white text-[#F26B1D] border border-dashed border-[#FCD8BF] hover:bg-[#FFF1E6] flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>New Tag</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1202,6 +1372,32 @@ export default function DealFlowModal({
           )}
         </div>
       </div>
+
+      {isAddDishModalOpen && (
+        <DishFormModal
+          isOpen={isAddDishModalOpen}
+          onClose={() => setIsAddDishModalOpen(false)}
+          categories={categories}
+          onCreateCategory={onCreateCategory}
+          onSaveDish={async ({ category_id, title: dishTitle, price: dishPrice, original_price, variants }) => {
+            if (!onCreateMenuItem) return;
+            const createdDish = await onCreateMenuItem({
+              category_id,
+              title: dishTitle,
+              price: dishPrice,
+              original_price,
+              variants,
+            });
+            if (createdDish?.id) {
+              setSelectedItemQuantities((prev) => ({
+                ...prev,
+                [createdDish.id]: (prev[createdDish.id] || 0) + 1,
+              }));
+              setValidationError('');
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -278,8 +278,8 @@ export default function LoginPage() {
                   {
                     tierBadge: 'Manager',
                     badgeClass: 'bg-[#F5EFEA] text-[#2B2118] border-[#E5D9CE]',
-                    title: 'Shift Manager (No Settings)',
-                    subtitle: 'Operations + Manages Cashier & Waiter Credentials',
+                    title: 'Shift Manager (With Settings)',
+                    subtitle: 'Operations & Settings • Manages Cashier & Waiter Only',
                     email: 'manager@burgersmoke.com',
                     pass: 'ManagerPass123!',
                     btnClass: 'bg-[#2B2118] hover:bg-[#3D3024]',

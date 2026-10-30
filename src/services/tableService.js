@@ -151,9 +151,24 @@ export const tableService = {
         status = TABLE_STATUS.OCCUPIED;
       }
 
+      const effectiveWaiterDetails =
+        status !== TABLE_STATUS.FREE
+          ? tbl.waiter_details || activeOrder?.waiter_details || null
+          : null;
+      const effectiveOccupiedBy =
+        status !== TABLE_STATUS.FREE
+          ? tbl.occupied_by ||
+            effectiveWaiterDetails?.name ||
+            activeOrder?.order_taken_by ||
+            activeOrder?.waiter_name ||
+            ''
+          : '';
+
       return {
         ...tbl,
         status,
+        waiter_details: effectiveWaiterDetails,
+        occupied_by: effectiveOccupiedBy,
         activeOrders: openOrders,
         activeOrder,
         orderCount: openOrders.length,
@@ -164,8 +179,36 @@ export const tableService = {
   /**
    * Manually occupy a table according to customer need (Waiter / Floor Staff)
    */
-  occupyTable(restaurantId, tableId, { guestCount = 2, guestName = '', note = '', occupiedBy = 'Waiter' } = {}) {
+  occupyTable(
+    restaurantId,
+    tableId,
+    { guestCount = 2, guestName = '', note = '', occupiedBy = 'Waiter', waiterDetails = null } = {}
+  ) {
     const tables = this.getTables(restaurantId);
+    const existing = tables.find(
+      (t) => t.id === tableId || String(t.table_number) === String(tableId)
+    );
+
+    if (
+      existing &&
+      (existing.is_manually_occupied || existing.status === TABLE_STATUS.OCCUPIED) &&
+      (existing.occupied_by || existing.waiter_details?.name)
+    ) {
+      const currentWaiterName = existing.waiter_details?.name || existing.occupied_by;
+      const requestedWaiterName = waiterDetails?.name || occupiedBy;
+      if (
+        currentWaiterName &&
+        requestedWaiterName &&
+        currentWaiterName.toLowerCase() !== requestedWaiterName.toLowerCase()
+      ) {
+        return {
+          error: true,
+          message: `Table ${existing.table_number} is already occupied by ${currentWaiterName}. Another waiter cannot occupy this table.`,
+          table: existing,
+        };
+      }
+    }
+
     const updated = tables.map((t) => {
       if (t.id === tableId || String(t.table_number) === String(tableId)) {
         return {
@@ -175,7 +218,8 @@ export const tableService = {
           guest_count: Number(guestCount) || t.capacity || 2,
           guest_name: String(guestName || '').trim() || 'Walk-in Guest',
           occupancy_note: String(note || '').trim(),
-          occupied_by: occupiedBy,
+          occupied_by: waiterDetails?.name || occupiedBy,
+          waiter_details: waiterDetails || t.waiter_details || null,
           occupied_at: new Date().toISOString(),
         };
       }
@@ -229,6 +273,7 @@ export const tableService = {
           guest_name: '',
           occupancy_note: '',
           occupied_by: '',
+          waiter_details: null,
           occupied_at: null,
         };
       }
@@ -242,6 +287,7 @@ export const tableService = {
           guest_name: sourceTbl.guest_name,
           occupancy_note: sourceTbl.occupancy_note,
           occupied_by: sourceTbl.occupied_by,
+          waiter_details: sourceTbl.waiter_details || null,
           occupied_at: sourceTbl.occupied_at,
         };
       }
@@ -291,6 +337,7 @@ export const tableService = {
           guest_name: '',
           occupancy_note: '',
           occupied_by: '',
+          waiter_details: null,
           occupied_at: null,
         };
       }

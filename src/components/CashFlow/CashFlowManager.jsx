@@ -12,7 +12,6 @@ import {
   Calendar,
   Tag,
   BarChart3,
-  TrendingUp,
 } from 'lucide-react';
 import {
   cashFlowService,
@@ -312,29 +311,6 @@ export default function CashFlowManager({
           </button>
         </div>
 
-        {/* Quick Live Owner Earning Pill */}
-        <div className="flex items-center gap-3 text-xs flex-wrap">
-          <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-            <span>
-              Order Sales: <strong className="font-mono">{formatPKR(autoEarnings.grossOrderSales)}</strong>
-            </span>
-          </div>
-          <div className="px-3 py-1.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] font-bold flex items-center gap-1.5">
-            <span>
-              Net Profit:{' '}
-              <strong
-                className={`font-mono ${
-                  autoEarnings.netOwnerProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'
-                }`}
-              >
-                {autoEarnings.netOwnerProfit >= 0
-                  ? `+${formatPKR(autoEarnings.netOwnerProfit)}`
-                  : formatPKR(autoEarnings.netOwnerProfit)}
-              </strong>
-            </span>
-          </div>
-        </div>
       </div>
 
       {subView === 'analytics' ? (

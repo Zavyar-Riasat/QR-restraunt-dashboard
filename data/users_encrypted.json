@@ -267,5 +267,43 @@
     "session_version": 1,
     "created_by_role": "manager",
     "created_at": "2026-10-05T12:45:00.000Z"
+  },
+  {
+    "id": "user-owner-12",
+    "email": "manager@lyallpurgrill.com",
+    "name": "Lyallpur Grill Owner",
+    "role": "owner",
+    "restaurant_id": "rest-112",
+    "restaurant_name": "Lyallpur Grill & BBQ House",
+    "restaurant_slug": "lyallpurgrill",
+    "phone": "923004112233",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "38d040a8ae0ea75b7be3d32707",
+      "iv": "35a19fc84d1a515ac01345eb",
+      "authTag": "dca5ed954a88eb8a400990f24b681e65"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-15T12:00:00.000Z"
+  },
+  {
+    "id": "user-owner-13",
+    "email": "manager@chenabsmash.com",
+    "name": "Chenab Smash Owner",
+    "role": "owner",
+    "restaurant_id": "rest-113",
+    "restaurant_name": "Chenab Smash & Pizza Lounge",
+    "restaurant_slug": "chenabsmash",
+    "phone": "923004114455",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "77367e2ab9671b31c8fd6f819e",
+      "iv": "6e64ea5b450a80b117125cb3",
+      "authTag": "e10d7618f5174576f1e87c97d6695329"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_at": "2026-10-16T12:00:00.000Z"
   }
 ]

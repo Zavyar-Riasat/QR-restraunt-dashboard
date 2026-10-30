@@ -272,12 +272,19 @@ export const customerAuthService = {
   /**
    * Sign in with Google via Supabase OAuth 2.0
    */
-  async loginWithGoogle() {
+  async loginWithGoogle(redirectPath) {
     if (isSupabaseConfigured()) {
+      const currentPath =
+        typeof window !== 'undefined' &&
+        window.location.pathname &&
+        window.location.pathname !== '/login'
+          ? `${window.location.pathname}${window.location.search || ''}`
+          : '/account';
+      const targetRedirect = `${window.location.origin}${redirectPath || currentPath}`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/account`,
+          redirectTo: targetRedirect,
           queryParams: {
             prompt: 'select_account',
           },
@@ -295,6 +302,20 @@ export const customerAuthService = {
     }
 
     throw new Error('Supabase is not configured. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+  },
+
+  /**
+   * Quick Demo Customer Sign-In (1-Click Test Account)
+   */
+  async loginWithQuickDemo() {
+    const customer = await customerService.loginOrRegister({
+      name: 'Demo Customer',
+      email: 'demo.customer@dinehq.pk',
+      phone: '03001234567',
+      avatar: null,
+      preferred_language: 'en',
+    });
+    return { success: true, customer };
   },
 
   /**

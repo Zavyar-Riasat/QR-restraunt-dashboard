@@ -156,7 +156,25 @@ export default function TableManager({
     setTimeout(() => setCopiedTableId(null), 2000);
   };
 
+  const handleMarkTableOrderPaid = (orderId) => {
+    const restId = restaurant?.id || 'rest-101';
+    orderService.updatePaymentStatus(orderId, 'paid', restId);
+    setTables(tableService.getTables(restId));
+  };
+
   const handleCloseTable = (tbl) => {
+    if (tbl.activeOrder) {
+      const isPaid = Boolean(
+        tbl.activeOrder.payment_status === 'paid' &&
+          (tbl.activeOrder.explicit_paid || tbl.activeOrder.status === 'completed')
+      );
+      if (!isPaid) {
+        window.alert(
+          `Order #${tbl.activeOrder.id} cannot be completed until it is marked as PAID! Please mark the bill as Paid first.`
+        );
+        return;
+      }
+    }
     const confirmMsg = tbl.activeOrder
       ? `Close Table ${tbl.table_number} and mark order completed?`
       : `Mark Table ${tbl.table_number} as Free and ready for the next guests?`;
@@ -472,17 +490,44 @@ export default function TableManager({
                       )}
                     </div>
 
-                    {activeOrder && !isWaiter && (
-                      <button
-                        type="button"
-                        onClick={() => handleCloseTable(tbl)}
-                        className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                        title="Collect payment and free table"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Close Table & Settle Bill</span>
-                      </button>
-                    )}
+                    {activeOrder && !isWaiter && (() => {
+                      const isOrderPaid = Boolean(
+                        activeOrder.payment_status === 'paid' &&
+                          (activeOrder.explicit_paid || activeOrder.status === 'completed')
+                      );
+                      return (
+                        <div className="space-y-1.5">
+                          {!isOrderPaid && (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkTableOrderPaid(activeOrder.id)}
+                              className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                              title="Mark order bill as paid first"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5 text-white" />
+                              <span>Mark Bill Paid ({formatPKR(activeOrder.total_payable)})</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleCloseTable(tbl)}
+                            className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs ${
+                              isOrderPaid
+                                ? 'bg-slate-900 hover:bg-slate-800 text-white cursor-pointer'
+                                : 'bg-slate-100 text-slate-400 border border-dashed border-slate-300 cursor-not-allowed'
+                            }`}
+                            title={
+                              isOrderPaid
+                                ? 'Close table and mark order completed'
+                                : 'Mark the bill as Paid before completing order & closing table'
+                            }
+                          >
+                            <CheckCircle className={`w-3.5 h-3.5 ${isOrderPaid ? 'text-emerald-400' : 'text-slate-400'}`} />
+                            <span>{isOrderPaid ? 'Close Table & Complete Order' : '🔒 Pay Bill First to Close Table'}</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
 
                     <div className="flex items-center justify-between text-[11px] text-[#7A6A5C] pt-1">
                       <button

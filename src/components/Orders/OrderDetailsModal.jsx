@@ -8,6 +8,7 @@ import {
   Truck,
   ChefHat,
   CheckCircle2,
+  AlertCircle,
   Navigation,
   ExternalLink,
   Bike,
@@ -33,15 +34,21 @@ export default function OrderDetailsModal({
   onOrderUpdated,
 }) {
   const [activeOrder, setActiveOrder] = useState(order);
+  const [paymentWarning, setPaymentWarning] = useState('');
 
   // Sync activeOrder if order prop changes
   React.useEffect(() => {
     setActiveOrder(order);
+    setPaymentWarning('');
   }, [order]);
 
   if (!isOpen || !activeOrder) return null;
 
   const currentOrder = activeOrder;
+  const isPaid = Boolean(
+    currentOrder.payment_status === 'paid' &&
+      (currentOrder.explicit_paid || currentOrder.status === 'completed' || currentOrder.status === 'delivered')
+  );
   const _paymentState = computeOrderPaymentState(currentOrder);
   const dateInfo = format12HourTime(currentOrder.created_at);
   const isDelivery = currentOrder.order_type === 'delivery';
@@ -144,7 +151,7 @@ export default function OrderDetailsModal({
 
         {/* Scrollable Content */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
-          {/* Interactive 4-Stage Kitchen Progress Manager */}
+          {/* Interactive 3-Stage Kitchen Progress Manager */}
           {currentOrder.status !== 'cancelled' && onUpdateStatus && (
             <div className="p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-3">
               <div className="flex items-center justify-between">
@@ -155,14 +162,8 @@ export default function OrderDetailsModal({
                   Click any stage to update customer live tracker
                 </span>
               </div>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {/* Stage 1: Received */}
-                <div className="flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold select-none">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 mb-1" />
-                  <span>Received</span>
-                </div>
-
-                {/* Stage 2: Cooking */}
                 <button
                   type="button"
                   onClick={() => {
@@ -172,18 +173,16 @@ export default function OrderDetailsModal({
                     if (onOrderUpdated) onOrderUpdated(nextOrder);
                   }}
                   className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl border text-xs font-extrabold transition cursor-pointer ${
-                    currentOrder.status === 'preparing'
+                    currentOrder.status === 'preparing' || currentOrder.status === 'new'
                       ? 'bg-[#F26B1D] border-[#F26B1D] text-white shadow-md shadow-orange-500/20'
-                      : currentOrder.status === 'out_for_delivery' || currentOrder.status === 'ready' || currentOrder.status === 'completed'
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D]'
-                      : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:border-[#F26B1D] hover:text-[#2B2118]'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D]'
                   }`}
                 >
-                  <ChefHat className="w-5 h-5 mb-1" />
-                  <span>Cooking</span>
+                  <CheckCircle2 className="w-5 h-5 mb-1" />
+                  <span>Received</span>
                 </button>
 
-                {/* Stage 3: Ready / Dispatch */}
+                {/* Stage 2: Ready / Dispatch */}
                 <button
                   type="button"
                   onClick={() => {
@@ -205,26 +204,40 @@ export default function OrderDetailsModal({
                   <span>Ready / Dispatch</span>
                 </button>
 
-                {/* Stage 4: Completed */}
+                {/* Stage 3: Completed */}
                 <button
                   type="button"
                   onClick={() => {
+                    if (!isPaid) {
+                      setPaymentWarning('Order cannot be completed until the bill is marked as PAID.');
+                      return;
+                    }
+                    setPaymentWarning('');
                     onUpdateStatus(currentOrder.id, 'completed');
                     const nextOrder = { ...currentOrder, status: 'completed', payment_status: 'paid', explicit_paid: true };
                     setActiveOrder(nextOrder);
                     if (onOrderUpdated) onOrderUpdated(nextOrder);
                     onClose();
                   }}
-                  className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl border text-xs font-extrabold transition cursor-pointer ${
+                  title={isPaid ? 'Mark order as Completed' : 'Order cannot be completed until marked as PAID'}
+                  className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl border text-xs font-extrabold transition ${
                     currentOrder.status === 'completed'
-                      ? 'bg-[#1F9D55] border-[#1F9D55] text-white shadow-md shadow-emerald-500/20'
-                      : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:bg-emerald-600 hover:border-emerald-600 hover:text-white'
+                      ? 'bg-[#1F9D55] border-[#1F9D55] text-white shadow-md shadow-emerald-500/20 cursor-pointer'
+                      : isPaid
+                      ? 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:bg-emerald-600 hover:border-emerald-600 hover:text-white cursor-pointer'
+                      : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
                 >
                   <CheckCircle2 className="w-5 h-5 mb-1" />
                   <span>Completed</span>
                 </button>
               </div>
+              {paymentWarning && (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{paymentWarning}</span>
+                </div>
+              )}
             </div>
           )}
           {/* Assigned Rider Banner (if assigned) */}
@@ -459,6 +472,7 @@ export default function OrderDetailsModal({
                           orderService.updateOrderPaymentStatus(restaurant.id, currentOrder.id, true);
                           const nextOrder = { ...currentOrder, payment_status: 'paid', explicit_paid: true };
                           setActiveOrder(nextOrder);
+                          setPaymentWarning('');
                           if (onOrderUpdated) onOrderUpdated(nextOrder);
                         }}
                         className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-2xs"
@@ -568,13 +582,22 @@ export default function OrderDetailsModal({
               <button
                 type="button"
                 onClick={() => {
+                  if (!isPaid) {
+                    setPaymentWarning('Order cannot be completed until the bill is marked as PAID.');
+                    return;
+                  }
                   onUpdateStatus(currentOrder.id, 'completed');
                   onClose();
                 }}
-                className="px-4 py-2 rounded-xl bg-[#1F9D55] text-white font-bold text-xs hover:bg-[#188044] transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-green-500/20"
+                title={isPaid ? 'Complete this order' : 'Order cannot be completed until marked as PAID'}
+                className={`px-4 py-2 rounded-xl font-bold text-xs transition flex items-center gap-1.5 ${
+                  isPaid
+                    ? 'bg-[#1F9D55] text-white hover:bg-[#188044] cursor-pointer shadow-md shadow-green-500/20'
+                    : 'bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed'
+                }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{isDelivery ? 'Mark Delivered' : 'Complete Order'}</span>
+                <span>{isPaid ? (isDelivery ? 'Mark Delivered' : 'Complete Order') : 'Mark Paid First'}</span>
               </button>
             )}
           </div>

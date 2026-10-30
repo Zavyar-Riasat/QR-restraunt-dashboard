@@ -155,11 +155,30 @@ export default function OrdersFeed({
     setTimeout(() => setOrderStatusToast(null), 3500);
   };
 
+  const isOrderPaid = (ord) =>
+    Boolean(
+      ord &&
+        ord.payment_status === 'paid' &&
+        (ord.explicit_paid || ord.status === 'completed' || ord.status === 'delivered')
+    );
+
   const handleOrderStatusChange = (orderId, newStatus) => {
+    if (newStatus === 'completed' || newStatus === 'delivered') {
+      const targetOrder = orders.find((o) => o.id === orderId);
+      if (targetOrder && !isOrderPaid(targetOrder)) {
+        setOrderStatusToast({
+          message: `Order #${orderId} cannot be completed until it is marked as PAID!`,
+          orderId,
+          isError: true,
+        });
+        setTimeout(() => setOrderStatusToast(null), 4000);
+        return;
+      }
+    }
     onUpdateStatus(orderId, newStatus);
     if (newStatus === 'preparing' && feedMode !== 'completed') {
       setOrderStatusToast({
-        message: `Order #${orderId} Kitchen Progress set to Cooking!`,
+        message: `Order #${orderId} Kitchen Progress set to Received!`,
         orderId,
       });
       setTimeout(() => setOrderStatusToast(null), 3500);
@@ -354,10 +373,14 @@ export default function OrdersFeed({
   // and 'cancelled' or 'completed' orders are never shown in the active orders list!
   const baseOrders = useMemo(() => {
     if (feedMode === 'completed') {
-      return orders.filter((o) => o.status === 'completed');
+      return orders.filter((o) => o.status === 'completed' || o.status === 'delivered');
     }
     return orders.filter(
-      (o) => o.status !== 'completed' && o.status !== 'new' && o.status !== 'cancelled'
+      (o) =>
+        o.status !== 'completed' &&
+        o.status !== 'delivered' &&
+        o.status !== 'new' &&
+        o.status !== 'cancelled'
     );
   }, [orders, feedMode]);
 
@@ -371,7 +394,7 @@ export default function OrdersFeed({
   }, [baseOrders, dateFilter, customFilterDate]);
 
   const completedOrdersCount = useMemo(() => {
-    return orders.filter((o) => o.status === 'completed').length;
+    return orders.filter((o) => o.status === 'completed' || o.status === 'delivered').length;
   }, [orders]);
 
   const completedRevenue = useMemo(() => {
@@ -384,7 +407,7 @@ export default function OrdersFeed({
       if (feedMode === 'completed') {
         if (filter === 'dine_in') matchesFilter = order.order_type === 'dine_in';
         else if (filter === 'delivery') matchesFilter = order.order_type === 'delivery';
-        else if (filter === 'pickup') matchesFilter = order.order_type === 'pickup' || order.order_source === 'phone_pickup';
+        else if (filter === 'pickup') matchesFilter = order.order_type === 'pickup' || order.order_type === 'takeaway' || order.order_source === 'phone_pickup';
         else matchesFilter = true;
       } else {
         if (filter === 'all' || filter === 'active') {
@@ -429,8 +452,8 @@ export default function OrdersFeed({
       case 'preparing':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF3D9] border border-[#FCE1A8] text-[#F5A623] text-xs font-bold">
-            <ChefHat className="w-3.5 h-3.5 text-[#F5A623]" />
-            <span>Preparing</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#F5A623]" />
+            <span>Received</span>
           </span>
         );
       case 'out_for_delivery':
@@ -859,7 +882,7 @@ export default function OrdersFeed({
                       filter === 'pickup' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
                     }`}
                   >
-                    Takeaway ({dateFilteredOrders.filter((o) => o.order_type === 'pickup' || o.order_source === 'phone_pickup').length})
+                    Takeaway ({dateFilteredOrders.filter((o) => o.order_type === 'pickup' || o.order_type === 'takeaway' || o.order_source === 'phone_pickup').length})
                   </button>
                 </div>
               ) : (
@@ -882,7 +905,7 @@ export default function OrdersFeed({
                         filter === 'preparing' ? 'bg-[#F26B1D] text-white shadow-xs' : 'text-[#7A6A5C] hover:text-[#2B2118]'
                       }`}
                     >
-                      Preparing ({dateFilteredOrders.filter((o) => o.status === 'preparing').length})
+                      Received ({dateFilteredOrders.filter((o) => o.status === 'preparing').length})
                     </button>
                     <button
                       type="button"
@@ -1129,7 +1152,7 @@ export default function OrdersFeed({
                           </span>
                         </td>
 
-                        {/* Kitchen Progress Stage Controls (Received -> Cooking -> Ready / Dispatch -> Completed) */}
+                        {/* Kitchen Progress Stage Controls (Received -> Ready / Dispatch -> Completed) */}
                         <td className="py-3 px-3 whitespace-nowrap">
                           {order.status === 'cancelled' ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-800 text-[10px] font-bold">
@@ -1138,32 +1161,21 @@ export default function OrdersFeed({
                           ) : (
                             <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7]">
                               {/* Stage 1: Received */}
-                              <span
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 select-none"
-                                title="Stage 1: Order Received & Accepted"
-                              >
-                                <Check className="w-2.5 h-2.5 stroke-[3]" />
-                                <span>Received</span>
-                              </span>
-
-                              {/* Stage 2: Cooking */}
                               <button
                                 type="button"
                                 onClick={() => handleOrderStatusChange(order.id, 'preparing')}
                                 className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${
-                                  order.status === 'preparing'
+                                  order.status === 'preparing' || order.status === 'new'
                                     ? 'bg-[#F26B1D] text-white shadow-xs'
-                                    : order.status === 'out_for_delivery' || order.status === 'ready' || order.status === 'completed'
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-[#FFF1E6] hover:text-[#F26B1D]'
-                                    : 'bg-white text-[#7A6A5C] border border-[#F0E4D7] hover:text-[#2B2118]'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-[#FFF1E6] hover:text-[#F26B1D]'
                                 }`}
-                                title="Set Kitchen Progress to Cooking"
+                                title="Set Kitchen Progress to Received"
                               >
-                                <ChefHat className="w-3 h-3" />
-                                <span>Cooking</span>
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                <span>Received</span>
                               </button>
 
-                              {/* Stage 3: Ready / Dispatch */}
+                              {/* Stage 2: Ready / Dispatch */}
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1185,16 +1197,22 @@ export default function OrdersFeed({
                                 <span>Ready / Dispatch</span>
                               </button>
 
-                              {/* Stage 4: Completed */}
+                              {/* Stage 3: Completed */}
                               <button
                                 type="button"
                                 onClick={() => handleOrderStatusChange(order.id, 'completed')}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition ${
                                   order.status === 'completed'
-                                    ? 'bg-[#1F9D55] text-white shadow-xs'
-                                    : 'bg-white text-[#7A6A5C] border border-[#F0E4D7] hover:bg-emerald-600 hover:text-white hover:border-emerald-600'
+                                    ? 'bg-[#1F9D55] text-white shadow-xs cursor-pointer'
+                                    : isOrderPaid(order)
+                                    ? 'bg-white text-[#7A6A5C] border border-[#F0E4D7] hover:bg-emerald-600 hover:text-white hover:border-emerald-600 cursor-pointer'
+                                    : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                                 }`}
-                                title="Set Kitchen Progress to Completed"
+                                title={
+                                  isOrderPaid(order)
+                                    ? 'Set Kitchen Progress to Completed'
+                                    : 'Order cannot be completed until marked as PAID'
+                                }
                               >
                                 <CheckCircle2 className="w-3 h-3" />
                                 <span>Completed</span>
@@ -1723,40 +1741,30 @@ export default function OrdersFeed({
                       </div>
                     </div>
 
-                    {/* Interactive 4-Stage Kitchen Progress Switcher (Matches Customer Live Tracker) */}
+                    {/* Interactive 3-Stage Kitchen Progress Switcher (Matches Customer Live Tracker) */}
                     {order.status !== 'cancelled' && order.status !== 'held' && (
                       <div className="p-2.5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
                         <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C]">
                           <span>Kitchen Progress</span>
                           <span className="text-[#F26B1D] font-bold">Click any stage to update</span>
                         </div>
-                        <div className="grid grid-cols-4 gap-1.5">
+                        <div className="grid grid-cols-3 gap-1.5">
                           {/* Step 1: Received */}
-                          <div
-                            className="flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-extrabold select-none"
-                            title="Order Received & Accepted"
-                          >
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 mb-0.5" />
-                            <span>Received</span>
-                          </div>
-
-                          {/* Step 2: Cooking */}
                           <button
                             type="button"
                             onClick={() => handleOrderStatusChange(order.id, 'preparing')}
                             className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-extrabold transition cursor-pointer ${
-                              order.status === 'preparing'
+                              order.status === 'preparing' || order.status === 'new'
                                 ? 'bg-[#F26B1D] border-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                                : order.status === 'out_for_delivery' || order.status === 'ready' || order.status === 'completed'
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D]'
-                                : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:border-[#F26B1D] hover:text-[#2B2118]'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D]'
                             }`}
+                            title="Set Kitchen Progress to Received"
                           >
-                            <ChefHat className="w-4 h-4 mb-0.5" />
-                            <span>Cooking</span>
+                            <CheckCircle2 className="w-4 h-4 mb-0.5" />
+                            <span>Received</span>
                           </button>
 
-                          {/* Step 3: Ready / Dispatch */}
+                          {/* Step 2: Ready / Dispatch */}
                           <button
                             type="button"
                             onClick={() =>
@@ -1777,14 +1785,21 @@ export default function OrdersFeed({
                             <span className="truncate max-w-full">Ready / Dispatch</span>
                           </button>
 
-                          {/* Step 4: Completed */}
+                          {/* Step 3: Completed */}
                           <button
                             type="button"
                             onClick={() => handleOrderStatusChange(order.id, 'completed')}
-                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-extrabold transition cursor-pointer ${
+                            title={
+                              isOrderPaid(order)
+                                ? 'Mark order as Completed'
+                                : 'Order cannot be completed until marked as PAID'
+                            }
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-extrabold transition ${
                               order.status === 'completed'
-                                ? 'bg-[#1F9D55] border-[#1F9D55] text-white shadow-sm shadow-emerald-500/20'
-                                : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:bg-emerald-600 hover:border-emerald-600 hover:text-white'
+                                ? 'bg-[#1F9D55] border-[#1F9D55] text-white shadow-sm shadow-emerald-500/20 cursor-pointer'
+                                : isOrderPaid(order)
+                                ? 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:bg-emerald-600 hover:border-emerald-600 hover:text-white cursor-pointer'
+                                : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
                             }`}
                           >
                             <CheckCircle2 className="w-4 h-4 mb-0.5" />
@@ -1854,11 +1869,27 @@ export default function OrdersFeed({
 
                       {(order.status === 'out_for_delivery' || order.status === 'ready') && (
                         <button
+                          type="button"
                           onClick={() => handleOrderStatusChange(order.id, 'completed')}
-                          className="flex-1 py-3 px-4 rounded-xl bg-[#1F9D55] hover:bg-[#188044] active:scale-[0.99] text-white text-sm font-extrabold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-green-500/20"
+                          title={
+                            isOrderPaid(order)
+                              ? 'Complete this order'
+                              : 'Order cannot be completed until marked as PAID'
+                          }
+                          className={`flex-1 py-3 px-4 rounded-xl text-sm font-extrabold transition flex items-center justify-center gap-2 ${
+                            isOrderPaid(order)
+                              ? 'bg-[#1F9D55] hover:bg-[#188044] active:scale-[0.99] text-white cursor-pointer shadow-md shadow-green-500/20'
+                              : 'bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed'
+                          }`}
                         >
-                          <CheckCircle2 className="w-4 h-4 text-white" />
-                          <span>{order.order_type === 'delivery' ? 'Mark Delivered' : 'Complete Order'}</span>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>
+                            {isOrderPaid(order)
+                              ? order.order_type === 'delivery'
+                                ? 'Mark Delivered'
+                                : 'Complete Order'
+                              : 'Mark Paid First to Complete'}
+                          </span>
                         </button>
                       )}
 
@@ -2328,8 +2359,18 @@ export default function OrdersFeed({
 
       {/* Floating Status / Completion Toast */}
       {orderStatusToast && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 text-white shadow-2xl flex items-center gap-3 border border-slate-800 animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+        <div
+          className={`fixed bottom-6 right-6 z-50 p-4 rounded-2xl text-white shadow-2xl flex items-center gap-3 border animate-in fade-in slide-in-from-bottom-4 duration-200 ${
+            orderStatusToast.isError
+              ? 'bg-rose-600 border-rose-500'
+              : 'bg-slate-900 border-slate-800'
+          }`}
+        >
+          {orderStatusToast.isError ? (
+            <AlertCircle className="w-5 h-5 text-white shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          )}
           <div className="text-xs font-bold">
             {orderStatusToast.message}
           </div>

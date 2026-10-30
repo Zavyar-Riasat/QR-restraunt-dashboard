@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  LogIn,
   LogOut,
   ArrowRight,
   Phone,
@@ -35,6 +36,7 @@ export default function AdminPanelPage() {
   const navigate = useNavigate();
   const {
     user,
+    loginAsUser,
     logout,
     registerUser,
     getRegisteredUsers,
@@ -75,6 +77,20 @@ export default function AdminPanelPage() {
 
   // View full restaurant details modal state
   const [viewingAccount, setViewingAccount] = useState(null);
+
+  const handleLoginAsOwner = (account) => {
+    if (!account) return;
+    const slug = account.restaurant_slug || 'burgersmoke';
+    const loggedIn = loginAsUser({
+      ...account,
+      role: account.role === 'admin' ? 'admin' : 'owner',
+    });
+    if (loggedIn?.role === 'admin') {
+      navigate('/superadmin');
+    } else {
+      navigate(`/${slug}/admin`);
+    }
+  };
 
   // Helper to resolve full store details, live revenue, and platform rank for each account
   const restaurantMetricsMap = React.useMemo(() => {
@@ -1086,6 +1102,19 @@ export default function AdminPanelPage() {
                         {/* Actions */}
                         <td className="px-3.5 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1">
+                            {/* 1-Click Sign In as Owner Button */}
+                            {account.role !== 'admin' && (
+                              <button
+                                type="button"
+                                onClick={() => handleLoginAsOwner(account)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F26B1D] hover:bg-[#D95A12] text-white text-[11px] font-bold transition cursor-pointer shadow-2xs"
+                                title={`Sign in directly as ${account.restaurant_name || account.email} Owner`}
+                              >
+                                <LogIn className="w-3 h-3" />
+                                <span>Sign In</span>
+                              </button>
+                            )}
+
                             {/* View Full Restaurant Details Button */}
                             <button
                               type="button"
@@ -1740,13 +1769,18 @@ export default function AdminPanelPage() {
                       <span>Open Customer Menu</span>
                       <ExternalLink className="w-3.5 h-3.5 text-[#F26B1D]" />
                     </a>
-                    <Link
-                      to={`/${slug}/admin`}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#FFF1E6] hover:bg-[#FCD8BF] text-[#D95A12] border border-[#FCD8BF] text-xs font-bold transition"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const acct = viewingAccount;
+                        setViewingAccount(null);
+                        handleLoginAsOwner(acct);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-bold transition cursor-pointer shadow-xs"
                     >
-                      <UtensilsCrossed className="w-3.5 h-3.5" />
-                      <span>Open Store Dashboard</span>
-                    </Link>
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Sign In as Owner</span>
+                    </button>
                   </div>
                   <button
                     type="button"

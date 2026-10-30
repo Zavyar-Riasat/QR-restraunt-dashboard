@@ -1,11 +1,12 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
 export default function ProtectedRoute({ children, requireAdmin = false }) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const { restaurantSlug } = useParams();
 
   if (loading) {
     return (
@@ -47,6 +48,16 @@ export default function ProtectedRoute({ children, requireAdmin = false }) {
         </div>
       </div>
     );
+  }
+
+  // Tenant isolation: prevent non-admin staff of one restaurant from accessing another restaurant's dashboard
+  if (
+    restaurantSlug &&
+    user.role !== 'admin' &&
+    user.restaurant_slug &&
+    user.restaurant_slug.toLowerCase() !== restaurantSlug.toLowerCase()
+  ) {
+    return <Navigate to={`/${user.restaurant_slug}/admin`} replace />;
   }
 
   return children;

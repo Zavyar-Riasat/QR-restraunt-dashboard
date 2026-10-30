@@ -71,6 +71,27 @@ export default function CustomerAuthModal({
     }
   };
 
+  // Handle Quick Demo Sign-In
+  const handleQuickDemoSignIn = async () => {
+    try {
+      setLoading(true);
+      setErrorMsg('');
+      const res = await customerAuthService.loginWithQuickDemo();
+      if (res.success && res.customer) {
+        await loginCustomer(res.customer);
+        if (onSuccess) {
+          onSuccess(res.customer);
+        } else if (onClose) {
+          onClose();
+        }
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Quick demo sign in failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -153,6 +174,17 @@ export default function CustomerAuthModal({
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#7A6A5C] pt-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span>Fast, free &amp; secure 1-tap Google authentication</span>
+          </div>
+
+          <div className="pt-2 border-t border-dashed border-[#F0E4D7] text-center">
+            <button
+              type="button"
+              onClick={handleQuickDemoSignIn}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#FFF1E6] hover:bg-[#FDE4CE] text-[#F26B1D] border border-[#FCD8BF] text-xs font-extrabold transition cursor-pointer active:scale-[0.99] disabled:opacity-60"
+            >
+              <span>⚡ Quick Demo Sign-In →</span>
+            </button>
           </div>
         </div>
 

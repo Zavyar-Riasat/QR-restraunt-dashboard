@@ -485,6 +485,35 @@ export const authService = {
   },
 
   /**
+   * Direct 1-click sign-in as a specific registered owner/account (from Superadmin directory)
+   */
+  loginAsAccount(account) {
+    if (!account || !account.email) {
+      throw new Error('Valid account is required to sign in.');
+    }
+    const sessionUser = {
+      id: account.id,
+      email: account.email,
+      name: account.name || `${account.restaurant_name || 'Restaurant'} Owner`,
+      role: account.role === 'admin' ? 'admin' : 'owner',
+      restaurant_id: account.restaurant_id,
+      restaurant_name: account.restaurant_name || 'Partner Restaurant',
+      restaurant_slug: account.restaurant_slug || 'burgersmoke',
+      phone: account.phone || account.whatsapp_number || '923001234567',
+      whatsapp_number: account.phone || account.whatsapp_number || '923001234567',
+      must_change_password: false,
+    };
+    const sessionData = {
+      user: sessionUser,
+      token: `loc_token_${Date.now()}`,
+      must_change_password: false,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    };
+    this.saveSession(sessionData);
+    return sessionData;
+  },
+
+  /**
    * Attempt sign in with password via server-side AES-256-GCM verification
    * Compares password in constant time on the server with client-side fallback.
    */
@@ -1072,9 +1101,14 @@ export const authService = {
   },
 
   async logout() {
-    try {
-      await supabase.auth.signOut();
-    } catch  {}
     localStorage.removeItem(CURRENT_SESSION_KEY);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const sbEmail = data?.session?.user?.email;
+      // Only sign out of Supabase if the Supabase session belongs to a staff/owner user, not a customer
+      if (sbEmail && this.findExistingUserByEmail(sbEmail)) {
+        await supabase.auth.signOut();
+      }
+    } catch {}
   },
 };

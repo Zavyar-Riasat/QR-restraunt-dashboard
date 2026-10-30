@@ -3,6 +3,8 @@ import { X, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import DirectOrderCheckout from './DirectOrderCheckout';
 import CustomerOrderTracker from './CustomerOrderTracker';
 import ErrorBoundary from './ErrorBoundary';
+import CustomerAuthModal from './Customer/CustomerAuthModal';
+import { useCustomerAuth } from '../context/CustomerAuthContext';
 import { formatPKR } from '../utils/currencyUtils';
 
 export default function CustomerCartDrawer({
@@ -16,8 +18,10 @@ export default function CustomerCartDrawer({
   isDeliverableToCustomer = true,
   deliveryAreas = [],
 }) {
+  const { customer, isCustomerAuthenticated } = useCustomerAuth();
   const [step, setStep] = useState('cart'); // 'cart' | 'checkout' | 'tracker'
   const [placedOrder, setPlacedOrder] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -205,7 +209,13 @@ export default function CustomerCartDrawer({
 
               <button
                 type="button"
-                onClick={() => setStep('checkout')}
+                onClick={() => {
+                  if (!isCustomerAuthenticated || !customer) {
+                    setShowAuthModal(true);
+                    return;
+                  }
+                  setStep('checkout');
+                }}
                 style={{ backgroundColor: primaryColor }}
                 className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-md flex items-center justify-between transition cursor-pointer hover:brightness-95 active:scale-[0.99]"
               >
@@ -216,6 +226,17 @@ export default function CustomerCartDrawer({
           </div>
         )}
       </div>
+
+      <CustomerAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => {
+          setShowAuthModal(false);
+          setStep('checkout');
+        }}
+        title="Sign In Required to Order"
+        subtitle="Please sign in with your Google account before placing a food order."
+      />
     </div>
   );
 }

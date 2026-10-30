@@ -5,6 +5,7 @@ import { useCustomerAuth } from '../context/CustomerAuthContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomerLocationModal from '../components/Customer/CustomerLocationModal.jsx';
+import CustomerAuthModal from '../components/Customer/CustomerAuthModal.jsx';
 import CustomerCartDrawer from '../components/CustomerCartDrawer.jsx';
 import CustomerBottomNav from '../components/Customer/CustomerBottomNav.jsx';
 import BlurUpImage from '../components/Common/BlurUpImage.jsx';
@@ -647,6 +648,11 @@ export default function MarketplaceHomePage() {
 
   const handleAddDish = (dish) => {
     if (!dish) return;
+
+    if (!isCustomerAuthenticated) {
+      setShowSignInFavModal(true);
+      return;
+    }
 
     // Inspect active cart in localStorage BEFORE navigating or adding
     const conflictingCart = findConflictingRestaurantCart(dish.restaurant_slug);
@@ -1887,40 +1893,13 @@ export default function MarketplaceHomePage() {
       />
 
       {/* Sign In Required Modal */}
-      {showSignInFavModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#221A14] rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] shadow-2xl max-w-sm w-full p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center mx-auto shadow-sm">
-              <Heart className="w-6 h-6 fill-rose-500" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="font-heading font-extrabold text-base text-[#2B2118] dark:text-[#FFF9F2]">
-                {t('saveFavoritesPromptTitle') || 'Save Your Favorite Restaurants'}
-              </h3>
-              <p className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8]">
-                {t('saveFavoritesPromptSubtitle') ||
-                  'Sign in to your customer account to bookmark your favorite spots.'}
-              </p>
-            </div>
-            <div className="space-y-2 pt-2">
-              <button
-                type="button"
-                onClick={() => navigate('/account')}
-                className="w-full btn-primary min-h-[44px] text-xs font-bold"
-              >
-                {t('signInToAccount') || 'Sign in'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSignInFavModal(false)}
-                className="w-full py-2 text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#2B2118] transition cursor-pointer"
-              >
-                {t('maybeLater') || 'Maybe later'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CustomerAuthModal
+        isOpen={showSignInFavModal}
+        onClose={() => setShowSignInFavModal(false)}
+        onSuccess={() => setShowSignInFavModal(false)}
+        title="Sign In Required to Order"
+        subtitle="Please sign in with your Google account to order food, save favorite restaurants, and track live kitchen updates."
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Utensils,
   Plus,
@@ -6,6 +6,9 @@ import {
   Search,
   Edit2,
   Package,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 import { formatPKR } from '../utils/currencyUtils';
 import {
@@ -52,6 +55,13 @@ export default function MenuItemManager({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('ALL');
+  const categoryScrollRef = useRef(null);
+
+  const handleScrollCategories = (direction) => {
+    if (categoryScrollRef.current) {
+      categoryScrollRef.current.scrollBy({ left: direction * 240, behavior: 'smooth' });
+    }
+  };
 
   // Modals state
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
@@ -209,62 +219,126 @@ export default function MenuItemManager({
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9E8E81]" />
-          <input
-            type="text"
-            placeholder="Search dishes, ingredients, deals..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs sm:text-sm placeholder:text-[#9E8E81] focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
-          />
+      {/* Filter, Category Dropdown & Scrollable Pills Bar */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+          {/* Search */}
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9E8E81]" />
+            <input
+              type="text"
+              placeholder="Search dishes, ingredients, deals..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs sm:text-sm placeholder:text-[#9E8E81] focus:outline-none focus:border-[#F26B1D] focus:bg-white transition"
+            />
+          </div>
+
+          {/* Category Dropdown Selector */}
+          <div className="relative shrink-0 sm:w-56">
+            <select
+              value={selectedCategoryTab}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'ALL' || val === 'DEALS') {
+                  setSelectedCategoryTab(val);
+                } else {
+                  const matchedCat = dishCategories.find((c) => String(c.id) === val);
+                  setSelectedCategoryTab(matchedCat ? matchedCat.id : val);
+                }
+              }}
+              className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] hover:border-[#F26B1D] text-[#2B2118] text-xs sm:text-sm font-bold focus:outline-none focus:border-[#F26B1D] transition cursor-pointer"
+            >
+              <option value="ALL">All Items ({menuItems.length})</option>
+              {dealItemsList.length > 0 && (
+                <option value="DEALS">🔥 Deals ({dealItemsList.length})</option>
+              )}
+              {dishCategories.map((cat) => {
+                const count = menuItems.filter((i) => i.category_id === cat.id).length;
+                return (
+                  <option key={cat.id} value={cat.id}>
+                    {capitalizeWord(cat.name)} ({count})
+                  </option>
+                );
+              })}
+            </select>
+            <ChevronDown className="w-4 h-4 text-[#7A6A5C] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
         </div>
 
-        {/* Category Pills (Soft colored chips) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+        {/* Scrollable Category Pills (Soft colored chips) */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <button
-            onClick={() => setSelectedCategoryTab('ALL')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-              selectedCategoryTab === 'ALL'
-                ? 'bg-[#F26B1D] text-white shadow-xs'
-                : 'bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
-            }`}
+            type="button"
+            onClick={() => handleScrollCategories(-1)}
+            className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-[#FFF9F2] hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#F26B1D] border border-[#F0E4D7] transition cursor-pointer shrink-0"
+            title="Scroll categories left"
           >
-            All Items ({menuItems.length})
+            <ChevronLeft className="w-4 h-4" />
           </button>
 
-          {dealItemsList.length > 0 && (
+          <div
+            ref={categoryScrollRef}
+            onWheel={(e) => {
+              if (e.deltaY !== 0 && categoryScrollRef.current) {
+                categoryScrollRef.current.scrollLeft += e.deltaY;
+              }
+            }}
+            className="flex items-center gap-1.5 overflow-x-auto scroll-smooth pb-1 flex-1 min-w-0"
+          >
             <button
-              onClick={() => setSelectedCategoryTab('DEALS')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                selectedCategoryTab === 'DEALS'
+              type="button"
+              onClick={() => setSelectedCategoryTab('ALL')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
+                selectedCategoryTab === 'ALL'
                   ? 'bg-[#F26B1D] text-white shadow-xs'
-                  : 'bg-[#FEF3D9] text-[#B87000] hover:bg-[#FDE7B6] border border-[#FCE1A8]'
+                  : 'bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
               }`}
             >
-              <span>🔥 Deals ({dealItemsList.length})</span>
+              All Items ({menuItems.length})
             </button>
-          )}
 
-          {dishCategories.map((cat) => {
-            const count = menuItems.filter((i) => i.category_id === cat.id).length;
-            return (
+            {dealItemsList.length > 0 && (
               <button
-                key={cat.id}
-                onClick={() => setSelectedCategoryTab(cat.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
-                  selectedCategoryTab === cat.id
+                type="button"
+                onClick={() => setSelectedCategoryTab('DEALS')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  selectedCategoryTab === 'DEALS'
                     ? 'bg-[#F26B1D] text-white shadow-xs'
-                    : 'bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
+                    : 'bg-[#FEF3D9] text-[#B87000] hover:bg-[#FDE7B6] border border-[#FCE1A8]'
                 }`}
               >
-                {capitalizeWord(cat.name)} ({count})
+                <span>🔥 Deals ({dealItemsList.length})</span>
               </button>
-            );
-          })}
+            )}
+
+            {dishCategories.map((cat) => {
+              const count = menuItems.filter((i) => i.category_id === cat.id).length;
+              return (
+                <button
+                  type="button"
+                  key={cat.id}
+                  onClick={() => setSelectedCategoryTab(cat.id)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
+                    selectedCategoryTab === cat.id
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
+                  }`}
+                >
+                  {capitalizeWord(cat.name)} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleScrollCategories(1)}
+            className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-[#FFF9F2] hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#F26B1D] border border-[#F0E4D7] transition cursor-pointer shrink-0"
+            title="Scroll categories right"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 

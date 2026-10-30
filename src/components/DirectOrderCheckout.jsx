@@ -13,6 +13,7 @@ import {
   CreditCard,
   Banknote,
   Loader2,
+  Lock,
 } from 'lucide-react';
 import { handleDirectOrderCheckout, validatePakistaniPhone } from '../utils/checkoutUtils';
 import { formatPKR } from '../utils/currencyUtils';
@@ -36,6 +37,13 @@ export default function DirectOrderCheckout({
   const [orderType, setOrderType] = useState(() => {
     return isDeliverableToCustomer ? 'delivery' : 'pickup';
   });
+
+  // Automatically switch to 'pickup' if customer location is determined to be outside delivery coverage
+  useEffect(() => {
+    if (!isDeliverableToCustomer && orderType === 'delivery') {
+      setOrderType('pickup');
+    }
+  }, [isDeliverableToCustomer, orderType]);
   const [placedSuccessOrder, setPlacedSuccessOrder] = useState(null);
 
   const [customer, setCustomer] = useState({
@@ -97,7 +105,19 @@ export default function DirectOrderCheckout({
     }
   }, [customer.phone, isCustomerAuthenticated]);
 
-  const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery');
+  const [paymentMethod, setPaymentMethod] = useState(() =>
+    isDeliverableToCustomer ? 'Cash on Delivery' : 'Pay at Counter'
+  );
+
+  // Sync default cash payment method label when switching between Delivery and Takeaway
+  useEffect(() => {
+    setPaymentMethod((prev) => {
+      if (prev === 'Cash on Delivery' || prev === 'Pay at Counter') {
+        return orderType === 'delivery' ? 'Cash on Delivery' : 'Pay at Counter';
+      }
+      return prev;
+    });
+  }, [orderType]);
   const [honeypot, setHoneypot] = useState(''); // Bot trap
   const [idempotencyKey] = useState(() => `idemp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`);
 
@@ -172,6 +192,12 @@ export default function DirectOrderCheckout({
     // Honeypot bot protection
     if (honeypot) {
       console.warn('Bot submission blocked.');
+      return;
+    }
+
+    if (!isCustomerAuthenticated || !authCustomer) {
+      setFormError('Please sign in to your account before placing an order.');
+      setShowSignInModal(true);
       return;
     }
 
@@ -290,6 +316,71 @@ export default function DirectOrderCheckout({
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           <span>Live order tracker active</span>
         </div>
+      </div>
+    );
+  }
+
+  if (!isCustomerAuthenticated || !authCustomer) {
+    return (
+      <div className="space-y-4">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-xs font-bold text-[#7A6A5C] hover:text-[#2B2118] transition cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Cart items</span>
+          </button>
+        )}
+
+        <div className="p-6 sm:p-8 text-center space-y-4 bg-gradient-to-b from-[#FFF9F2] via-white to-white rounded-3xl border border-[#F0E4D7] shadow-xs">
+          <div
+            className="w-14 h-14 rounded-2xl bg-[#FFF1E6] border border-[#FCD8BF] flex items-center justify-center mx-auto shadow-2xs"
+            style={{ color: primaryColor }}
+          >
+            <Lock className="w-7 h-7" />
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="inline-block text-[10px] font-mono uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF]">
+              Account Required
+            </span>
+            <h3 className="text-lg font-heading font-extrabold text-[#2B2118]">
+              Sign In Required to Order
+            </h3>
+            <p className="text-xs text-[#7A6A5C] max-w-xs mx-auto leading-relaxed">
+              Please sign in to your account before ordering food. Signing in links your order to live kitchen tracking and your saved addresses.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-between text-xs">
+            <span className="font-bold text-[#7A6A5C]">
+              {cart.reduce((s, i) => s + (i.quantity || 1), 0)} item(s) in cart
+            </span>
+            <span className="font-mono font-extrabold text-[#2B2118]" style={{ color: primaryColor }}>
+              {formatPKR(subtotal)}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowSignInModal(true)}
+            style={{ backgroundColor: primaryColor }}
+            className="w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-sm shadow-md hover:brightness-95 active:scale-[0.99] transition cursor-pointer flex items-center justify-center gap-2"
+          >
+            <User className="w-4 h-4" />
+            <span>Sign In to Place Order</span>
+          </button>
+        </div>
+
+        <CustomerAuthModal
+          isOpen={showSignInModal}
+          onClose={() => setShowSignInModal(false)}
+          onSuccess={() => setShowSignInModal(false)}
+          title="Sign In Required to Order"
+          subtitle="Sign in with your Google account to place your food order and track live kitchen updates."
+        />
       </div>
     );
   }

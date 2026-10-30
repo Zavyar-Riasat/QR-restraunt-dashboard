@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { isReservedSlug } from '../config/appConfig';
 import { menuService } from '../services/menuService';
@@ -9,6 +9,7 @@ import VariantCustomizationModal from '../components/VariantCustomizationModal';
 import CustomerCartDrawer from '../components/CustomerCartDrawer';
 import CustomerOrderTracker from '../components/CustomerOrderTracker';
 import DirectOrderCheckout from '../components/DirectOrderCheckout';
+import CustomerAuthModal from '../components/Customer/CustomerAuthModal';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useCustomerAuth } from '../context/CustomerAuthContext';
 import { formatPKR } from '../utils/currencyUtils';
@@ -18,7 +19,9 @@ import {
   Plus,
   Minus,
   SlidersHorizontal,
+  ChevronLeft,
   ChevronRight,
+  ChevronDown,
   AlertCircle,
   ArrowLeft,
   
@@ -111,6 +114,13 @@ export default function CustomerMenuPage() {
   // Filter & Search
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const categoryScrollRef = useRef(null);
+
+  const handleScrollCategories = (direction) => {
+    if (categoryScrollRef.current) {
+      categoryScrollRef.current.scrollBy({ left: direction * 240, behavior: 'smooth' });
+    }
+  };
 
   // Cart & Customization State (Persisted per restaurant in localStorage)
   const cartStorageKey = `dinehq_cart_${effectiveSlug}`;
@@ -153,6 +163,8 @@ export default function CustomerMenuPage() {
   const [selectedItemForModal, setSelectedItemForModal] = useState(null);
   const [cartConflictState, setCartConflictState] = useState(null);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingAuthAction, setPendingAuthAction] = useState(null);
 
   // Customer Saved Location & Delivery Areas
   const [customerLocation, _setCustomerLocation] = useState(() => {
@@ -182,10 +194,10 @@ export default function CustomerMenuPage() {
     }
   });
 
-  // Table QR guard: Hide back button when arrived via table QR or has an open dine-in order
+  // Table QR guard: Only hide back button when arrived via table QR
   const hasTableQr = Boolean(scannedTable);
-  const hasOpenDineInOrder = Boolean(persistedActiveOrderId);
-  const hideHeaderBackButton = hasTableQr || hasOpenDineInOrder;
+  const hideHeaderBackButton = hasTableQr;
+  const handledHighlightRef = useRef(null);
 
   const handleBackClick = () => {
     if (cart.length > 0) {
@@ -208,7 +220,11 @@ export default function CustomerMenuPage() {
         const raw = localStorage.getItem('dinehq_active_order');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed?.id) {
+          const currentRestId = initialSyncMenu?.restaurant?.id;
+          if (
+            parsed?.id &&
+            (!parsed.restaurantId || !currentRestId || parsed.restaurantId === currentRestId)
+          ) {
             setPersistedActiveOrderId(parsed.id);
           }
         }
@@ -323,6 +339,12 @@ export default function CustomerMenuPage() {
     (item) => {
       if (!getItemAvailability(item)) return; // blocked if sold out
 
+      if (!isCustomerAuthenticated || !customer) {
+        setPendingAuthAction({ type: 'item', item });
+        setShowAuthModal(true);
+        return;
+      }
+
       const otherCart = findOtherRestaurantCart();
       if (otherCart) {
         setCartConflictState({
@@ -335,20 +357,21 @@ export default function CustomerMenuPage() {
 
       openItemCustomizationDirectly(item);
     },
-    [findOtherRestaurantCart, openItemCustomizationDirectly]
+    [isCustomerAuthenticated, customer, findOtherRestaurantCart, openItemCustomizationDirectly]
   );
 
-  // Highlight dish and open customization modal if arrived via Food mode 'View' link
+  // Highlight dish and open customization modal once if arrived via Food mode 'View' link
   useEffect(() => {
     if (!menuItems || menuItems.length === 0) return;
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const highlightId = urlParams.get('highlight');
-      if (highlightId) {
+      if (highlightId && handledHighlightRef.current !== highlightId) {
         const found = menuItems.find(
           (m) => String(m.id) === String(highlightId) || (m.title && m.title.toLowerCase().includes(highlightId.toLowerCase()))
         );
         if (found) {
+          handledHighlightRef.current = highlightId;
           setTimeout(() => {
             handleOpenCustomization(found);
             const el = document.getElementById(`item-${found.id}`);
@@ -396,6 +419,10 @@ export default function CustomerMenuPage() {
   };
 
   const handleAddToCart = (configuredItem) => {
+    if (!isCustomerAuthenticated || !customer) {
+      setShowAuthModal(true);
+      return;
+    }
     const choiceKey = (configuredItem.choiceDetails || []).sort().join('|');
     const existingIndex = cart.findIndex(
       (c) =>
@@ -413,6 +440,10 @@ export default function CustomerMenuPage() {
   };
 
   const handleUpdateQty = (cartIndex, delta) => {
+    if (delta > 0 && (!isCustomerAuthenticated || !customer)) {
+      setShowAuthModal(true);
+      return;
+    }
     const updated = [...cart];
     const newQty = updated[cartIndex].quantity + delta;
     if (newQty <= 0) {
@@ -615,13 +646,14 @@ export default function CustomerMenuPage() {
                 </span>
               </Link>
             ) : (
-              <Link
-                to="/account"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] border border-[#F0E4D7] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] transition shadow-2xs"
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] border border-[#F0E4D7] hover:border-[#F26B1D] text-xs font-bold text-[#2B2118] transition shadow-2xs cursor-pointer"
               >
                 <User className="w-3.5 h-3.5 text-[#F26B1D]" />
                 <span className="hidden sm:inline">Sign In</span>
-              </Link>
+              </button>
             )}
 
             {/* Header Cart Button */}
@@ -773,66 +805,132 @@ export default function CustomerMenuPage() {
         {/* 2-Column Responsive Layout: Left Menu / Right Web Cart */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           {/* Left Column: Categories, Search & Dishes */}
-          <div className="lg:col-span-7 xl:col-span-8 space-y-6">
-            {/* Search & Sticky Filter Bar */}
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#9E8E81]" />
-                <input
-                  type="text"
-                  placeholder={t.search_placeholder}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm placeholder:text-[#9E8E81] focus:outline-none focus:border-[#F26B1D] shadow-2xs transition"
-                />
+          <div className="lg:col-span-7 xl:col-span-8 min-w-0 space-y-6">
+            {/* Search, Category Dropdown & Scrollable Filter Bar */}
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#9E8E81]" />
+                  <input
+                    type="text"
+                    placeholder={t.search_placeholder}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-11 pr-4 py-2.5 rounded-2xl bg-white border border-[#F0E4D7] text-[#2B2118] text-sm placeholder:text-[#9E8E81] focus:outline-none focus:border-[#F26B1D] shadow-2xs transition"
+                  />
+                </div>
+
+                {/* Category Dropdown Selector */}
+                <div className="relative shrink-0 sm:w-56">
+                  <select
+                    value={activeCategory}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'ALL' || val === 'DEALS') {
+                        setActiveCategory(val);
+                      } else {
+                        const matchedCat = displayCategories.find((c) => String(c.id) === val);
+                        setActiveCategory(matchedCat ? matchedCat.id : val);
+                      }
+                    }}
+                    className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-2xl bg-white border border-[#F0E4D7] hover:border-[#F26B1D] text-[#2B2118] text-xs sm:text-sm font-bold focus:outline-none focus:border-[#F26B1D] shadow-2xs transition cursor-pointer"
+                  >
+                    <option value="ALL">{t.all_items} ({menuItems.length})</option>
+                    {dealItemsList.length > 0 && (
+                      <option value="DEALS">🔥 {t.deals_combos} ({dealItemsList.length})</option>
+                    )}
+                    {displayCategories.map((cat) => {
+                      const count = menuItems.filter((i) => i.category_id === cat.id).length;
+                      return (
+                        <option key={cat.id} value={cat.id}>
+                          {formatCategoryName(cat.name)} ({count})
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#7A6A5C] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
-              {/* Category Pills Navigation */}
-              <div className="sticky top-20 z-30 bg-[#FFF9F2]/95 backdrop-blur-md py-2 -mx-4 px-4 sm:-mx-0 sm:px-0 flex items-center gap-1.5 overflow-x-auto scrollbar-none border-b border-[#F0E4D7] sm:border-0">
+              {/* Scrollable Category Pills Navigation with Left/Right Scroll Controls */}
+              <div className="sticky top-20 z-30 bg-[#FFF9F2]/95 backdrop-blur-md py-2 -mx-4 px-4 sm:-mx-0 sm:px-0 flex items-center gap-1.5 border-b border-[#F0E4D7] sm:border-0 min-w-0">
                 <button
-                  onClick={() => setActiveCategory('ALL')}
-                  style={activeCategory === 'ALL' ? { backgroundColor: primaryColor } : {}}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-                    activeCategory === 'ALL'
-                      ? 'text-white shadow-2xs'
-                      : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
-                  }`}
+                  type="button"
+                  onClick={() => handleScrollCategories(-1)}
+                  className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#F26B1D] border border-[#F0E4D7] shadow-2xs transition cursor-pointer shrink-0"
+                  title="Scroll categories left"
+                  aria-label="Scroll categories left"
                 >
-                  {t.all_items} ({menuItems.length})
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {dealItemsList.length > 0 && (
+                <div
+                  ref={categoryScrollRef}
+                  onWheel={(e) => {
+                    if (e.deltaY !== 0 && categoryScrollRef.current) {
+                      categoryScrollRef.current.scrollLeft += e.deltaY;
+                    }
+                  }}
+                  className="flex items-center gap-1.5 overflow-x-auto scroll-smooth min-w-0 flex-1 pb-1"
+                >
                   <button
-                    onClick={() => setActiveCategory('DEALS')}
-                    style={activeCategory === 'DEALS' ? { backgroundColor: primaryColor } : {}}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
-                      activeCategory === 'DEALS'
+                    type="button"
+                    onClick={() => setActiveCategory('ALL')}
+                    style={activeCategory === 'ALL' ? { backgroundColor: primaryColor } : {}}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
+                      activeCategory === 'ALL'
                         ? 'text-white shadow-2xs'
-                        : 'bg-[#FEF3D9] text-[#B87000] border border-[#FCE1A8] hover:bg-[#FDE7B6]'
+                        : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
                     }`}
                   >
-                    <span>🔥 {t.deals_combos} ({dealItemsList.length})</span>
+                    {t.all_items} ({menuItems.length})
                   </button>
-                )}
 
-                {displayCategories.map((cat) => {
-                  const count = menuItems.filter((i) => i.category_id === cat.id).length;
-                  const isActive = activeCategory === cat.id;
-                  return (
+                  {dealItemsList.length > 0 && (
                     <button
-                      key={cat.id}
-                      onClick={() => setActiveCategory(cat.id)}
-                      style={isActive ? { backgroundColor: primaryColor } : {}}
-                      className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-                        isActive
-                          ? 'text-white shadow-md'
-                          : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
+                      type="button"
+                      onClick={() => setActiveCategory('DEALS')}
+                      style={activeCategory === 'DEALS' ? { backgroundColor: primaryColor } : {}}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                        activeCategory === 'DEALS'
+                          ? 'text-white shadow-2xs'
+                          : 'bg-[#FEF3D9] text-[#B87000] border border-[#FCE1A8] hover:bg-[#FDE7B6]'
                       }`}
                     >
-                      {formatCategoryName(cat.name)} ({count})
+                      <span>🔥 {t.deals_combos} ({dealItemsList.length})</span>
                     </button>
-                  );
-                })}
+                  )}
+
+                  {displayCategories.map((cat) => {
+                    const count = menuItems.filter((i) => i.category_id === cat.id).length;
+                    const isActive = activeCategory === cat.id;
+                    return (
+                      <button
+                        type="button"
+                        key={cat.id}
+                        onClick={() => setActiveCategory(cat.id)}
+                        style={isActive ? { backgroundColor: primaryColor } : {}}
+                        className={`px-4 py-1.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer shrink-0 ${
+                          isActive
+                            ? 'text-white shadow-md'
+                            : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F0E4D7]'
+                        }`}
+                      >
+                        {formatCategoryName(cat.name)} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleScrollCategories(1)}
+                  className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#F26B1D] border border-[#F0E4D7] shadow-2xs transition cursor-pointer shrink-0"
+                  title="Scroll categories right"
+                  aria-label="Scroll categories right"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -1039,26 +1137,6 @@ export default function CustomerMenuPage() {
                     />
                   </ErrorBoundary>
                 </div>
-              ) : isDesktopCheckout ? (
-                <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-                  <DirectOrderCheckout
-                    cart={cart}
-                    restaurant={restaurant}
-                    isDeliverableToCustomer={deliveryCoverage?.deliversToUser}
-                    deliveryAreas={deliveryAreas}
-                    onBack={() => setIsDesktopCheckout(false)}
-                    onOrderPlaced={(newOrder) => {
-                      setDesktopOrder(newOrder);
-                      setPersistedActiveOrderId(newOrder.id);
-                      setCart([]);
-                      try {
-                        localStorage.removeItem(cartStorageKey);
-                      } catch (e) {
-                        console.warn(e);
-                      }
-                    }}
-                  />
-                </div>
               ) : cart.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-[#FFF1E6] border border-[#F0E4D7] flex items-center justify-center text-[#F26B1D] mb-3">
@@ -1144,7 +1222,7 @@ export default function CustomerMenuPage() {
                     {customerLocation && !deliveryCoverage?.deliversToUser && (
                       <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium flex items-center gap-1.5">
                         <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span>Outside delivery area. Pickup or Dine-in available.</span>
+                        <span>Outside delivery area. Takeaway / Pickup available.</span>
                       </div>
                     )}
 
@@ -1179,7 +1257,14 @@ export default function CustomerMenuPage() {
                     {/* Primary Colored Proceed Button */}
                     <button
                       type="button"
-                      onClick={() => setIsDesktopCheckout(true)}
+                      onClick={() => {
+                        if (!isCustomerAuthenticated || !customer) {
+                          setPendingAuthAction({ type: 'checkout' });
+                          setShowAuthModal(true);
+                          return;
+                        }
+                        setIsDesktopCheckout(true);
+                      }}
                       disabled={!isKitchenOpen}
                       style={{ backgroundColor: primaryColor }}
                       className="w-full py-3 sm:py-3.5 px-4 rounded-xl text-white font-extrabold text-xs sm:text-sm shadow-md hover:brightness-95 active:scale-[0.99] flex items-center justify-between transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1409,6 +1494,30 @@ export default function CustomerMenuPage() {
           </div>
         </div>
       )}
+
+      {/* Customer Sign-In Required Modal */}
+      <CustomerAuthModal
+        isOpen={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          setPendingAuthAction(null);
+        }}
+        onSuccess={() => {
+          setShowAuthModal(false);
+          if (pendingAuthAction?.type === 'item' && pendingAuthAction.item) {
+            const itemToOpen = pendingAuthAction.item;
+            setPendingAuthAction(null);
+            openItemCustomizationDirectly(itemToOpen);
+          } else if (pendingAuthAction?.type === 'checkout') {
+            setPendingAuthAction(null);
+            setIsDesktopCheckout(true);
+          } else {
+            setPendingAuthAction(null);
+          }
+        }}
+        title="Sign In Required to Order"
+        subtitle="Please sign in with your Google account before adding items or placing a food order."
+      />
 
       {/* Web Footer */}
       <footer className="mt-auto py-4 border-t border-[#F0E4D7] text-center text-xs text-[#7A6A5C] bg-[#FFF9F2]">

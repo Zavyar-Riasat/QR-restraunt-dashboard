@@ -19,20 +19,27 @@ export function AuthProvider({ children }) {
           setUser(currentSession.user);
           setSession(currentSession);
         } else {
-          // 2. Check Supabase auth session if available
+          // 2. Check Supabase auth session ONLY if it belongs to a registered staff/owner account
+          // (Prevents customer Google OAuth sessions from escalating into staff/owner sessions)
           const { data } = await supabase.auth.getSession();
           if (data?.session?.user) {
             const sbUser = data.session.user;
-            const userObj = {
-              id: sbUser.id,
-              email: sbUser.email,
-              name: sbUser.user_metadata?.name || 'Restaurant Owner',
-              role: sbUser.user_metadata?.role || 'owner',
-              restaurant_name: sbUser.user_metadata?.restaurant_name || 'Burger & Smoke Co.',
-              restaurant_slug: sbUser.user_metadata?.restaurant_slug || 'burgersmoke',
-            };
-            setUser(userObj);
-            setSession({ user: userObj, token: data.session.access_token });
+            const validStaffRoles = ['admin', 'owner', 'manager', 'cashier', 'waiter'];
+            const metaRole = String(sbUser.user_metadata?.role || '').toLowerCase();
+            const registeredStaff = authService.findExistingUserByEmail(sbUser.email);
+
+            if (validStaffRoles.includes(metaRole) || registeredStaff) {
+              const userObj = registeredStaff || {
+                id: sbUser.id,
+                email: sbUser.email,
+                name: sbUser.user_metadata?.name || 'Restaurant Owner',
+                role: metaRole || 'owner',
+                restaurant_name: sbUser.user_metadata?.restaurant_name || 'Burger & Smoke Co.',
+                restaurant_slug: sbUser.user_metadata?.restaurant_slug || 'burgersmoke',
+              };
+              setUser(userObj);
+              setSession({ user: userObj, token: data.session.access_token });
+            }
           }
         }
       } catch (err) {
@@ -44,11 +51,14 @@ export function AuthProvider({ children }) {
 
     initAuth();
 
-    // Listen to Supabase auth state change
+    // Listen to Supabase auth state change (preserve local staff sessions when customer signs out of Google OAuth)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, _newSession) => {
       if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setSession(null);
+        const localStaffSession = authService.getCurrentSession();
+        if (!localStaffSession?.user) {
+          setUser(null);
+          setSession(null);
+        }
       }
     });
 
@@ -59,6 +69,13 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const sessionData = await authService.login(email, password);
+    setUser(sessionData.user);
+    setSession(sessionData);
+    return sessionData.user;
+  };
+
+  const loginAsUser = (account) => {
+    const sessionData = authService.loginAsAccount(account);
     setUser(sessionData.user);
     setSession(sessionData);
     return sessionData.user;
@@ -128,6 +145,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: Boolean(user),
     isAdmin: user?.role === 'admin',
     login,
+    loginAsUser,
     logout,
     registerUser,
     getRegisteredUsers,

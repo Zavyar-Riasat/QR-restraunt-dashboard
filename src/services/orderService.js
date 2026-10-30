@@ -823,7 +823,7 @@ export const orderService = {
     let resolvedAddress = customerDetails?.address?.trim() || '';
     if (orderType === 'dine_in') {
       resolvedAddress = tableNumber ? `Dine-in (Table ${tableNumber})` : 'Dine-in';
-    } else if (orderType === 'pickup') {
+    } else if (orderType === 'pickup' || orderType === 'takeaway') {
       resolvedAddress = 'Self Pick-up at Restaurant Counter';
     } else if (orderType === 'phone') {
       resolvedAddress = customerDetails?.address?.trim() ? `Phone Order - ${customerDetails.address.trim()}` : 'Phone Order (Pickup / Counter)';
@@ -951,6 +951,11 @@ export const orderService = {
     newOrder.payments = initialPayments;
     newOrder.payment_status = initialPaymentState.paymentStatus;
     newOrder.amount_received = initialPaymentState.amountPaid;
+    newOrder.explicit_paid = Boolean(
+      customerDetails?.explicit_paid ||
+        customerDetails?.payment_status === 'paid' ||
+        initialPaymentState.paymentStatus === 'paid'
+    );
 
     // 1. Try persisting to Supabase if an orders table exists and restId is a valid UUID
     if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(restId)) {
@@ -993,11 +998,11 @@ export const orderService = {
       const updated = [newOrder, ...existing.filter((o) => o.id !== newOrder.id)];
       localStorage.setItem(storageKey, JSON.stringify(updated));
 
-      // Record rate limit timestamp
-      this.recordRateLimitHit();
-
-      // Save as customer's active order in localStorage for tracking
-      localStorage.setItem('dinehq_active_order', JSON.stringify({ id: newOrder.id, restaurantId: restId }));
+      // Only record rate limit & set customer active order banner for customer-placed orders
+      if (!customerDetails?.isManagerOrder && customerDetails?.order_source !== 'manager') {
+        this.recordRateLimitHit();
+        localStorage.setItem('dinehq_active_order', JSON.stringify({ id: newOrder.id, restaurantId: restId }));
+      }
 
       // Broadcast order placed event for live kitchen feed and audio chime
       if (typeof window !== 'undefined') {
@@ -1243,11 +1248,18 @@ export const orderService = {
         ? orders.filter((o) => o.id !== orderId && o.status !== 'cancelled')
         : orders.map((o) => {
             if (o.id === orderId) {
-              const autoSettle = newStatus === 'completed' || newStatus === 'delivered';
+              const isCompleting = newStatus === 'completed' || newStatus === 'delivered';
+              const isAlreadyPaid =
+                Boolean(o.payment_status === 'paid' && (o.explicit_paid || o.status === 'completed' || o.status === 'delivered')) ||
+                Boolean(additionalUpdates.payment_status === 'paid' && additionalUpdates.explicit_paid);
+              if (isCompleting && !isAlreadyPaid) {
+                updatedOrder = o;
+                return o;
+              }
               updatedOrder = {
                 ...o,
                 status: newStatus,
-                ...(autoSettle
+                ...(isCompleting
                   ? {
                       payment_status: 'paid',
                       explicit_paid: true,
@@ -1266,6 +1278,18 @@ export const orderService = {
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(updated));
+
+      if (['completed', 'delivered', 'cancelled'].includes(newStatus) && typeof window !== 'undefined') {
+        try {
+          const activeRaw = localStorage.getItem('dinehq_active_order');
+          if (activeRaw) {
+            const activeParsed = JSON.parse(activeRaw);
+            if (activeParsed?.id === orderId) {
+              localStorage.removeItem('dinehq_active_order');
+            }
+          }
+        } catch {}
+      }
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
@@ -1607,8 +1631,10 @@ export const orderService = {
       ...baseUpdatedOrder,
       total_payable_paisa: appendPaymentState.totalPayablePaisa,
       payment_status: appendPaymentState.paymentStatus,
+      explicit_paid: appendPaymentState.paymentStatus === 'paid',
     };
 
+    this._ordersCache.delete(restaurantId);
     const updatedList = orders.map((o) => (o.id === orderId ? updatedOrder : o));
     try {
       localStorage.setItem(storageKey, JSON.stringify(updatedList));
@@ -1684,8 +1710,10 @@ export const orderService = {
       ...baseUpdatedOrder,
       total_payable_paisa: updatePaymentState.totalPayablePaisa,
       payment_status: updatePaymentState.paymentStatus,
+      explicit_paid: updatePaymentState.paymentStatus === 'paid',
     };
 
+    this._ordersCache.delete(restaurantId);
     const updatedList = orders.map((o) => (o.id === orderId ? updatedOrder : o));
     try {
       localStorage.setItem(storageKey, JSON.stringify(updatedList));
@@ -1727,6 +1755,7 @@ export const orderService = {
     const savedCommission = grossVolume * 0.30;
     const activeCount = orders.filter(
       (o) =>
+        o.status === 'new' ||
         o.status === 'preparing' ||
         o.status === 'out_for_delivery' ||
         o.status === 'ready' ||

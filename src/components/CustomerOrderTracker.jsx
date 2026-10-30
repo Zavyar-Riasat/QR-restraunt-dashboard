@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   Clock,
-  ChefHat,
   Truck,
   Phone,
   Utensils,
@@ -20,8 +19,7 @@ import { format12HourTime } from '../utils/dateUtils';
 import { orderService } from '../services/orderService';
 
 const STATUS_STEPS = [
-  { key: 'new', label: 'Received', icon: Clock, desc: 'Kitchen received your order' },
-  { key: 'preparing', label: 'Cooking', icon: ChefHat, desc: 'Chef is preparing your dishes' },
+  { key: 'received', label: 'Received', icon: Clock, desc: 'Kitchen received your order' },
   { key: 'out_for_delivery', label: 'Ready / Dispatch', icon: Truck, desc: 'Ready for pickup or out with rider' },
   { key: 'completed', label: 'Completed', icon: CheckCircle2, desc: 'Order delivered / enjoyed' },
 ];
@@ -154,9 +152,13 @@ export default function CustomerOrderTracker({
   // Calculate current active step index
   const currentStatus = order.status || 'new';
   const isCancelled = currentStatus === 'cancelled';
-  let activeIndex = STATUS_STEPS.findIndex((s) => s.key === currentStatus || (currentStatus === 'ready' && s.key === 'out_for_delivery'));
-  if (activeIndex === -1) {
-    activeIndex = currentStatus === 'completed' ? 3 : 0;
+  let activeIndex = 0;
+  if (currentStatus === 'completed' || currentStatus === 'delivered') {
+    activeIndex = 2;
+  } else if (currentStatus === 'out_for_delivery' || currentStatus === 'ready') {
+    activeIndex = 1;
+  } else {
+    activeIndex = 0;
   }
 
   const handleCopyOrderId = () => {
@@ -227,7 +229,7 @@ export default function CustomerOrderTracker({
                   <Utensils className="w-3.5 h-3.5 text-[#F26B1D]" />
                   <span>Dine-In {order.table_number ? `• T-${order.table_number}` : ''}</span>
                 </>
-              ) : order.order_type === 'pickup' ? (
+              ) : order.order_type === 'pickup' || order.order_type === 'takeaway' ? (
                 <>
                   <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
                   <span>Takeaway Pickup</span>
@@ -272,7 +274,7 @@ export default function CustomerOrderTracker({
 
             {/* Stepper Progress Bar */}
             <div className="relative pt-2">
-              <div className="grid grid-cols-4 gap-1 sm:gap-2">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 {STATUS_STEPS.map((step, idx) => {
                   const isDone = idx < activeIndex;
                   const isCurrent = idx === activeIndex;
@@ -337,7 +339,7 @@ export default function CustomerOrderTracker({
       </div>
 
       {/* Customer Food & Experience Rating (When order is completed / delivered) */}
-      {(activeIndex >= 3 || currentStatus === 'completed' || currentStatus === 'delivered') && (
+      {(activeIndex >= 2 || currentStatus === 'completed' || currentStatus === 'delivered') && (
         <div className="p-5 sm:p-6 bg-white border-b border-[#F0E4D7]">
           {orderRating && !isEditingRating ? (
             <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#FFF9F2] to-amber-500/5 border border-amber-200/80 space-y-3">
@@ -546,7 +548,7 @@ export default function CustomerOrderTracker({
             <span className="text-[10px] font-bold text-[#7A6A5C] uppercase">
               {order.order_type === 'dine_in'
                 ? 'Table Placement'
-                : order.order_type === 'pickup'
+                : order.order_type === 'pickup' || order.order_type === 'takeaway'
                 ? 'Pickup Point'
                 : 'Delivery Destination'}
             </span>

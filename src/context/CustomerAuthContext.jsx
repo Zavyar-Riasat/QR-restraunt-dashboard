@@ -101,8 +101,30 @@ export function CustomerAuthProvider({ children }) {
     return loggedCustomer;
   };
 
+  const clearCustomerCartStorage = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (
+          k &&
+          (k.startsWith('dinehq_cart_') ||
+            k === 'dinehq_active_cart_slug' ||
+            k === 'dinehq_active_cart_name' ||
+            k === 'dinehq_active_order')
+        ) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      window.dispatchEvent(new Event('dinehq_cart_updated'));
+    } catch {}
+  };
+
   const logoutCustomer = async () => {
     customerService.logout();
+    clearCustomerCartStorage();
     setCustomer(null);
     setAddresses([]);
     setFavorites([]);
@@ -125,6 +147,7 @@ export function CustomerAuthProvider({ children }) {
   const deleteAccount = async () => {
     if (!customer?.id) return;
     await customerService.deleteAccount(customer.id);
+    clearCustomerCartStorage();
     setCustomer(null);
     setAddresses([]);
     setFavorites([]);

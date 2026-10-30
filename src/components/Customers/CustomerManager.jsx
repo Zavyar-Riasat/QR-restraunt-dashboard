@@ -249,7 +249,9 @@ export default function CustomerManager({
                   <th className="py-3 px-4">Customer Details & Contact</th>
                   <th className="py-3 px-3 text-center">Orders</th>
                   <th className="py-3 px-4 text-right">Total Spent</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4 text-right">
+                    <span className="inline-block w-[116px] text-center">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -314,11 +316,11 @@ export default function CustomerManager({
                           <button
                             type="button"
                             onClick={() => setSelectedCustomer(cust)}
-                            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#2B2118] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:text-[#F26B1D]"
+                            className="w-[116px] justify-center px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#2B2118] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:text-[#F26B1D] whitespace-nowrap"
                             title="View customer profile and order history"
                           >
                             <span>View Details</span>
-                            <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                           </button>
                         </div>
                       </td>

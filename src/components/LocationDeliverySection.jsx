@@ -120,14 +120,21 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
   // Sync state when restaurant prop updates
   useEffect(() => {
     if (!restaurant) return;
+    const firstArea = Array.isArray(restaurant.delivery_areas) && restaurant.delivery_areas.length > 0
+      ? restaurant.delivery_areas[0]
+      : null;
     setFormData((prev) => ({
       ...prev,
       address: restaurant.address || prev.address,
       area: restaurant.area || prev.area,
       city: restaurant.city || prev.city,
       landmark: restaurant.landmark || prev.landmark,
-      latitude: restaurant.latitude || prev.latitude,
-      longitude: restaurant.longitude || prev.longitude,
+      latitude: restaurant.latitude != null ? Number(restaurant.latitude) : prev.latitude,
+      longitude: restaurant.longitude != null ? Number(restaurant.longitude) : prev.longitude,
+      deliveryMode: firstArea?.type === 'polygon' ? 'polygon' : firstArea?.type === 'radius' ? 'radius' : prev.deliveryMode,
+      radiusKm: firstArea?.radius_km != null ? Number(firstArea.radius_km) : prev.radiusKm,
+      polygonCoords: Array.isArray(firstArea?.polygon) ? firstArea.polygon : prev.polygonCoords,
+      customZones: Array.isArray(restaurant.delivery_areas) ? restaurant.delivery_areas : prev.customZones,
       cover_image: restaurant.cover_image || prev.cover_image,
       cuisines: Array.isArray(restaurant.cuisines) ? restaurant.cuisines : prev.cuisines,
       opening_hours: restaurant.opening_hours || prev.opening_hours,
@@ -137,7 +144,7 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
       delivery_fee: restaurant.delivery_fee != null ? restaurant.delivery_fee : prev.delivery_fee,
       min_order: restaurant.min_order != null ? restaurant.min_order : prev.min_order,
       prep_time: restaurant.prep_time || prev.prep_time,
-      listed_publicly: Boolean(restaurant.listed_publicly),
+      listed_publicly: restaurant.listed_publicly !== false,
       listing_status: restaurant.listing_status || prev.listing_status,
       rejection_reason: restaurant.rejection_reason || '',
     }));
@@ -243,14 +250,18 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
         }
       }
 
+      const savedTimestamp = new Date().toISOString();
+
       // Format delivery area payload
       const deliveryAreaPayload = [
         {
           restaurant_id: restId,
+          slug: restaurant?.slug || null,
           type: formData.deliveryMode,
           radius_km: formData.deliveryMode === 'radius' ? Number(formData.radiusKm) : null,
           polygon: formData.deliveryMode === 'polygon' ? formData.polygonCoords : null,
           fee: Number(formData.delivery_fee) || 0,
+          updated_at: savedTimestamp,
         },
       ];
 
@@ -274,13 +285,14 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
         listed_publicly: formData.listed_publicly,
         listing_status: newListingStatus,
         delivery_areas: deliveryAreaPayload,
+        updated_at: savedTimestamp,
       };
 
       // Save via service
       await restaurantService.updateRestaurant(restId, payload);
-      await marketplaceService.saveDeliveryAreas(restId, deliveryAreaPayload);
+      await marketplaceService.saveDeliveryAreas(restId, deliveryAreaPayload, restaurant?.slug);
 
-      // Persist full restaurant payload and listing status override locally
+      // Persist full restaurant payload and listing status override locally (by both id and slug)
       try {
         localStorage.setItem(`dinehq_restaurant_overrides_${restId}`, JSON.stringify(payload));
         if (restaurant?.slug) {
@@ -288,12 +300,16 @@ export default function LocationDeliverySection({ restaurant, onUpdate }) {
         }
         const raw = localStorage.getItem('dinehq_listing_overrides') || '{}';
         const overrides = JSON.parse(raw);
-        overrides[restId] = {
+        const statusEntry = {
           listing_status: newListingStatus,
           rejection_reason: '',
           listed_publicly: formData.listed_publicly,
-          updated_at: new Date().toISOString(),
+          updated_at: savedTimestamp,
         };
+        overrides[restId] = statusEntry;
+        if (restaurant?.slug) {
+          overrides[restaurant.slug] = statusEntry;
+        }
         localStorage.setItem('dinehq_listing_overrides', JSON.stringify(overrides));
       } catch (e) {
         console.warn('Error saving local restaurant overrides:', e);

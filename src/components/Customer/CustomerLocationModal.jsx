@@ -30,6 +30,7 @@ const modalPinIcon = L.icon({
 });
 
 export const POPULAR_PAKISTAN_AREAS = [
+  { name: 'Jinnah Colony, Faisalabad', city: 'Faisalabad', lat: 31.4187, lng: 73.0791 },
   { name: 'Near Safa Gold Mall, Islamabad', city: 'Islamabad', lat: 33.721, lng: 73.052 },
   { name: 'F-7 Markaz, Islamabad', city: 'Islamabad', lat: 33.7215, lng: 73.0523 },
   { name: 'Blue Area, Islamabad', city: 'Islamabad', lat: 33.7182, lng: 73.0564 },
@@ -270,12 +271,20 @@ export default function CustomerLocationModal({
     const query = searchQuery.trim();
     if (!query) return;
 
-    // 1. Instant check in local Pakistani cities dictionary
+    // 1. Instant check in local popular areas & Pakistani cities dictionary
     const cleanQ = query.toLowerCase();
+    const matchedArea = POPULAR_PAKISTAN_AREAS.find(
+      (a) =>
+        cleanQ.includes(a.name.toLowerCase()) ||
+        a.name.toLowerCase().includes(cleanQ) ||
+        (cleanQ.includes('jinnah colony') && a.name.toLowerCase().includes('jinnah colony'))
+    );
     const matchedCity = PAKISTAN_MAJOR_CITIES.find(
       (c) => cleanQ.includes(c.query) || c.query.includes(cleanQ)
     );
-    if (matchedCity) {
+    if (matchedArea) {
+      applyLocationToMap(matchedArea.lat, matchedArea.lng, matchedArea.name, 14);
+    } else if (matchedCity) {
       applyLocationToMap(matchedCity.lat, matchedCity.lng, matchedCity.name, 13);
     }
 
@@ -288,9 +297,16 @@ export default function CustomerLocationModal({
         { headers: { 'User-Agent': 'DineHQ/1.0' } }
       );
       if (res.ok) {
-        const data = await res.json();
-        setSearchResults(data || []);
-        if (data && data.length > 0) {
+        let data = (await res.json()) || [];
+        if (cleanQ.includes('jinnah colony') || cleanQ.includes('faisalabad')) {
+          data.sort((a, b) => {
+            const aFsd = String(a.display_name || '').toLowerCase().includes('faisalabad') ? 1 : 0;
+            const bFsd = String(b.display_name || '').toLowerCase().includes('faisalabad') ? 1 : 0;
+            return bFsd - aFsd;
+          });
+        }
+        setSearchResults(data);
+        if (data.length > 0) {
           // Automatically navigate map to the top match!
           const topMatch = data[0];
           const lat = Number(parseFloat(topMatch.lat).toFixed(3));
@@ -319,8 +335,9 @@ export default function CustomerLocationModal({
   };
 
   // Select Preset Popular Area
-  const _handleSelectPreset = (area) => {
+  const handleSelectPreset = (area) => {
     applyLocationToMap(area.lat, area.lng, area.name, 14);
+    setSearchQuery(area.name);
   };
 
   // Handle "Where I am now" detection using Geolocation API
@@ -566,6 +583,29 @@ export default function CustomerLocationModal({
                 {isSearching ? '...' : 'Search'}
               </button>
             </form>
+
+            {/* Quick Popular Areas Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              {POPULAR_PAKISTAN_AREAS.slice(0, 5).map((area) => {
+                const isSelected =
+                  Math.abs(selectedPin.lat - area.lat) < 0.015 &&
+                  Math.abs(selectedPin.lng - area.lng) < 0.015;
+                return (
+                  <button
+                    key={area.name}
+                    type="button"
+                    onClick={() => handleSelectPreset(area)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap border transition cursor-pointer shrink-0 ${
+                      isSelected
+                        ? 'bg-[#F26B1D] text-white border-[#F26B1D]'
+                        : 'bg-[#FFF9F2] text-[#7A6A5C] border-[#F0E4D7] hover:border-[#F26B1D] hover:text-[#2B2118]'
+                    }`}
+                  >
+                    📍 {area.name}
+                  </button>
+                );
+              })}
+            </div>
 
             {/* Dedicated Separate Option: Where I Am Now & Share Location */}
             <div className="p-3 rounded-2xl bg-gradient-to-r from-[#FFF1E6] via-[#FFF9F2] to-[#FFF1E6] border border-[#FCD8BF] flex items-center justify-between gap-2 shadow-2xs">

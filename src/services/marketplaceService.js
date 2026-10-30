@@ -6,7 +6,7 @@
  */
 
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
-import { checkRestaurantDeliveryCoverage } from '../utils/geoValidation.js';
+import { checkRestaurantDeliveryCoverage, normalizeCustomerLocation } from '../utils/geoValidation.js';
 
 const isUuid = (val) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
@@ -168,9 +168,170 @@ export const SEED_MARKETPLACE_RESTAURANTS = [
     listed_publicly: true,
     discount_percentage: 10,
   },
-  // PENDING RESTAURANT (for testing super admin listings approval flow)
   {
     id: 'rest-105',
+    name: 'Tokyo Sushi & Ramen Bar',
+    slug: 'tokyosushi',
+    phone: '923004445566',
+    whatsapp_number: '923004445566',
+    latitude: 33.72412,
+    longitude: 73.05831,
+    address: 'Block C, F-7 Markaz',
+    city: 'Islamabad',
+    area: 'F-7 Markaz',
+    cover_image: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=200&h=200&q=80',
+    logo_url: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=200&h=200&q=80',
+    cuisines: ['Japanese', 'Sushi', 'Ramen'],
+    opening_hours: DEFAULT_OPENING_HOURS,
+    delivery_enabled: true,
+    pickup_enabled: true,
+    dinein_enabled: true,
+    delivery_fee: 140,
+    min_order: 800,
+    prep_time: '25–35 mins',
+    rating: 4.8,
+    reviews_count: 175,
+    listing_status: 'approved',
+    listed_publicly: true,
+  },
+  {
+    id: 'rest-106',
+    name: 'Royal Taj Desi Continental',
+    slug: 'royaltaj',
+    phone: '923007778899',
+    whatsapp_number: '923007778899',
+    latitude: 33.71534,
+    longitude: 73.04812,
+    address: 'Main Blue Area, Sector G-7',
+    city: 'Islamabad',
+    area: 'Blue Area',
+    cover_image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=200&h=200&q=80',
+    logo_url: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=200&h=200&q=80',
+    cuisines: ['Desi', 'Biryani', 'Karahi', 'Tandoor'],
+    opening_hours: DEFAULT_OPENING_HOURS,
+    delivery_enabled: true,
+    pickup_enabled: true,
+    dinein_enabled: true,
+    delivery_fee: 160,
+    min_order: 700,
+    prep_time: '30–40 mins',
+    rating: 4.75,
+    reviews_count: 312,
+    listing_status: 'approved',
+    listed_publicly: true,
+  },
+  {
+    id: 'rest-107',
+    name: 'Fiesta Mexicana Grill & Tacos',
+    slug: 'fiestamex',
+    phone: '923008889900',
+    whatsapp_number: '923008889900',
+    latitude: 33.72015,
+    longitude: 73.05512,
+    address: 'Plaza 14, F-7 Markaz',
+    city: 'Islamabad',
+    area: 'F-7 Markaz',
+    cover_image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=200&h=200&q=80',
+    logo_url: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=200&h=200&q=80',
+    cuisines: ['Mexican', 'Tacos', 'Quesadillas', 'Fast Food'],
+    opening_hours: DEFAULT_OPENING_HOURS,
+    delivery_enabled: true,
+    pickup_enabled: true,
+    dinein_enabled: true,
+    delivery_fee: 130,
+    min_order: 600,
+    prep_time: '20–30 mins',
+    rating: 4.78,
+    reviews_count: 154,
+    listing_status: 'approved',
+    listed_publicly: true,
+  },
+  {
+    id: 'rest-108',
+    name: 'Sweet Retreat Desserts & Gelato',
+    slug: 'sweetretreat',
+    phone: '923001119988',
+    whatsapp_number: '923001119988',
+    latitude: 33.7261,
+    longitude: 73.0598,
+    address: 'Street 12, F-6/3',
+    city: 'Islamabad',
+    area: 'F-6 Markaz',
+    cover_image: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=200&h=200&q=80',
+    logo_url: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=200&h=200&q=80',
+    cuisines: ['Desserts', 'Waffles', 'Gelato', 'Cafe'],
+    opening_hours: DEFAULT_OPENING_HOURS,
+    delivery_enabled: true,
+    pickup_enabled: true,
+    dinein_enabled: true,
+    delivery_fee: 110,
+    min_order: 450,
+    prep_time: '15–25 mins',
+    rating: 4.88,
+    reviews_count: 205,
+    listing_status: 'approved',
+    listed_publicly: true,
+  },
+  {
+    id: 'rest-109',
+    name: 'Chai Junction & Traditional Dhaba',
+    slug: 'chaijunction',
+    phone: '923002223344',
+    whatsapp_number: '923002223344',
+    latitude: 33.7112,
+    longitude: 73.0415,
+    address: 'Main Service Road, F-8 Markaz',
+    city: 'Islamabad',
+    area: 'F-8 Markaz',
+    cover_image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=200&h=200&q=80',
+    logo_url: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=200&h=200&q=80',
+    cuisines: ['Desi', 'Chai & Parathas', 'Cafe'],
+    opening_hours: DEFAULT_OPENING_HOURS,
+    delivery_enabled: true,
+    pickup_enabled: true,
+    dinein_enabled: true,
+    delivery_fee: 90,
+    min_order: 300,
+    prep_time: '15–20 mins',
+    rating: 4.72,
+    reviews_count: 290,
+    listing_status: 'approved',
+    listed_publicly: true,
+  },
+  {
+    id: 'rest-110',
+    name: 'stoneove',
+    slug: 'stoneove',
+    phone: '923001111111',
+    whatsapp_number: '923001111111',
+    latitude: 33.7195,
+    longitude: 73.0531,
+    address: 'Jinnah Super, F-7 Markaz',
+    city: 'Islamabad',
+    area: 'F-7 Markaz',
+    cover_image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=200&h=200&q=80',
+    logo_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=200&h=200&q=80',
+    cuisines: ['Pizza', 'Italian', 'Fast Food'],
+    opening_hours: DEFAULT_OPENING_HOURS,
+    delivery_enabled: true,
+    pickup_enabled: true,
+    dinein_enabled: true,
+    delivery_fee: 120,
+    min_order: 600,
+    prep_time: '25–35 mins',
+    rating: 4.82,
+    reviews_count: 112,
+    listing_status: 'approved',
+    listed_publicly: true,
+  },
+  {
+    id: 'rest-111',
     name: 'Saffron Dera & Charcoal BBQ',
     slug: 'saffrondera',
     phone: '923008889911',
@@ -198,58 +359,62 @@ export const SEED_MARKETPLACE_RESTAURANTS = [
     listed_publicly: true,
   },
   {
-    id: 'rest-106',
-    name: 'Tokyo Sushi & Asian Bar',
-    slug: 'tokyosushi',
-    phone: '923004445566',
-    whatsapp_number: '923004445566',
-    latitude: 33.72412,
-    longitude: 73.05831,
-    address: 'Block C, F-7 Markaz',
-    city: 'Islamabad',
-    area: 'F-7 Markaz',
-    cover_image: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=1200&q=80',
-    logo: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=200&h=200&q=80',
-    logo_url: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=200&h=200&q=80',
-    cuisines: ['Japanese', 'Sushi', 'Ramen'],
+    id: 'rest-112',
+    name: 'Lyallpur Grill & BBQ House',
+    slug: 'lyallpurgrill',
+    phone: '923004112233',
+    whatsapp_number: '923004112233',
+    latitude: 31.4187,
+    longitude: 73.0791,
+    address: 'Main Gate, Jinnah Colony, Near GC University',
+    city: 'Faisalabad',
+    area: 'Jinnah Colony',
+    landmark: 'Near Jinnah Colony Gate, Faisalabad',
+    cover_image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=200&h=200&q=80',
+    logo_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=200&h=200&q=80',
+    cuisines: ['BBQ', 'Desi', 'Karahi', 'Biryani'],
     opening_hours: DEFAULT_OPENING_HOURS,
     delivery_enabled: true,
     pickup_enabled: true,
     dinein_enabled: true,
-    delivery_fee: 140,
-    min_order: 800,
+    delivery_fee: 120,
+    min_order: 500,
     prep_time: '25–35 mins',
-    rating: 4.8,
-    reviews_count: 175,
+    rating: 4.9,
+    reviews_count: 264,
     listing_status: 'approved',
     listed_publicly: true,
+    discount_percentage: 15,
   },
   {
-    id: 'rest-107',
-    name: 'Royal Taj Desi Continental',
-    slug: 'royaltaj',
-    phone: '923007778899',
-    whatsapp_number: '923007778899',
-    latitude: 33.71534,
-    longitude: 73.04812,
-    address: 'Main Blue Area, Sector G-7',
-    city: 'Islamabad',
-    area: 'Blue Area',
-    cover_image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=1200&q=80',
-    logo: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=200&h=200&q=80',
-    logo_url: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=200&h=200&q=80',
-    cuisines: ['Desi', 'Biryani', 'Karahi', 'Tandoor'],
+    id: 'rest-113',
+    name: 'Chenab Smash & Pizza Lounge',
+    slug: 'chenabsmash',
+    phone: '923004114455',
+    whatsapp_number: '923004114455',
+    latitude: 31.4204,
+    longitude: 73.0774,
+    address: 'Plot 24, Commercial Market, Jinnah Colony',
+    city: 'Faisalabad',
+    area: 'Jinnah Colony',
+    landmark: 'Jinnah Colony Commercial Market, Faisalabad',
+    cover_image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=200&h=200&q=80',
+    logo_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=200&h=200&q=80',
+    cuisines: ['Burgers', 'Pizza', 'Fast Food', 'Shakes'],
     opening_hours: DEFAULT_OPENING_HOURS,
     delivery_enabled: true,
     pickup_enabled: true,
     dinein_enabled: true,
-    delivery_fee: 160,
-    min_order: 700,
-    prep_time: '30–40 mins',
-    rating: 4.75,
-    reviews_count: 312,
+    delivery_fee: 100,
+    min_order: 450,
+    prep_time: '20–30 mins',
+    rating: 4.85,
+    reviews_count: 198,
     listing_status: 'approved',
     listed_publicly: true,
+    discount_percentage: 10,
   },
   // UNAPPROVED RESTAURANT (for testing: MUST NEVER APPEAR ON HOME PAGE)
   {
@@ -271,6 +436,7 @@ export const SEED_DELIVERY_AREAS = [
   {
     id: 'area-101-1',
     restaurant_id: 'rest-101',
+    slug: 'burgersmoke',
     type: 'radius',
     radius_km: 7.5,
     fee: 150,
@@ -278,6 +444,7 @@ export const SEED_DELIVERY_AREAS = [
   {
     id: 'area-102-1',
     restaurant_id: 'rest-102',
+    slug: 'crust',
     type: 'radius',
     radius_km: 6.0,
     fee: 120,
@@ -285,6 +452,7 @@ export const SEED_DELIVERY_AREAS = [
   {
     id: 'area-103-1',
     restaurant_id: 'rest-103',
+    slug: 'shinwari',
     type: 'radius',
     radius_km: 8.5,
     fee: 180,
@@ -292,6 +460,7 @@ export const SEED_DELIVERY_AREAS = [
   {
     id: 'area-104-1',
     restaurant_id: 'rest-104',
+    slug: 'greenoasis',
     type: 'radius',
     radius_km: 5.0,
     fee: 100,
@@ -299,32 +468,89 @@ export const SEED_DELIVERY_AREAS = [
   {
     id: 'area-105-1',
     restaurant_id: 'rest-105',
-    type: 'radius',
-    radius_km: 7.0,
-    fee: 140,
-  },
-  {
-    id: 'area-106-1',
-    restaurant_id: 'rest-106',
+    slug: 'tokyosushi',
     type: 'radius',
     radius_km: 6.5,
     fee: 140,
   },
   {
-    id: 'area-107-1',
-    restaurant_id: 'rest-107',
+    id: 'area-106-1',
+    restaurant_id: 'rest-106',
+    slug: 'royaltaj',
     type: 'radius',
     radius_km: 8.0,
     fee: 160,
   },
+  {
+    id: 'area-107-1',
+    restaurant_id: 'rest-107',
+    slug: 'fiestamex',
+    type: 'radius',
+    radius_km: 6.5,
+    fee: 130,
+  },
+  {
+    id: 'area-108-1',
+    restaurant_id: 'rest-108',
+    slug: 'sweetretreat',
+    type: 'radius',
+    radius_km: 6.0,
+    fee: 110,
+  },
+  {
+    id: 'area-109-1',
+    restaurant_id: 'rest-109',
+    slug: 'chaijunction',
+    type: 'radius',
+    radius_km: 7.0,
+    fee: 90,
+  },
+  {
+    id: 'area-110-1',
+    restaurant_id: 'rest-110',
+    slug: 'stoneove',
+    type: 'radius',
+    radius_km: 6.5,
+    fee: 120,
+  },
+  {
+    id: 'area-111-1',
+    restaurant_id: 'rest-111',
+    slug: 'saffrondera',
+    type: 'radius',
+    radius_km: 7.0,
+    fee: 140,
+  },
+  {
+    id: 'area-112-1',
+    restaurant_id: 'rest-112',
+    slug: 'lyallpurgrill',
+    type: 'radius',
+    radius_km: 25.0,
+    fee: 120,
+  },
+  {
+    id: 'area-113-1',
+    restaurant_id: 'rest-113',
+    slug: 'chenabsmash',
+    type: 'radius',
+    radius_km: 25.0,
+    fee: 100,
+  },
 ];
 
-// Pre-indexed O(1) lookup map for seeded delivery areas (avoids O(N) scans & N+1 queries)
+// Pre-indexed O(1) lookup map for seeded delivery areas (by id and by slug)
 const SEED_DELIVERY_AREAS_MAP = new Map();
+const SEED_DELIVERY_AREAS_BY_SLUG = new Map();
 for (const area of SEED_DELIVERY_AREAS) {
   const existing = SEED_DELIVERY_AREAS_MAP.get(area.restaurant_id) || [];
   existing.push(area);
   SEED_DELIVERY_AREAS_MAP.set(area.restaurant_id, existing);
+  if (area.slug) {
+    const bySlug = SEED_DELIVERY_AREAS_BY_SLUG.get(area.slug) || [];
+    bySlug.push(area);
+    SEED_DELIVERY_AREAS_BY_SLUG.set(area.slug, bySlug);
+  }
 }
 
 export const marketplaceService = {
@@ -402,6 +628,7 @@ export const marketplaceService = {
   _publicRestaurantsCache: {
     data: null,
     timestamp: 0,
+    seedCount: 0,
   },
 
   /**
@@ -411,7 +638,76 @@ export const marketplaceService = {
     this._publicRestaurantsCache = {
       data: null,
       timestamp: 0,
+      seedCount: 0,
     };
+  },
+
+  /**
+   * Synchronous initial resolver for approved marketplace restaurants within customer's delivery range.
+   * Ensures zero-latency initial state on MarketplaceHomePage mount and HMR updates.
+   */
+  getApprovedMarketplaceRestaurantsSync(userLoc = null) {
+    const overridesMap = this._readListingOverridesOnce();
+    const customList = this._getCustomStoredRestaurants();
+    let rawRestaurants = SEED_MARKETPLACE_RESTAURANTS.map((r) =>
+      this._normalizeRestaurant(r, overridesMap)
+    );
+
+    if (customList.length > 0) {
+      const slugMap = new Map(rawRestaurants.map((r, i) => [r.slug, i]));
+      customList.forEach((cr) => {
+        if (cr.slug && slugMap.has(cr.slug)) {
+          const idx = slugMap.get(cr.slug);
+          rawRestaurants[idx] = this._normalizeRestaurant(
+            { ...rawRestaurants[idx], ...cr },
+            overridesMap
+          );
+        } else {
+          rawRestaurants.push(this._normalizeRestaurant(cr, overridesMap));
+        }
+      });
+    }
+
+    let savedLoc = userLoc;
+    if (!savedLoc) {
+      try {
+        if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+          const raw = localStorage.getItem('dinehq_customer_location');
+          if (raw) savedLoc = JSON.parse(raw);
+        }
+      } catch {}
+    }
+    const customerLocation = normalizeCustomerLocation(
+      savedLoc || { name: 'Near Safa Gold Mall, Islamabad', lat: 33.721, lng: 73.052 }
+    );
+
+    const now = new Date();
+    return rawRestaurants
+      .filter((r) => !r.deleted && r.listing_status === 'approved' && r.listed_publicly === true)
+      .map((r) => {
+        const isOpen = this.computeIsOpenNow(r.opening_hours, now);
+        const distanceKm =
+          customerLocation?.lat != null && customerLocation?.lng != null
+            ? this.haversineDistanceKm(
+                customerLocation.lat,
+                customerLocation.lng,
+                r.latitude,
+                r.longitude
+              )
+            : null;
+        const areas = this._resolveDeliveryAreasSync(r);
+        const coverage = checkRestaurantDeliveryCoverage(customerLocation, r, areas);
+        return {
+          ...r,
+          delivery_areas: areas,
+          is_open_now: isOpen,
+          distance_km: distanceKm,
+          delivers_to_user: coverage.deliversToUser,
+          delivery_fee_effective: coverage.fee ?? r.delivery_fee,
+        };
+      })
+      .filter((r) => r.delivers_to_user === true)
+      .sort((a, b) => (a.distance_km ?? 999) - (b.distance_km ?? 999));
   },
 
   /**
@@ -489,20 +785,51 @@ export const marketplaceService = {
 
   /**
    * Synchronous O(1) delivery area resolver for batch operations (eliminates N+1 network queries)
+   * Checks localStorage overrides (by slug and id) first so manager updates reflect immediately.
    */
   _resolveDeliveryAreasSync(restaurant) {
+    if (!restaurant) return [];
+    try {
+      if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+        const bySlugRaw = restaurant.slug
+          ? localStorage.getItem(`dinehq_delivery_areas_${restaurant.slug}`)
+          : null;
+        const byIdRaw = restaurant.id
+          ? localStorage.getItem(`dinehq_delivery_areas_${restaurant.id}`)
+          : null;
+
+        let bySlug = null;
+        let byId = null;
+        if (bySlugRaw) {
+          try {
+            const parsed = JSON.parse(bySlugRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) bySlug = parsed;
+          } catch {}
+        }
+        if (byIdRaw) {
+          try {
+            const parsed = JSON.parse(byIdRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) byId = parsed;
+          } catch {}
+        }
+
+        if (bySlug && byId) {
+          const tSlug = bySlug[0]?.updated_at ? new Date(bySlug[0].updated_at).getTime() : 0;
+          const tId = byId[0]?.updated_at ? new Date(byId[0].updated_at).getTime() : 0;
+          return tSlug >= tId ? bySlug : byId;
+        }
+        if (bySlug) return bySlug;
+        if (byId) return byId;
+      }
+    } catch {}
+
     if (Array.isArray(restaurant?.delivery_areas) && restaurant.delivery_areas.length > 0) {
       return restaurant.delivery_areas;
     }
-    if (restaurant?.id) {
-      try {
-        if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
-          const stored = localStorage.getItem(`dinehq_delivery_areas_${restaurant.id}`);
-          if (stored) {
-            return JSON.parse(stored);
-          }
-        }
-      } catch {}
+    if (restaurant?.slug && SEED_DELIVERY_AREAS_BY_SLUG.has(restaurant.slug)) {
+      return SEED_DELIVERY_AREAS_BY_SLUG.get(restaurant.slug) || [];
+    }
+    if (restaurant?.id && SEED_DELIVERY_AREAS_MAP.has(restaurant.id)) {
       return SEED_DELIVERY_AREAS_MAP.get(restaurant.id) || [];
     }
     return [];
@@ -531,9 +858,10 @@ export const marketplaceService = {
     const nowTime = Date.now();
     let rawRestaurants = [];
 
-    // Check 60-second cache
+    // Check 60-second cache (also verify seedCount so newly added seed restaurants appear immediately)
     if (
       this._publicRestaurantsCache.data &&
+      this._publicRestaurantsCache.seedCount === SEED_MARKETPLACE_RESTAURANTS.length &&
       nowTime - this._publicRestaurantsCache.timestamp < 60000
     ) {
       rawRestaurants = this._publicRestaurantsCache.data;
@@ -588,8 +916,8 @@ export const marketplaceService = {
 
         customList.forEach((cr) => {
           const idx =
-            (cr.id && idIndexMap.has(cr.id) ? idIndexMap.get(cr.id) : undefined) ??
-            (cr.slug && slugIndexMap.has(cr.slug) ? slugIndexMap.get(cr.slug) : -1);
+            (cr.slug && slugIndexMap.has(cr.slug) ? slugIndexMap.get(cr.slug) : undefined) ??
+            (cr.id && idIndexMap.has(cr.id) ? idIndexMap.get(cr.id) : -1);
           if (idx >= 0) {
             rawRestaurants[idx] = this._normalizeRestaurant({ ...rawRestaurants[idx], ...cr }, overridesMap);
           } else {
@@ -602,22 +930,55 @@ export const marketplaceService = {
         });
       }
 
+      // Deduplicate by slug so a tenant never appears twice
+      const seenSlugs = new Set();
+      rawRestaurants = rawRestaurants.filter((r) => {
+        const key = (r.slug || r.id || '').toLowerCase();
+        if (!key || seenSlugs.has(key)) return false;
+        seenSlugs.add(key);
+        return true;
+      });
+
       // Cache raw list for 60 seconds
       this._publicRestaurantsCache = {
         data: rawRestaurants,
         timestamp: nowTime,
+        seedCount: SEED_MARKETPLACE_RESTAURANTS.length,
       };
     }
 
-    // 3. STRICT MARKETPLACE CONSTRAINT: Only approved, publicly listed, and not deleted
-    let restaurants = rawRestaurants.filter(
-      (r) => !r.deleted && r.listing_status === 'approved' && r.listed_publicly === true
-    );
+    // Re-apply latest local overrides & delivery areas on every read so changes reflect immediately
+    const liveOverridesMap = this._readListingOverridesOnce();
+    let restaurants = rawRestaurants
+      .map((r) => this._normalizeRestaurant(r, liveOverridesMap))
+      .filter((r) => !r.deleted && r.listing_status === 'approved' && r.listed_publicly === true);
 
-    // 4. Attach dynamically computed is_open_now, distance_km, and delivers_to_user synchronously in O(N) (zero N+1 queries)
+    // 4. Resolve customer location (from params or saved customer location in localStorage)
     const now = new Date();
+    let savedParsedLoc = null;
+    try {
+      if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+        const savedLoc = localStorage.getItem('dinehq_customer_location');
+        if (savedLoc) {
+          savedParsedLoc = JSON.parse(savedLoc);
+        }
+      }
+    } catch {}
+
+    const rawLocCandidate = {
+      ...(savedParsedLoc || {}),
+      ...(userLat != null ? { lat: Number(userLat) } : {}),
+      ...(userLng != null ? { lng: Number(userLng) } : {}),
+    };
+    const normalizedLoc = normalizeCustomerLocation(rawLocCandidate);
     const customerLocation =
-      userLat != null && userLng != null ? { lat: Number(userLat), lng: Number(userLng) } : null;
+      normalizedLoc && normalizedLoc.lat != null && normalizedLoc.lng != null
+        ? {
+            name: normalizedLoc.name || '',
+            lat: normalizedLoc.lat,
+            lng: normalizedLoc.lng,
+          }
+        : null;
 
     restaurants = restaurants.map((r) => {
       const isOpen = this.computeIsOpenNow(r.opening_hours, now);
@@ -669,8 +1030,9 @@ export const marketplaceService = {
       });
     }
 
-    // 7. Quick Filter Toggles
-    if (deliversToMe && customerLocation) {
+    // 7. STRICT DELIVERY RANGE CONSTRAINT:
+    // A restaurant must NEVER be visible to the customer if it is not within their delivery range.
+    if (customerLocation || deliversToMe) {
       restaurants = restaurants.filter((r) => r.delivers_to_user === true);
     }
     if (openNow) {
@@ -742,20 +1104,23 @@ export const marketplaceService = {
       cuisine = 'ALL',
       search = '',
       sort = 'popular', // 'popular' | 'price_asc' | 'price_desc' | 'rating' | 'nearest'
-      deliversToMe = false,
+      deliversToMe = true,
       openNow = false,
       freeDelivery = false,
+      vegOnly = false,
+      minPrice = null,
+      maxPrice = null,
       page = 1,
       pageSize = 24,
     } = params;
 
-    // 1. Get all approved public restaurants with spatial & delivery coverage calculated
+    // 1. Get all approved public restaurants strictly within the customer's delivery range
     const restResult = await this.getPublicRestaurants({
       userLat,
       userLng,
       cuisine: 'ALL',
       search: '',
-      deliversToMe,
+      deliversToMe: deliversToMe !== false,
       openNow,
       freeDelivery,
       page: 1,
@@ -857,6 +1222,16 @@ export const marketplaceService = {
       });
     }
 
+    if (vegOnly) {
+      allFoodItems = allFoodItems.filter((f) => Boolean(f.is_veg));
+    }
+    if (minPrice != null) {
+      allFoodItems = allFoodItems.filter((f) => f.price >= Number(minPrice));
+    }
+    if (maxPrice != null) {
+      allFoodItems = allFoodItems.filter((f) => f.price <= Number(maxPrice));
+    }
+
     // 4. Sorting
     if (sort === 'price_asc') {
       allFoodItems.sort((a, b) => a.price - b.price);
@@ -907,42 +1282,18 @@ export const marketplaceService = {
       maxPrice = null,
     } = params;
 
-    try {
-      const searchParams = new URLSearchParams();
-      if (userLat != null) searchParams.set('lat', String(userLat));
-      if (userLng != null) searchParams.set('lng', String(userLng));
-      if (query && query.trim()) searchParams.set('query', query.trim());
-      if (category && category !== 'ALL') searchParams.set('category', category);
-      if (sort) searchParams.set('sort', sort);
-      if (cursor != null) searchParams.set('cursor', String(cursor));
-      if (limit) searchParams.set('limit', String(limit));
-      if (openNow) searchParams.set('open_now', 'true');
-      if (vegOnly) searchParams.set('veg_only', 'true');
-      if (minPrice != null) searchParams.set('min_price', String(minPrice));
-      if (maxPrice != null) searchParams.set('max_price', String(maxPrice));
-
-      const response = await fetch(`/api/nearby/dishes?${searchParams.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          items: data.items || [],
-          totalCount: data.total_count || 0,
-          nextCursor: data.next_cursor,
-          hasMore: Boolean(data.has_more),
-        };
-      }
-    } catch (e) {
-      console.warn('GET /api/nearby/dishes fetch warning, falling back to local dataset:', e);
-    }
-
-    // Graceful fallback
+    // Evaluate directly against live public restaurants & delivery zones (polygons + radii + local overrides)
     const fallback = await this.getPublicFoodItems({
       userLat,
       userLng,
       cuisine: category,
       search: query,
       sort,
+      deliversToMe: true,
       openNow,
+      vegOnly,
+      minPrice,
+      maxPrice,
       page: Math.floor(cursor / limit) + 1,
       pageSize: limit,
     });
@@ -996,21 +1347,14 @@ export const marketplaceService = {
   },
 
   /**
-   * Get delivery areas for a restaurant
+   * Get delivery areas for a restaurant (checks localStorage by slug & id first)
    */
-  async getDeliveryAreas(restaurantId) {
-    if (!restaurantId) return [];
+  async getDeliveryAreas(restaurantId, slug = null) {
+    if (!restaurantId && !slug) return [];
 
-    // Check local storage overrides first
-    try {
-      if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
-        const stored = localStorage.getItem(`dinehq_delivery_areas_${restaurantId}`);
-        if (stored) {
-          return JSON.parse(stored);
-        }
-      }
-    } catch (e) {
-      console.warn('Error reading local delivery areas:', e);
+    const syncResolved = this._resolveDeliveryAreasSync({ id: restaurantId, slug });
+    if (Array.isArray(syncResolved) && syncResolved.length > 0) {
+      return syncResolved;
     }
 
     if (isSupabaseConfigured() && isUuid(restaurantId)) {
@@ -1029,27 +1373,43 @@ export const marketplaceService = {
     }
 
     // Fallback to seeded delivery areas
+    if (slug && SEED_DELIVERY_AREAS_BY_SLUG.has(slug)) {
+      return SEED_DELIVERY_AREAS_BY_SLUG.get(slug) || [];
+    }
     return SEED_DELIVERY_AREAS.filter((a) => a.restaurant_id === restaurantId);
   },
 
   /**
-   * Save or update delivery areas for a restaurant
+   * Save or update delivery areas for a restaurant (persists under both id and slug)
    */
-  async saveDeliveryAreas(restaurantId, areas) {
-    if (!restaurantId || !Array.isArray(areas)) return [];
+  async saveDeliveryAreas(restaurantId, areas, slug = null) {
+    if ((!restaurantId && !slug) || !Array.isArray(areas)) return [];
+
+    const stampedAreas = areas.map((a) => ({
+      ...a,
+      updated_at: a.updated_at || new Date().toISOString(),
+    }));
 
     try {
-      localStorage.setItem(`dinehq_delivery_areas_${restaurantId}`, JSON.stringify(areas));
+      if (restaurantId) {
+        localStorage.setItem(`dinehq_delivery_areas_${restaurantId}`, JSON.stringify(stampedAreas));
+      }
+      const targetSlug = slug || stampedAreas[0]?.slug;
+      if (targetSlug) {
+        localStorage.setItem(`dinehq_delivery_areas_${targetSlug}`, JSON.stringify(stampedAreas));
+      }
     } catch (e) {
       console.warn('Failed to save delivery areas locally:', e);
     }
 
+    this.invalidateCache();
+
     if (isSupabaseConfigured() && isUuid(restaurantId)) {
       try {
         await supabase.from('delivery_areas').delete().eq('restaurant_id', restaurantId);
-        if (areas.length > 0) {
+        if (stampedAreas.length > 0) {
           await supabase.from('delivery_areas').insert(
-            areas.map((a) => ({
+            stampedAreas.map((a) => ({
               restaurant_id: restaurantId,
               type: a.type || 'radius',
               radius_km: a.radius_km || null,
@@ -1063,7 +1423,7 @@ export const marketplaceService = {
       }
     }
 
-    return areas;
+    return stampedAreas;
   },
 
   /**
@@ -1271,7 +1631,36 @@ export const marketplaceService = {
   /**
    * Normalizer to ensure consistent field names across Supabase & local seed
    */
-  _normalizeRestaurant(r, preloadedOverrides = null) {
+  _normalizeRestaurant(baseRest, preloadedOverrides = null) {
+    let r = { ...baseRest };
+
+    // Merge any saved restaurant override from LocationDeliverySection (by slug or id, picking newest)
+    try {
+      if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+        const bySlugRaw = r.slug ? localStorage.getItem(`dinehq_restaurant_overrides_${r.slug}`) : null;
+        const byIdRaw = r.id ? localStorage.getItem(`dinehq_restaurant_overrides_${r.id}`) : null;
+        let bySlug = null;
+        let byId = null;
+        if (bySlugRaw) {
+          try { bySlug = JSON.parse(bySlugRaw); } catch {}
+        }
+        if (byIdRaw) {
+          try { byId = JSON.parse(byIdRaw); } catch {}
+        }
+        let chosenOverride = null;
+        if (bySlug && byId) {
+          const tSlug = bySlug.updated_at ? new Date(bySlug.updated_at).getTime() : 0;
+          const tId = byId.updated_at ? new Date(byId.updated_at).getTime() : 0;
+          chosenOverride = tSlug >= tId ? bySlug : byId;
+        } else {
+          chosenOverride = bySlug || byId;
+        }
+        if (chosenOverride && typeof chosenOverride === 'object') {
+          r = { ...r, ...chosenOverride, id: r.id || chosenOverride.id, slug: r.slug || chosenOverride.slug };
+        }
+      }
+    } catch {}
+
     const openingHours = r.opening_hours && typeof r.opening_hours === 'object'
       ? r.opening_hours
       : DEFAULT_OPENING_HOURS;
@@ -1296,25 +1685,18 @@ export const marketplaceService = {
     let isDeleted = Boolean(r.deleted);
     try {
       const overrides = preloadedOverrides || this._readListingOverridesOnce();
-      if (overrides && overrides[r.id]) {
-        if (overrides[r.id].deleted !== undefined) isDeleted = Boolean(overrides[r.id].deleted);
-        if (overrides[r.id].listing_status !== undefined) overrideStatus = overrides[r.id].listing_status;
-        if (overrides[r.id].listed_publicly !== undefined) overridePublic = overrides[r.id].listed_publicly;
-        if (overrides[r.id].rejection_reason !== undefined) overrideReason = overrides[r.id].rejection_reason;
+      const ov = (overrides && (overrides[r.slug] || overrides[r.id])) || null;
+      if (ov) {
+        if (ov.deleted !== undefined) isDeleted = Boolean(ov.deleted);
+        if (ov.listing_status !== undefined) overrideStatus = ov.listing_status;
+        if (ov.listed_publicly !== undefined) overridePublic = ov.listed_publicly;
+        if (ov.rejection_reason !== undefined) overrideReason = ov.rejection_reason;
       }
     } catch (e) {
       console.warn('Error reading listing overrides in normalizer:', e);
     }
 
-    let deliveryAreas = r.delivery_areas;
-    if (!deliveryAreas && r.id) {
-      try {
-        const stored = localStorage.getItem(`dinehq_delivery_areas_${r.id}`);
-        if (stored) {
-          deliveryAreas = JSON.parse(stored);
-        }
-      } catch {}
-    }
+    const deliveryAreas = this._resolveDeliveryAreasSync(r);
 
     return {
       id: r.id,

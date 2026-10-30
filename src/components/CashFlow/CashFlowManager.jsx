@@ -11,23 +11,34 @@ import {
   Edit2,
   Calendar,
   Tag,
+  BarChart3,
+  TrendingUp,
 } from 'lucide-react';
 import {
   cashFlowService,
   CASH_IN_CATEGORIES,
   CASH_OUT_CATEGORIES,
 } from '../../services/cashFlowService';
+import { orderService } from '../../services/orderService';
 import { formatPKR } from '../../utils/currencyUtils';
 import RecordCashFlowModal from './RecordCashFlowModal';
+import CashFlowAnalyticsView from './CashFlowAnalyticsView';
 
 export default function CashFlowManager({
   restaurant,
   currentUser,
+  orders: propOrders,
 }) {
   const restId = restaurant?.id || 'rest-101';
   const restName = restaurant?.name || 'Restaurant';
 
   const [entries, setEntries] = useState(() => cashFlowService.getEntries(restId));
+  const [localOrders, setLocalOrders] = useState(() =>
+    Array.isArray(propOrders) && propOrders.length > 0
+      ? propOrders
+      : orderService.getOrders(restId)
+  );
+  const [subView, setSubView] = useState('register'); // 'register' | 'analytics'
   const [activeTypeFilter, setActiveTypeFilter] = useState('all'); // 'all' | 'in' | 'out'
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'specific_date' | 'custom_range'
@@ -60,19 +71,75 @@ export default function CashFlowManager({
     loadEntries();
   }, [loadEntries]);
 
-  // Listen to cashflow events
+  useEffect(() => {
+    if (Array.isArray(propOrders)) {
+      setLocalOrders(propOrders);
+    } else {
+      setLocalOrders(orderService.getOrders(restId));
+    }
+  }, [propOrders, restId]);
+
+  // Listen to cashflow & order events so earnings update automatically
   useEffect(() => {
     const handleUpdate = () => {
       loadEntries();
+      setLocalOrders(orderService.getOrders(restId));
     };
     window.addEventListener('dinehq_cashflow_updated', handleUpdate);
-    return () => window.removeEventListener('dinehq_cashflow_updated', handleUpdate);
-  }, [loadEntries]);
+    window.addEventListener('dinehq_order_placed', handleUpdate);
+    window.addEventListener('dinehq_order_status_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('dinehq_cashflow_updated', handleUpdate);
+      window.removeEventListener('dinehq_order_placed', handleUpdate);
+      window.removeEventListener('dinehq_order_status_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [loadEntries, restId]);
 
   // Summary calculations
   const summary = useMemo(() => {
     return cashFlowService.getSummary(restId);
   }, [entries, restId]);
+
+  // Automatic Restaurant Earnings Summary (calculated from orders + expenses)
+  const autoEarnings = useMemo(() => {
+    const validOrders = (localOrders || []).filter(
+      (o) => o && o.status !== 'cancelled' && o.status !== 'new'
+    );
+    let grossOrderSales = 0;
+    let paidOrderSales = 0;
+    for (const o of validOrders) {
+      const amt = Number(o.total_payable) || 0;
+      grossOrderSales += amt;
+      if (
+        o.payment_status === 'paid' &&
+        (o.explicit_paid || o.status === 'completed' || o.status === 'delivered')
+      ) {
+        paidOrderSales += amt;
+      }
+    }
+    let operatingExpenses = 0;
+    let operatingCashIn = 0;
+    for (const e of entries) {
+      const amt = Number(e.amount) || 0;
+      if (e.type === 'out' && e.category !== 'drawings') {
+        operatingExpenses += amt;
+      } else if (e.type === 'in' && e.category !== 'capital') {
+        operatingCashIn += amt;
+      }
+    }
+    const netOwnerProfit = grossOrderSales + operatingCashIn - operatingExpenses;
+    const totalCashInBusiness = paidOrderSales + summary.netBalance;
+    return {
+      grossOrderSales,
+      paidOrderSales,
+      operatingExpenses,
+      netOwnerProfit,
+      totalCashInBusiness,
+      validOrdersCount: validOrders.length,
+    };
+  }, [localOrders, entries, summary.netBalance]);
 
   // Filtered entries
   const filteredEntries = useMemo(() => {
@@ -202,6 +269,90 @@ export default function CashFlowManager({
 
   return (
     <div className="space-y-6">
+      {/* Sub-Navigation Bar: Switch between Cash In/Out Register and Automatic Owner Earnings Analytics */}
+      <div className="bg-white border border-[#F0E4D7] rounded-2xl p-3 sm:p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setSubView('register')}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-2 cursor-pointer ${
+              subView === 'register'
+                ? 'bg-[#2B2118] text-white shadow-xs'
+                : 'bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7]'
+            }`}
+          >
+            <Wallet className="w-4 h-4 text-[#F26B1D]" />
+            <span>Cash In / Out Register</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubView('analytics')}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-2 cursor-pointer ${
+              subView === 'analytics'
+                ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                : 'bg-[#FFF9F2] text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F26B1D]/40'
+            }`}
+          >
+            <BarChart3 className={`w-4 h-4 ${subView === 'analytics' ? 'text-white' : 'text-[#F26B1D]'}`} />
+            <span>Owner Earnings &amp; Analytics</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                subView === 'analytics'
+                  ? 'bg-white/20 text-white'
+                  : autoEarnings.netOwnerProfit >= 0
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-rose-100 text-rose-800'
+              }`}
+            >
+              {autoEarnings.netOwnerProfit >= 0
+                ? `+${formatPKR(autoEarnings.netOwnerProfit)}`
+                : formatPKR(autoEarnings.netOwnerProfit)}
+            </span>
+          </button>
+        </div>
+
+        {/* Quick Live Owner Earning Pill */}
+        <div className="flex items-center gap-3 text-xs flex-wrap">
+          <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+            <span>
+              Order Sales: <strong className="font-mono">{formatPKR(autoEarnings.grossOrderSales)}</strong>
+            </span>
+          </div>
+          <div className="px-3 py-1.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] font-bold flex items-center gap-1.5">
+            <span>
+              Net Profit:{' '}
+              <strong
+                className={`font-mono ${
+                  autoEarnings.netOwnerProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                }`}
+              >
+                {autoEarnings.netOwnerProfit >= 0
+                  ? `+${formatPKR(autoEarnings.netOwnerProfit)}`
+                  : formatPKR(autoEarnings.netOwnerProfit)}
+              </strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {subView === 'analytics' ? (
+        <CashFlowAnalyticsView
+          orders={localOrders}
+          entries={entries}
+          restName={restName}
+          dateFilter={dateFilter}
+          setDateFilter={setDateFilter}
+          specificDate={specificDate}
+          setSpecificDate={setSpecificDate}
+          customStartDate={customStartDate}
+          setCustomStartDate={setCustomStartDate}
+          customEndDate={customEndDate}
+          setCustomEndDate={setCustomEndDate}
+        />
+      ) : (
+        <>
       {/* Top Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Card 1: Net Cash Balance */}
@@ -315,6 +466,16 @@ export default function CashFlowManager({
             >
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>Cash Out ({outCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSubView('analytics')}
+              className="px-3 py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 text-[#F26B1D] hover:bg-[#FFF1E6] font-extrabold"
+              title="Open Automatic Owner Earnings & Profit Analytics Page"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Earnings Analytics →</span>
             </button>
           </div>
 
@@ -643,6 +804,9 @@ export default function CashFlowManager({
           </div>
         )}
       </div>
+
+        </>
+      )}
 
       {/* Record / Edit Cash Flow Modal */}
       {isRecordModalOpen && (

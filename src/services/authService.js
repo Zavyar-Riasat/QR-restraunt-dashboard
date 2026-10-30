@@ -285,6 +285,34 @@ const DEFAULT_ACCOUNTS = [
     must_change_password: false,
     created_at: new Date('2026-10-14T12:00:00Z').toISOString(),
   },
+  {
+    id: 'user-owner-12',
+    email: 'manager@lyallpurgrill.com',
+    name: 'Lyallpur Grill Owner',
+    role: 'owner',
+    restaurant_id: 'rest-112',
+    restaurant_name: 'Lyallpur Grill & BBQ House',
+    restaurant_slug: 'lyallpurgrill',
+    phone: '923004112233',
+    whatsapp_number: '923004112233',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-15T12:00:00Z').toISOString(),
+  },
+  {
+    id: 'user-owner-13',
+    email: 'manager@chenabsmash.com',
+    name: 'Chenab Smash Owner',
+    role: 'owner',
+    restaurant_id: 'rest-113',
+    restaurant_name: 'Chenab Smash & Pizza Lounge',
+    restaurant_slug: 'chenabsmash',
+    phone: '923004114455',
+    whatsapp_number: '923004114455',
+    password_masked: '••••••••••••',
+    must_change_password: false,
+    created_at: new Date('2026-10-16T12:00:00Z').toISOString(),
+  },
 ];
 
 export const authService = {
@@ -301,7 +329,12 @@ export const authService = {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data.users)) {
-            return data.users;
+            const localUsers = this.getRegisteredUsers();
+            const mergedMap = new Map();
+            [...localUsers, ...data.users].forEach((u) => {
+              if (u?.email) mergedMap.set(u.email.toLowerCase(), u);
+            });
+            return Array.from(mergedMap.values());
           }
         }
       } catch  {}

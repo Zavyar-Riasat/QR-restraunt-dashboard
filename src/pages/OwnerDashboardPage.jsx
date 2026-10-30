@@ -1024,6 +1024,7 @@ export default function OwnerDashboardPage() {
             <CashFlowManager
               restaurant={restaurant}
               currentUser={user}
+              orders={orders}
             />
           )}
 

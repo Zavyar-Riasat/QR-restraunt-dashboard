@@ -98,9 +98,9 @@ export default function OrdersFeed({
   const [isRetryingQueue, setIsRetryingQueue] = useState(false);
   const [viewMode, setViewMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('dinehq_orders_view_mode') || 'cards';
+      return localStorage.getItem('dinehq_orders_view_mode_v2') || 'list';
     }
-    return 'cards';
+    return 'list';
   });
   const [dateFilter, setDateFilter] = useState('all');
   const [customFilterDate, setCustomFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -124,7 +124,7 @@ export default function OrdersFeed({
   const handleToggleViewMode = (mode) => {
     setViewMode(mode);
     try {
-      localStorage.setItem('dinehq_orders_view_mode', mode);
+      localStorage.setItem('dinehq_orders_view_mode_v2', mode);
     } catch {}
   };
 
@@ -163,8 +163,19 @@ export default function OrdersFeed({
     );
 
   const handleOrderStatusChange = (orderId, newStatus) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (targetOrder && (targetOrder.status === 'completed' || targetOrder.status === 'delivered')) {
+      if (newStatus !== 'completed' && newStatus !== 'delivered') {
+        setOrderStatusToast({
+          message: `Order #${orderId} is already completed and cannot be undone or changed to another status.`,
+          orderId,
+          isError: true,
+        });
+        setTimeout(() => setOrderStatusToast(null), 4000);
+      }
+      return;
+    }
     if (newStatus === 'completed' || newStatus === 'delivered') {
-      const targetOrder = orders.find((o) => o.id === orderId);
       if (targetOrder && !isOrderPaid(targetOrder)) {
         setOrderStatusToast({
           message: `Order #${orderId} cannot be completed until it is marked as PAID!`,
@@ -176,7 +187,7 @@ export default function OrdersFeed({
       }
     }
     onUpdateStatus(orderId, newStatus);
-    if (newStatus === 'preparing' && feedMode !== 'completed') {
+    if (newStatus === 'preparing') {
       setOrderStatusToast({
         message: `Order #${orderId} Kitchen Progress set to Received!`,
         orderId,
@@ -199,12 +210,6 @@ export default function OrdersFeed({
         message: `Order #${orderId} marked Completed & moved to Completed Orders tab`,
         orderId,
         isCompleted: true,
-      });
-      setTimeout(() => setOrderStatusToast(null), 5000);
-    } else if (newStatus === 'preparing' && feedMode === 'completed') {
-      setOrderStatusToast({
-        message: `Order #${orderId} re-opened & sent back to Live Kitchen Orders!`,
-        orderId,
       });
       setTimeout(() => setOrderStatusToast(null), 5000);
     }
@@ -396,10 +401,6 @@ export default function OrdersFeed({
   const completedOrdersCount = useMemo(() => {
     return orders.filter((o) => o.status === 'completed' || o.status === 'delivered').length;
   }, [orders]);
-
-  const completedRevenue = useMemo(() => {
-    return dateFilteredOrders.reduce((sum, o) => sum + (Number(o.total_payable) || 0), 0);
-  }, [dateFilteredOrders]);
 
   const filteredOrders = useMemo(() => {
     return dateFilteredOrders.filter((order) => {
@@ -791,15 +792,7 @@ export default function OrdersFeed({
               </div>
             </div>
 
-            {/* If in completed mode, show total revenue pill */}
-            {feedMode === 'completed' && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-1.5 shadow-2xs">
-                  <Receipt className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Settled: {formatPKR(completedRevenue)}</span>
-                </div>
-              </div>
-            )}
+
           </div>
 
           {/* Search & Filter Toolbar */}
@@ -932,20 +925,8 @@ export default function OrdersFeed({
                 </div>
               )}
 
-              {/* View Mode Toggle (Cards vs List) */}
+              {/* View Mode Toggle (List vs Cards) */}
               <div className="flex items-center rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => handleToggleViewMode('cards')}
-                  className={`px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${viewMode === 'cards'
-                      ? 'bg-[#F26B1D] text-white shadow-xs'
-                      : 'text-[#7A6A5C] hover:text-[#2B2118]'
-                    }`}
-                  title="Card Grid View"
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Cards</span>
-                </button>
                 <button
                   type="button"
                   onClick={() => handleToggleViewMode('list')}
@@ -957,6 +938,18 @@ export default function OrdersFeed({
                 >
                   <List className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleViewMode('cards')}
+                  className={`px-2.5 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5 ${viewMode === 'cards'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'text-[#7A6A5C] hover:text-[#2B2118]'
+                    }`}
+                  title="Card Grid View"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cards</span>
                 </button>
               </div>
             </div>
@@ -1163,13 +1156,20 @@ export default function OrdersFeed({
                               {/* Stage 1: Received */}
                               <button
                                 type="button"
+                                disabled={order.status === 'completed' || order.status === 'delivered'}
                                 onClick={() => handleOrderStatusChange(order.id, 'preparing')}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${
-                                  order.status === 'preparing' || order.status === 'new'
-                                    ? 'bg-[#F26B1D] text-white shadow-xs'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-[#FFF1E6] hover:text-[#F26B1D]'
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition ${
+                                  order.status === 'completed' || order.status === 'delivered'
+                                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                                    : order.status === 'preparing' || order.status === 'new'
+                                    ? 'bg-[#F26B1D] text-white shadow-xs cursor-pointer'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-[#FFF1E6] hover:text-[#F26B1D] cursor-pointer'
                                 }`}
-                                title="Set Kitchen Progress to Received"
+                                title={
+                                  order.status === 'completed' || order.status === 'delivered'
+                                    ? 'Completed orders cannot be undone'
+                                    : 'Set Kitchen Progress to Received'
+                                }
                               >
                                 <Check className="w-2.5 h-2.5 stroke-[3]" />
                                 <span>Received</span>
@@ -1178,20 +1178,25 @@ export default function OrdersFeed({
                               {/* Stage 2: Ready / Dispatch */}
                               <button
                                 type="button"
+                                disabled={order.status === 'completed' || order.status === 'delivered'}
                                 onClick={() =>
                                   handleOrderStatusChange(
                                     order.id,
                                     order.order_type === 'delivery' ? 'out_for_delivery' : 'ready'
                                   )
                                 }
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer ${
-                                  order.status === 'out_for_delivery' || order.status === 'ready'
-                                    ? 'bg-[#F26B1D] text-white shadow-xs'
-                                    : order.status === 'completed'
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-[#FFF1E6] hover:text-[#F26B1D]'
-                                    : 'bg-white text-[#7A6A5C] border border-[#F0E4D7] hover:border-[#F26B1D] hover:text-[#F26B1D]'
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition ${
+                                  order.status === 'completed' || order.status === 'delivered'
+                                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                                    : order.status === 'out_for_delivery' || order.status === 'ready'
+                                    ? 'bg-[#F26B1D] text-white shadow-xs cursor-pointer'
+                                    : 'bg-white text-[#7A6A5C] border border-[#F0E4D7] hover:border-[#F26B1D] hover:text-[#F26B1D] cursor-pointer'
                                 }`}
-                                title="Set Kitchen Progress to Ready / Dispatch"
+                                title={
+                                  order.status === 'completed' || order.status === 'delivered'
+                                    ? 'Completed orders cannot be undone'
+                                    : 'Set Kitchen Progress to Ready / Dispatch'
+                                }
                               >
                                 <Truck className="w-3 h-3" />
                                 <span>Ready / Dispatch</span>
@@ -1200,16 +1205,19 @@ export default function OrdersFeed({
                               {/* Stage 3: Completed */}
                               <button
                                 type="button"
+                                disabled={order.status === 'completed' || order.status === 'delivered'}
                                 onClick={() => handleOrderStatusChange(order.id, 'completed')}
                                 className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition ${
-                                  order.status === 'completed'
-                                    ? 'bg-[#1F9D55] text-white shadow-xs cursor-pointer'
+                                  order.status === 'completed' || order.status === 'delivered'
+                                    ? 'bg-[#1F9D55] text-white shadow-xs cursor-default'
                                     : isOrderPaid(order)
                                     ? 'bg-white text-[#7A6A5C] border border-[#F0E4D7] hover:bg-emerald-600 hover:text-white hover:border-emerald-600 cursor-pointer'
                                     : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                                 }`}
                                 title={
-                                  isOrderPaid(order)
+                                  order.status === 'completed' || order.status === 'delivered'
+                                    ? 'Order is completed and locked'
+                                    : isOrderPaid(order)
                                     ? 'Set Kitchen Progress to Completed'
                                     : 'Order cannot be completed until marked as PAID'
                                 }
@@ -1624,7 +1632,7 @@ export default function OrdersFeed({
                         <p className="text-[11px] font-bold text-[#7A6A5C] uppercase tracking-wider">
                           Ordered Dishes ({order.items?.length || 0})
                         </p>
-                        {order.status !== 'cancelled' && (
+                        {order.status !== 'completed' && order.status !== 'delivered' && order.status !== 'cancelled' && (
                           <button
                             type="button"
                             onClick={() => setEditingOrderItems(order)}
@@ -1746,19 +1754,30 @@ export default function OrdersFeed({
                       <div className="p-2.5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
                         <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C]">
                           <span>Kitchen Progress</span>
-                          <span className="text-[#F26B1D] font-bold">Click any stage to update</span>
+                          {order.status === 'completed' || order.status === 'delivered' ? (
+                            <span className="text-emerald-700 font-bold">Completed • Locked</span>
+                          ) : (
+                            <span className="text-[#F26B1D] font-bold">Click any stage to update</span>
+                          )}
                         </div>
                         <div className="grid grid-cols-3 gap-1.5">
                           {/* Step 1: Received */}
                           <button
                             type="button"
+                            disabled={order.status === 'completed' || order.status === 'delivered'}
                             onClick={() => handleOrderStatusChange(order.id, 'preparing')}
-                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-extrabold transition cursor-pointer ${
-                              order.status === 'preparing' || order.status === 'new'
-                                ? 'bg-[#F26B1D] border-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                                : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D]'
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-extrabold transition ${
+                              order.status === 'completed' || order.status === 'delivered'
+                                ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
+                                : order.status === 'preparing' || order.status === 'new'
+                                ? 'bg-[#F26B1D] border-[#F26B1D] text-white shadow-sm shadow-orange-500/20 cursor-pointer'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D] cursor-pointer'
                             }`}
-                            title="Set Kitchen Progress to Received"
+                            title={
+                              order.status === 'completed' || order.status === 'delivered'
+                                ? 'Completed orders cannot be undone'
+                                : 'Set Kitchen Progress to Received'
+                            }
                           >
                             <CheckCircle2 className="w-4 h-4 mb-0.5" />
                             <span>Received</span>
@@ -1767,19 +1786,25 @@ export default function OrdersFeed({
                           {/* Step 2: Ready / Dispatch */}
                           <button
                             type="button"
+                            disabled={order.status === 'completed' || order.status === 'delivered'}
                             onClick={() =>
                               handleOrderStatusChange(
                                 order.id,
                                 order.order_type === 'delivery' ? 'out_for_delivery' : 'ready'
                               )
                             }
-                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-extrabold transition cursor-pointer ${
-                              order.status === 'out_for_delivery' || order.status === 'ready'
-                                ? 'bg-[#F26B1D] border-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                                : order.status === 'completed'
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-[#FFF1E6] hover:border-[#F26B1D] hover:text-[#F26B1D]'
-                                : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:border-[#F26B1D] hover:text-[#2B2118]'
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-extrabold transition ${
+                              order.status === 'completed' || order.status === 'delivered'
+                                ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
+                                : order.status === 'out_for_delivery' || order.status === 'ready'
+                                ? 'bg-[#F26B1D] border-[#F26B1D] text-white shadow-sm shadow-orange-500/20 cursor-pointer'
+                                : 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:border-[#F26B1D] hover:text-[#2B2118] cursor-pointer'
                             }`}
+                            title={
+                              order.status === 'completed' || order.status === 'delivered'
+                                ? 'Completed orders cannot be undone'
+                                : 'Set Kitchen Progress to Ready / Dispatch'
+                            }
                           >
                             <Truck className="w-4 h-4 mb-0.5" />
                             <span className="truncate max-w-full">Ready / Dispatch</span>
@@ -1788,15 +1813,18 @@ export default function OrdersFeed({
                           {/* Step 3: Completed */}
                           <button
                             type="button"
+                            disabled={order.status === 'completed' || order.status === 'delivered'}
                             onClick={() => handleOrderStatusChange(order.id, 'completed')}
                             title={
-                              isOrderPaid(order)
+                              order.status === 'completed' || order.status === 'delivered'
+                                ? 'Order is completed and locked'
+                                : isOrderPaid(order)
                                 ? 'Mark order as Completed'
                                 : 'Order cannot be completed until marked as PAID'
                             }
                             className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-extrabold transition ${
-                              order.status === 'completed'
-                                ? 'bg-[#1F9D55] border-[#1F9D55] text-white shadow-sm shadow-emerald-500/20 cursor-pointer'
+                              order.status === 'completed' || order.status === 'delivered'
+                                ? 'bg-[#1F9D55] border-[#1F9D55] text-white shadow-sm shadow-emerald-500/20 cursor-default'
                                 : isOrderPaid(order)
                                 ? 'bg-white border-[#F0E4D7] text-[#7A6A5C] hover:bg-emerald-600 hover:border-emerald-600 hover:text-white cursor-pointer'
                                 : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
@@ -2127,28 +2155,7 @@ export default function OrdersFeed({
                                 </button>
                               )}
 
-                              {order.status === 'completed' && (
-                                <div className="pt-1 mt-1 border-t border-slate-100">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenMenuOrderId(null);
-                                      if (confirm(`Re-open order #${order.id} and send back to active kitchen?`)) {
-                                        onUpdateStatus(order.id, 'preparing');
-                                        setOrderStatusToast({
-                                          message: `Order #${order.id} re-opened and sent back to Live Kitchen Orders!`,
-                                          orderId: order.id,
-                                        });
-                                        setTimeout(() => setOrderStatusToast(null), 5000);
-                                      }
-                                    }}
-                                    className="w-full px-3.5 py-2 text-left text-xs font-bold text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition cursor-pointer"
-                                  >
-                                    <RotateCcw className="w-4 h-4 text-amber-600" />
-                                    <span>Re-open to Kitchen</span>
-                                  </button>
-                                </div>
-                              )}
+
 
                               {(order.status === 'new' || order.status === 'preparing') && (
                                 <div className="pt-1 mt-1 border-t border-slate-100">

@@ -1242,6 +1242,12 @@ export const orderService = {
   updateOrderStatus(restaurantId, orderId, newStatus, additionalUpdates = {}) {
     const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
     const orders = this.getOrders(restaurantId);
+    const existingTarget = orders.find((o) => o.id === orderId);
+    const isAlreadyCompleted =
+      existingTarget && (existingTarget.status === 'completed' || existingTarget.status === 'delivered');
+    if (isAlreadyCompleted && newStatus !== 'completed' && newStatus !== 'delivered') {
+      return orders;
+    }
     let updatedOrder = null;
     const updated =
       newStatus === 'cancelled'
@@ -1325,6 +1331,10 @@ export const orderService = {
     let updatedOrder = null;
     const updated = orders.map((o) => {
       if (o.id === orderId) {
+        if ((o.status === 'completed' || o.status === 'delivered') && !isPaid) {
+          updatedOrder = o;
+          return o;
+        }
         const payable = Number(o.total_payable) || 0;
         const payablePaisa = o.total_payable_paisa || toPaisa(payable);
         updatedOrder = {
@@ -1597,6 +1607,9 @@ export const orderService = {
     const orders = this.getOrders(restaurantId);
     const existing = orders.find((o) => o.id === orderId);
     if (!existing) throw new Error('Existing order not found');
+    if (existing.status === 'completed' || existing.status === 'delivered') {
+      throw new Error('Completed orders cannot be modified');
+    }
 
     const formattedNewItems = newCartItems.map((cartItem) => {
       const deal = cartItem.item?.variants?.is_deal ? cartItem.item.variants : null;
@@ -1673,6 +1686,9 @@ export const orderService = {
     const orders = this.getOrders(restaurantId);
     const existing = orders.find((o) => o.id === orderId);
     if (!existing) throw new Error('Order not found');
+    if (existing.status === 'completed' || existing.status === 'delivered') {
+      throw new Error('Completed orders cannot be modified');
+    }
 
     const newSubtotal = updatedItems.reduce(
       (sum, item) => sum + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),

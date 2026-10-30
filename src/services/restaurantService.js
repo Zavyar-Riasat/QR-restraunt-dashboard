@@ -1080,6 +1080,188 @@ export const ALL_SEED_RESTAURANTS = {
       },
     ],
   },
+
+  // 11. LYALLPUR GRILL & BBQ HOUSE (Jinnah Colony, Faisalabad - 25 km Radius)
+  lyallpurgrill: {
+    restaurant: {
+      id: 'rest-112',
+      name: 'Lyallpur Grill & BBQ House',
+      slug: 'lyallpurgrill',
+      phone: '923004112233',
+      whatsapp_number: '923004112233',
+      latitude: 31.4187,
+      longitude: 73.0791,
+      address: 'Main Gate, Jinnah Colony, Near GC University',
+      city: 'Faisalabad',
+      area: 'Jinnah Colony',
+      logo_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=200&h=200&q=80',
+      is_open: true,
+      delivery_mode: 'paid',
+      delivery_fee: 120,
+      show_min_order: true,
+      min_order_amount: 500,
+      show_prep_time: true,
+      prep_time: '25–35 mins',
+    },
+    categories: [
+      { id: 'cat-lyallpur-bbq', name: 'Charcoal BBQ & Grills' },
+      { id: 'cat-lyallpur-karahi', name: 'Special Handi & Karahi' },
+      { id: 'cat-lyallpur-rice', name: 'Biryani & Tandoor' },
+    ],
+    menuItems: [
+      {
+        id: 'lyallpur-item-1',
+        category_id: 'cat-lyallpur-bbq',
+        title: 'Lyallpur Special Mutton Chops (6 Pcs)',
+        price: 1650,
+        description: 'Juicy rib-eye mutton chops marinated in roasted cumin, papaya, and Peshawari spices, char-grilled over live coals.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+      {
+        id: 'lyallpur-item-2',
+        category_id: 'cat-lyallpur-karahi',
+        title: 'Jinnah Colony Smoky Chicken Tikka Karahi',
+        price: 1450,
+        description: 'Charcoal-grilled chicken tikka pieces wok-tossed in pure desi ghee with fresh vine tomatoes, green chilies, and ginger.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+      {
+        id: 'lyallpur-item-3',
+        category_id: 'cat-lyallpur-bbq',
+        title: 'Charcoal Beef Seekh Kebab Platter (4 Pcs)',
+        price: 980,
+        description: 'Hand-minced tender beef skewers seasoned with fresh coriander, green chilies, and garam masala, served with mint chutney.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+      {
+        id: 'lyallpur-item-4',
+        category_id: 'cat-lyallpur-rice',
+        title: 'Royal Zafrani Chicken Dum Biryani',
+        price: 750,
+        description: 'Long-grain aged basmati rice steamed with spiced chicken, saffron essence, caramelized onions, and mint raita.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+      {
+        id: 'lyallpur-item-5',
+        category_id: 'cat-lyallpur-rice',
+        title: 'Desi Ghee Garlic Roghani Naan Basket',
+        price: 320,
+        description: 'Three clay-oven baked fluffy roghani naans brushed with melted desi ghee, roasted garlic, and white sesame seeds.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+    ],
+  },
+
+  // 12. CHENAB SMASH & PIZZA LOUNGE (Jinnah Colony, Faisalabad - 25 km Radius)
+  chenabsmash: {
+    restaurant: {
+      id: 'rest-113',
+      name: 'Chenab Smash & Pizza Lounge',
+      slug: 'chenabsmash',
+      phone: '923004114455',
+      whatsapp_number: '923004114455',
+      latitude: 31.4204,
+      longitude: 73.0774,
+      address: 'Plot 24, Commercial Market, Jinnah Colony',
+      city: 'Faisalabad',
+      area: 'Jinnah Colony',
+      logo_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=200&h=200&q=80',
+      is_open: true,
+      delivery_mode: 'paid',
+      delivery_fee: 100,
+      show_min_order: true,
+      min_order_amount: 450,
+      show_prep_time: true,
+      prep_time: '20–30 mins',
+    },
+    categories: [
+      { id: 'cat-chenab-burgers', name: 'Artisan Smash Burgers' },
+      { id: 'cat-chenab-pizza', name: 'Stone-Baked Pizzas' },
+      { id: 'cat-chenab-sides', name: 'Loaded Fries & Shakes' },
+    ],
+    menuItems: [
+      {
+        id: 'chenab-item-1',
+        category_id: 'cat-chenab-pizza',
+        title: 'Double Cheese Crown Crust Pizza (Large)',
+        price: 1790,
+        description: 'Signature crown crust stuffed with chicken seekh kebab bites and cream cheese, topped with grilled chicken and mozzarella.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+      {
+        id: 'chenab-item-2',
+        category_id: 'cat-chenab-burgers',
+        title: 'Faisalabad Crunch Zinger & Cheese Burger',
+        price: 890,
+        description: 'Crispy golden buttermilk fried chicken thigh, cheddar cheese slice, spicy dynamite sauce, and iceberg lettuce on brioche.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1625813506062-0aeb1d7a094b?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+      {
+        id: 'chenab-item-3',
+        category_id: 'cat-chenab-burgers',
+        title: 'Smoky Jalapeño Double Beef Smash Burger',
+        price: 1150,
+        description: 'Two seared crusted Angus beef patties, double American cheese, pickled jalapeños, and smoky chipotle mayo.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+      {
+        id: 'chenab-item-4',
+        category_id: 'cat-chenab-sides',
+        title: 'Loaded Peri-Peri Chicken Fries',
+        price: 650,
+        description: 'Crispy crinkle-cut fries topped with flame-grilled peri-peri chicken strips, warm nacho cheese sauce, and jalapeños.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+      {
+        id: 'chenab-item-5',
+        category_id: 'cat-chenab-sides',
+        title: 'Belgian Chocolate Fudge Oreo Shake',
+        price: 520,
+        description: 'Thick hand-spun chocolate fudge ice cream blended with crushed Oreo cookies, fresh milk, and whipped cream.',
+        variants: {
+          is_available: true,
+          image_url: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=600&q=80',
+          options: [],
+        },
+      },
+    ],
+  },
 };
 
 const isSupabaseConfigured = () => {
@@ -1146,6 +1328,31 @@ export const restaurantService = {
    */
   mergeExtendedSettings(restaurant) {
     if (!restaurant) return restaurant;
+    const slugKey = (restaurant.slug || '').toLowerCase();
+    const defaultGeoMap = {
+      burgersmoke: { latitude: 33.72148, longitude: 73.05232, address: 'Shop 4, Block B, Beverly Centre, Blue Area', city: 'Islamabad', area: 'Blue Area', radius_km: 7.5 },
+      crust: { latitude: 33.71821, longitude: 73.05642, address: 'Plot 18, F-7 Markaz (Jinnah Super)', city: 'Islamabad', area: 'F-7 Markaz', radius_km: 6.0 },
+      shinwari: { latitude: 33.69915, longitude: 73.01891, address: 'Roundabout F-10 Markaz, Main Boulevard', city: 'Islamabad', area: 'F-10 Markaz', radius_km: 8.5 },
+      greenoasis: { latitude: 33.72985, longitude: 73.06121, address: 'Kohsar Market, Sector F-6/3', city: 'Islamabad', area: 'F-6 Kohsar', radius_km: 5.0 },
+      tokyosushi: { latitude: 33.72412, longitude: 73.05831, address: 'Block C, F-7 Markaz', city: 'Islamabad', area: 'F-7 Markaz', radius_km: 6.5 },
+      royaltaj: { latitude: 33.71534, longitude: 73.04812, address: 'Main Blue Area, Sector G-7', city: 'Islamabad', area: 'Blue Area', radius_km: 8.0 },
+      fiestamex: { latitude: 33.72015, longitude: 73.05512, address: 'Plaza 14, F-7 Markaz', city: 'Islamabad', area: 'F-7 Markaz', radius_km: 6.5 },
+      sweetretreat: { latitude: 33.7261, longitude: 73.0598, address: 'Street 12, F-6/3', city: 'Islamabad', area: 'F-6 Markaz', radius_km: 6.0 },
+      chaijunction: { latitude: 33.7112, longitude: 73.0415, address: 'Main Service Road, F-8 Markaz', city: 'Islamabad', area: 'F-8 Markaz', radius_km: 7.0 },
+      stoneove: { latitude: 33.7195, longitude: 73.0531, address: 'Jinnah Super, F-7 Markaz', city: 'Islamabad', area: 'F-7 Markaz', radius_km: 6.5 },
+      saffrondera: { latitude: 33.70512, longitude: 73.04523, address: 'Shop 12, Civic Centre, Sector F-11 Markaz', city: 'Islamabad', area: 'F-11 Markaz', radius_km: 7.0 },
+      lyallpurgrill: { latitude: 31.4187, longitude: 73.0791, address: 'Main Gate, Jinnah Colony, Near GC University', city: 'Faisalabad', area: 'Jinnah Colony', radius_km: 25.0 },
+      chenabsmash: { latitude: 31.4204, longitude: 73.0774, address: 'Plot 24, Commercial Market, Jinnah Colony', city: 'Faisalabad', area: 'Jinnah Colony', radius_km: 25.0 },
+    };
+    const defaultGeo = defaultGeoMap[slugKey] || {
+      latitude: 33.72148,
+      longitude: 73.05232,
+      address: 'Islamabad, Pakistan',
+      city: 'Islamabad',
+      area: 'F-7',
+      radius_km: 7.0,
+    };
+
     const phone = restaurant.phone || restaurant.whatsapp_number || '923001234567';
     const key = `${SETTINGS_PREFIX}${restaurant.id}`;
     let extended = {
@@ -1159,20 +1366,103 @@ export const restaurantService = {
       logo_url: restaurant.logo_url || null,
       primary_color: restaurant.primary_color || '#f97316',
     };
+    let locationOverride = null;
+    let savedDeliveryAreas = null;
     try {
       const saved = localStorage.getItem(key);
       if (saved) {
         extended = { ...extended, ...JSON.parse(saved) };
       }
-    } catch  {}
-    return {
+
+      const bySlugRaw = restaurant.slug
+        ? localStorage.getItem(`dinehq_restaurant_overrides_${restaurant.slug}`)
+        : null;
+      const byIdRaw = restaurant.id
+        ? localStorage.getItem(`dinehq_restaurant_overrides_${restaurant.id}`)
+        : null;
+      let bySlug = null;
+      let byId = null;
+      if (bySlugRaw) {
+        try { bySlug = JSON.parse(bySlugRaw); } catch {}
+      }
+      if (byIdRaw) {
+        try { byId = JSON.parse(byIdRaw); } catch {}
+      }
+      if (bySlug && byId) {
+        const tSlug = bySlug.updated_at ? new Date(bySlug.updated_at).getTime() : 0;
+        const tId = byId.updated_at ? new Date(byId.updated_at).getTime() : 0;
+        locationOverride = tSlug >= tId ? bySlug : byId;
+      } else {
+        locationOverride = bySlug || byId;
+      }
+
+      const areaSlugRaw = restaurant.slug
+        ? localStorage.getItem(`dinehq_delivery_areas_${restaurant.slug}`)
+        : null;
+      const areaIdRaw = restaurant.id
+        ? localStorage.getItem(`dinehq_delivery_areas_${restaurant.id}`)
+        : null;
+      let areaSlug = null;
+      let areaId = null;
+      if (areaSlugRaw) {
+        try { areaSlug = JSON.parse(areaSlugRaw); } catch {}
+      }
+      if (areaIdRaw) {
+        try { areaId = JSON.parse(areaIdRaw); } catch {}
+      }
+      if (Array.isArray(areaSlug) && areaSlug.length > 0 && Array.isArray(areaId) && areaId.length > 0) {
+        const tSlug = areaSlug[0]?.updated_at ? new Date(areaSlug[0].updated_at).getTime() : 0;
+        const tId = areaId[0]?.updated_at ? new Date(areaId[0].updated_at).getTime() : 0;
+        savedDeliveryAreas = tSlug >= tId ? areaSlug : areaId;
+      } else if (Array.isArray(areaSlug) && areaSlug.length > 0) {
+        savedDeliveryAreas = areaSlug;
+      } else if (Array.isArray(areaId) && areaId.length > 0) {
+        savedDeliveryAreas = areaId;
+      }
+    } catch {}
+
+    const defaultAreas = [
+      {
+        id: `area-${restaurant.id || slugKey}-1`,
+        restaurant_id: restaurant.id,
+        slug: restaurant.slug,
+        type: 'radius',
+        radius_km: defaultGeo.radius_km || 7.0,
+        fee: extended.delivery_fee ?? 150,
+      },
+    ];
+
+    const merged = {
+      latitude: defaultGeo.latitude,
+      longitude: defaultGeo.longitude,
+      address: defaultGeo.address,
+      city: defaultGeo.city,
+      area: defaultGeo.area,
+      listed_publicly: true,
+      listing_status: 'approved',
+      delivery_enabled: true,
+      pickup_enabled: true,
+      dinein_enabled: true,
       ...restaurant,
       ...extended,
-      logo_url: extended.logo_url || restaurant.logo_url || null,
-      primary_color: extended.primary_color || restaurant.primary_color || '#f97316',
-      phone,
-      whatsapp_number: phone,
+      ...(locationOverride && typeof locationOverride === 'object' ? locationOverride : {}),
+      id: restaurant.id,
+      slug: restaurant.slug || locationOverride?.slug,
     };
+
+    merged.delivery_areas =
+      savedDeliveryAreas ||
+      (Array.isArray(locationOverride?.delivery_areas) && locationOverride.delivery_areas.length > 0
+        ? locationOverride.delivery_areas
+        : Array.isArray(restaurant.delivery_areas) && restaurant.delivery_areas.length > 0
+        ? restaurant.delivery_areas
+        : defaultAreas);
+
+    merged.logo_url = merged.logo_url || restaurant.logo_url || null;
+    merged.primary_color = merged.primary_color || restaurant.primary_color || '#f97316';
+    merged.phone = merged.phone || phone;
+    merged.whatsapp_number = merged.whatsapp_number || phone;
+    return merged;
   },
 
   /**

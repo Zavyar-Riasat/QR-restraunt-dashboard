@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { marketplaceService } from '../services/marketplaceService.js';
+import { marketplaceService, SEED_MARKETPLACE_RESTAURANTS } from '../services/marketplaceService.js';
+import { normalizeCustomerLocation } from '../utils/geoValidation.js';
 import { useCustomerAuth } from '../context/CustomerAuthContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
@@ -221,12 +222,20 @@ export default function MarketplaceHomePage() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.name) {
-          return {
+          const normalized = normalizeCustomerLocation({
             name: parsed.name,
-            lat: parsed.lat != null ? parsed.lat : 33.721,
-            lng: parsed.lng != null ? parsed.lng : 73.052,
+            lat: parsed.lat ?? parsed.latitude ?? 33.721,
+            lng: parsed.lng ?? parsed.longitude ?? 73.052,
             isGps: Boolean(parsed.isGps),
-          };
+          });
+          if (normalized && normalized.lat != null && normalized.lng != null) {
+            if (normalized.lat !== parsed.lat || normalized.lng !== parsed.lng) {
+              try {
+                localStorage.setItem('dinehq_customer_location', JSON.stringify(normalized));
+              } catch {}
+            }
+            return normalized;
+          }
         }
       }
     } catch {
@@ -373,12 +382,19 @@ export default function MarketplaceHomePage() {
   }, []);
 
   const handleLocationSelect = (loc) => {
-    const roundedLoc = {
+    const normalized = normalizeCustomerLocation({
       name: loc.name || 'Selected Location',
-      lat: loc.lat != null ? Number(Number(loc.lat).toFixed(3)) : null,
-      lng: loc.lng != null ? Number(Number(loc.lng).toFixed(3)) : null,
+      lat: loc.lat ?? loc.latitude ?? null,
+      lng: loc.lng ?? loc.longitude ?? null,
+      isGps: Boolean(loc.isGps),
+    });
+    const roundedLoc = {
+      name: normalized?.name || loc.name || 'Selected Location',
+      lat: normalized?.lat != null ? Number(normalized.lat) : null,
+      lng: normalized?.lng != null ? Number(normalized.lng) : null,
       isGps: Boolean(loc.isGps),
     };
+    marketplaceService.invalidateCache?.();
 
     setCustomerLocation(roundedLoc);
     try {
@@ -459,7 +475,7 @@ export default function MarketplaceHomePage() {
   const [restaurantPage, setRestaurantPage] = useState(1);
   const [restaurants, setRestaurants] = useState(() => {
     try {
-      return marketplaceService.getApprovedMarketplaceRestaurantsSync() || [];
+      return marketplaceService.getApprovedMarketplaceRestaurantsSync(customerLocation) || [];
     } catch {
       return [];
     }
@@ -468,11 +484,13 @@ export default function MarketplaceHomePage() {
   const [restaurantHasMore, setRestaurantHasMore] = useState(false);
   const [restaurantsLoading, setRestaurantsLoading] = useState(false);
 
+  const seedRestaurantsCount = SEED_MARKETPLACE_RESTAURANTS.length;
+
   const fetchRestaurants = useCallback(async () => {
     try {
       setRestaurantsLoading((prev) => (restaurants.length === 0 ? true : prev));
-      const queryLat = customerLocation?.lat ? Number(customerLocation.lat.toFixed(3)) : null;
-      const queryLng = customerLocation?.lng ? Number(customerLocation.lng.toFixed(3)) : null;
+      const queryLat = customerLocation?.lat != null ? Number(customerLocation.lat) : null;
+      const queryLng = customerLocation?.lng != null ? Number(customerLocation.lng) : null;
 
       const result = await marketplaceService.getPublicRestaurants({
         userLat: queryLat,
@@ -500,6 +518,7 @@ export default function MarketplaceHomePage() {
       setRestaurantsLoading(false);
     }
   }, [
+    customerLocation?.name,
     customerLocation?.lat,
     customerLocation?.lng,
     selectedCategory,
@@ -509,6 +528,7 @@ export default function MarketplaceHomePage() {
     orderType,
     filterFreeDelivery,
     restaurantPage,
+    seedRestaurantsCount,
   ]);
 
   useEffect(() => {
@@ -535,8 +555,8 @@ export default function MarketplaceHomePage() {
     async (cursorToFetch = 0, isInitial = false) => {
       try {
         setFoodLoading(true);
-        const queryLat = customerLocation?.lat ? Number(customerLocation.lat.toFixed(3)) : null;
-        const queryLng = customerLocation?.lng ? Number(customerLocation.lng.toFixed(3)) : null;
+        const queryLat = customerLocation?.lat != null ? Number(customerLocation.lat) : null;
+        const queryLng = customerLocation?.lng != null ? Number(customerLocation.lng) : null;
 
         let minPrice = null;
         let maxPrice = null;
@@ -577,6 +597,7 @@ export default function MarketplaceHomePage() {
       }
     },
     [
+      customerLocation?.name,
       customerLocation?.lat,
       customerLocation?.lng,
       debouncedSearch,
@@ -585,6 +606,7 @@ export default function MarketplaceHomePage() {
       filterOpenNow,
       foodVegOnly,
       foodPriceRange,
+      seedRestaurantsCount,
     ]
   );
 
@@ -593,6 +615,23 @@ export default function MarketplaceHomePage() {
       fetchFoodDishes(0, true);
     }
   }, [homeMode, fetchFoodDishes]);
+
+  useEffect(() => {
+    const handleSyncRange = () => {
+      marketplaceService.invalidateCache?.();
+      if (homeMode === 'restaurants') {
+        fetchRestaurants();
+      } else {
+        fetchFoodDishes(0, true);
+      }
+    };
+    window.addEventListener('storage', handleSyncRange);
+    window.addEventListener('focus', handleSyncRange);
+    return () => {
+      window.removeEventListener('storage', handleSyncRange);
+      window.removeEventListener('focus', handleSyncRange);
+    };
+  }, [homeMode, fetchRestaurants, fetchFoodDishes]);
 
   const handleLoadMoreFood = () => {
     const nextCursor = foodDishes.length;

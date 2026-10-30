@@ -170,11 +170,18 @@ export default function CustomerMenuPage() {
   const [customerLocation, _setCustomerLocation] = useState(() => {
     try {
       const saved = localStorage.getItem('dinehq_customer_location');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.lat != null && parsed.lng != null) return parsed;
+      }
     } catch {
       // ignore
     }
-    return null;
+    return {
+      name: 'Near Safa Gold Mall, Islamabad',
+      lat: 33.721,
+      lng: 73.052,
+    };
   });
 
   const [deliveryAreas, setDeliveryAreas] = useState([]);
@@ -266,12 +273,12 @@ export default function CustomerMenuPage() {
 
   // Load restaurant delivery areas
   useEffect(() => {
-    if (!restaurant?.id) return;
+    if (!restaurant?.id && !restaurant?.slug) return;
     marketplaceService
-      .getDeliveryAreas(restaurant.id)
+      .getDeliveryAreas(restaurant.id, restaurant.slug)
       .then((areas) => setDeliveryAreas(areas || []))
       .catch((err) => console.warn('Error loading delivery areas:', err));
-  }, [restaurant?.id]);
+  }, [restaurant?.id, restaurant?.slug]);
 
   // Calculate delivery coverage & distance to customer
   const deliveryCoverage = React.useMemo(() => {
@@ -538,11 +545,43 @@ export default function CustomerMenuPage() {
           <h2 className="text-lg font-bold text-slate-900 mb-2">Store Menu Unavailable</h2>
           <p className="text-xs text-slate-500 mb-6">{error || 'Restaurant not found'}</p>
           <Link
-            to="/burgersmoke"
+            to="/"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
           >
-            <span>View Demo Storefront</span>
+            <span>Browse Nearby Restaurants</span>
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Block restaurant visibility if customer is outside delivery range (unless scanning a Dine-In table QR)
+  if (!scannedTable && deliveryCoverage && deliveryCoverage.deliversToUser === false) {
+    return (
+      <div className="min-h-screen bg-[#FFF9F2] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-[#F0E4D7] p-8 text-center shadow-lg space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-[#F26B1D] border border-amber-200 flex items-center justify-center mx-auto">
+            <MapPin className="w-7 h-7" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-heading font-extrabold text-[#2B2118]">
+              Outside Delivery Range
+            </h2>
+            <p className="text-xs sm:text-sm text-[#7A6A5C] leading-relaxed">
+              <strong>{restaurant.name}</strong> does not currently deliver to your selected location
+              {customerLocation?.name ? ` (${customerLocation.name})` : ''}
+              {deliveryCoverage.distanceKm != null ? ` — ${deliveryCoverage.distanceKm} km away` : ''}.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+            <Link
+              to="/"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs sm:text-sm font-bold transition shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>View Restaurants in Your Range</span>
+            </Link>
+          </div>
         </div>
       </div>
     );

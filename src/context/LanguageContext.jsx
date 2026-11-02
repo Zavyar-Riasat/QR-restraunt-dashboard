@@ -103,7 +103,7 @@ export const TRANSLATIONS = {
 
     // Profile Tab
     profileTitle: 'Customer Profile',
-    profileSubtitle: 'Manage your name, contact email, and avatar',
+    profileSubtitle: 'Manage your name, phone number, contact email, and avatar',
     fullName: 'Full Name',
     phoneNumber: 'Phone Number',
     emailAddress: 'Email Address',
@@ -197,7 +197,8 @@ export function LanguageProvider({ children }) {
   useEffect(() => {
     try {
       document.documentElement.setAttribute('lang', 'en');
-      document.documentElement.setAttribute('dir', 'ltr');
+      const language = _language;
+      document.documentElement.setAttribute('dir', language === 'ur' ? 'rtl' : 'ltr');
       document.documentElement.classList.remove('font-urdu');
       localStorage.setItem('dinehq_lang', 'en');
     } catch {

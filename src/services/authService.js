@@ -1,9 +1,21 @@
-import { supabase } from '../lib/supabaseClient.js';
 import { isReservedSlug } from '../config/appConfig.js';
+import {
+  encryptPasswordBrowser,
+  decryptPasswordBrowser,
+  verifyEncryptedPasswordBrowser,
+  computeSessionSignature,
+  verifySessionSignature,
+  ENCRYPTED_ROLE_DEFAULTS,
+  ENCRYPTED_SEED_ACCOUNTS,
+} from '../utils/passwordCrypto.js';
 
 const USERS_STORAGE_KEY = 'dinehq_registered_users';
 const CURRENT_SESSION_KEY = 'dinehq_current_session';
-const STAFF_PASSWORDS_STORAGE_KEY = 'dinehq_staff_credentials';
+const STAFF_ENCRYPTED_PASSWORDS_STORAGE_KEY = 'dinehq_staff_credentials_encrypted';
+const LEGACY_STAFF_PASSWORDS_STORAGE_KEY = 'dinehq_staff_credentials';
+const LOGIN_LOCKOUT_STORAGE_KEY = 'dinehq_login_lockout_state';
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 export const ROLE_TIERS = {
   owner: {
@@ -529,9 +541,13 @@ export const authService = {
   },
 
   /**
-   * Direct 1-click sign-in as a specific registered owner/account (from Superadmin directory)
+   * Direct 1-click sign-in as a specific registered owner/account (Strictly SuperAdmin Only)
    */
   loginAsAccount(account) {
+    const activeSession = this.getCurrentSession();
+    if (!activeSession?.user || activeSession.user.role !== 'admin') {
+      throw new Error('Access denied: Master administrator authorization is required.');
+    }
     if (!account || !account.email) {
       throw new Error('Valid account is required to sign in.');
     }
@@ -561,8 +577,77 @@ export const authService = {
    * Attempt sign in with password via server-side AES-256-GCM verification
    * Compares password in constant time on the server with client-side fallback.
    */
+  /**
+   * Client-side brute-force lockout check (5 failed attempts = 15-minute lockout)
+   */
+  checkClientLockout(cleanEmail) {
+    if (!cleanEmail) return { locked: false, remainingSeconds: 0, attempts: 0 };
+    try {
+      const map = JSON.parse(localStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY) || '{}') || {};
+      const entry = map[cleanEmail];
+      if (!entry) return { locked: false, remainingSeconds: 0, attempts: 0 };
+      if (entry.lockedUntil && entry.lockedUntil > Date.now()) {
+        const remainingSeconds = Math.ceil((entry.lockedUntil - Date.now()) / 1000);
+        return { locked: true, remainingSeconds, attempts: entry.attempts || MAX_FAILED_LOGIN_ATTEMPTS };
+      }
+      if (entry.lockedUntil && entry.lockedUntil <= Date.now()) {
+        delete map[cleanEmail];
+        localStorage.setItem(LOGIN_LOCKOUT_STORAGE_KEY, JSON.stringify(map));
+        return { locked: false, remainingSeconds: 0, attempts: 0 };
+      }
+      return { locked: false, remainingSeconds: 0, attempts: entry.attempts || 0 };
+    } catch {
+      return { locked: false, remainingSeconds: 0, attempts: 0 };
+    }
+  },
+
+  recordClientFailedLogin(cleanEmail) {
+    if (!cleanEmail) return { locked: false, remainingSeconds: 0, attempts: 0 };
+    try {
+      const map = JSON.parse(localStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY) || '{}') || {};
+      const prev = map[cleanEmail] || { attempts: 0, lockedUntil: null };
+      const attempts = (prev.attempts || 0) + 1;
+      const locked = attempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+      const lockedUntil = locked ? Date.now() + LOCKOUT_DURATION_MS : null;
+      map[cleanEmail] = { attempts, lockedUntil, lastFailedAt: Date.now() };
+      localStorage.setItem(LOGIN_LOCKOUT_STORAGE_KEY, JSON.stringify(map));
+      return {
+        locked,
+        attempts,
+        remainingAttempts: Math.max(0, MAX_FAILED_LOGIN_ATTEMPTS - attempts),
+        remainingSeconds: locked ? Math.ceil(LOCKOUT_DURATION_MS / 1000) : 0,
+      };
+    } catch {
+      return { locked: false, remainingSeconds: 0, attempts: 1 };
+    }
+  },
+
+  resetClientFailedLogins(cleanEmail) {
+    if (!cleanEmail) return;
+    try {
+      const map = JSON.parse(localStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY) || '{}') || {};
+      if (map[cleanEmail]) {
+        delete map[cleanEmail];
+        localStorage.setItem(LOGIN_LOCKOUT_STORAGE_KEY, JSON.stringify(map));
+      }
+    } catch {}
+  },
+
   async login(email, password) {
     const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      throw new Error('Email and password are required.');
+    }
+
+    // 0. Enforce brute-force lockout before processing login
+    const lockState = this.checkClientLockout(cleanEmail);
+    if (lockState.locked) {
+      const mins = Math.floor(lockState.remainingSeconds / 60);
+      const secs = lockState.remainingSeconds % 60;
+      throw new Error(
+        `Account temporarily locked due to 5 failed login attempts. Please try again in ${mins}m ${secs}s.`
+      );
+    }
 
     // 1. Primary: Authenticate via server API (decrypts AES-256-GCM and verifies timingSafeEqual)
     try {
@@ -574,6 +659,7 @@ export const authService = {
 
       if (res.ok) {
         const data = await res.json();
+        this.resetClientFailedLogins(cleanEmail);
         const sessionData = {
           user: data.user,
           token: data.sessionToken,
@@ -585,79 +671,163 @@ export const authService = {
         return sessionData;
       }
 
-      // If server returned error, check fallback accounts
-      const fallback = this.checkFallbackLogin(cleanEmail, password);
-      if (fallback) return fallback;
+      if (res.status === 429) {
+        const lockData = await res.json().catch(() => ({}));
+        throw new Error(lockData.error || 'Account temporarily locked due to multiple failed login attempts.');
+      }
+
+      // If server returned error, check fallback accounts (AES-256-GCM decrypted with .env key)
+      const fallback = await this.checkFallbackLogin(cleanEmail, password);
+      if (fallback) {
+        this.resetClientFailedLogins(cleanEmail);
+        return fallback;
+      }
+
+      const failRecord = this.recordClientFailedLogin(cleanEmail);
+      if (failRecord.locked) {
+        throw new Error('Account locked for 15 minutes due to 5 consecutive failed sign-in attempts.');
+      }
 
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || 'Failed to sign in. Please verify your credentials.');
+      throw new Error(
+        data.error ||
+          `Invalid email or password (${failRecord.remainingAttempts} attempt${failRecord.remainingAttempts === 1 ? '' : 's'} remaining before lockout).`
+      );
     } catch (apiErr) {
-      const fallback = this.checkFallbackLogin(cleanEmail, password);
-      if (fallback) return fallback;
-      throw new Error(apiErr.message || 'Invalid email or password. Please verify your credentials.');
+      if (apiErr.message && apiErr.message.toLowerCase().includes('locked')) {
+        throw apiErr;
+      }
+      const fallback = await this.checkFallbackLogin(cleanEmail, password);
+      if (fallback) {
+        this.resetClientFailedLogins(cleanEmail);
+        return fallback;
+      }
+      const failRecord = this.recordClientFailedLogin(cleanEmail);
+      if (failRecord.locked) {
+        throw new Error('Account locked for 15 minutes due to 5 consecutive failed sign-in attempts.');
+      }
+      throw new Error(
+        `Invalid email or password (${failRecord.remainingAttempts} attempt${failRecord.remainingAttempts === 1 ? '' : 's'} remaining before lockout).`
+      );
     }
   },
 
   /**
-   * Fallback offline / sandbox credential verification
+   * Load AES-256-GCM encrypted staff credentials map from localStorage,
+   * automatically migrating and purging any legacy plain-text entries.
    */
-  checkFallbackLogin(cleanEmail, password) {
+  async getEncryptedStaffCredentialsMap() {
+    let encryptedMap = {};
+    try {
+      encryptedMap =
+        JSON.parse(localStorage.getItem(STAFF_ENCRYPTED_PASSWORDS_STORAGE_KEY) || '{}') || {};
+    } catch {
+      encryptedMap = {};
+    }
+
+    // Migrate any legacy plain-text entries to AES-256-GCM and remove the legacy key
+    try {
+      const legacyRaw = localStorage.getItem(LEGACY_STAFF_PASSWORDS_STORAGE_KEY);
+      if (legacyRaw) {
+        const legacyMap = JSON.parse(legacyRaw) || {};
+        let migrated = false;
+        for (const [emailKey, val] of Object.entries(legacyMap)) {
+          const cleanKey = String(emailKey).trim().toLowerCase();
+          if (typeof val === 'string' && val.trim()) {
+            encryptedMap[cleanKey] = await encryptPasswordBrowser(val.trim());
+            migrated = true;
+          } else if (val && typeof val === 'object' && val.ciphertext && val.iv && val.authTag) {
+            encryptedMap[cleanKey] = val;
+            migrated = true;
+          }
+        }
+        if (migrated) {
+          localStorage.setItem(STAFF_ENCRYPTED_PASSWORDS_STORAGE_KEY, JSON.stringify(encryptedMap));
+        }
+        localStorage.removeItem(LEGACY_STAFF_PASSWORDS_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore migration errors
+    }
+
+    return encryptedMap;
+  },
+
+  /**
+   * Fallback offline / sandbox credential verification using AES-256-GCM decryption
+   * with the decryption key from .env
+   */
+  async checkFallbackLogin(cleanEmail, password) {
     const users = this.getRegisteredUsers();
     const match = users.find((u) => u.email.toLowerCase() === cleanEmail);
     if (match) {
-      // Check custom staff credentials saved by Owner / Manager
-      let customCreds = {};
-      try {
-        customCreds = JSON.parse(localStorage.getItem(STAFF_PASSWORDS_STORAGE_KEY) || '{}') || {};
-      } catch {
-        customCreds = {};
-      }
-      const customPassword = customCreds[cleanEmail];
-      if (customPassword && customPassword === password) {
-        const sessionData = {
-          user: match,
-          token: `loc_token_${Date.now()}`,
-          must_change_password: Boolean(match.must_change_password),
-          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-        };
-        this.saveSession(sessionData);
-        return sessionData;
+      // 1. Check custom AES-256-GCM encrypted staff credentials saved by Owner / Manager
+      const customEncryptedMap = await this.getEncryptedStaffCredentialsMap();
+      const customEncrypted = customEncryptedMap[cleanEmail];
+      if (customEncrypted) {
+        const isCustomMatch = await verifyEncryptedPasswordBrowser(password, customEncrypted);
+        if (isCustomMatch) {
+          const sessionData = {
+            user: match,
+            token: `loc_token_${Date.now()}`,
+            must_change_password: Boolean(match.must_change_password),
+            expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          };
+          this.saveSession(sessionData);
+          return sessionData;
+        }
       }
 
-      const rolePasswords = {
-        admin: ['AdminPass123!', 'admin123', 'admin', 'password123'],
-        owner: ['OwnerPass123!', 'password123', 'owner123', 'password', 'manager123'],
-        manager: ['ManagerPass123!', 'OwnerPass123!', 'manager123', 'password123'],
-        cashier: ['CashierPass123!', 'cashier123', 'password123'],
-        waiter: ['WaiterPass123!', 'waiter123', 'password123'],
-      };
-      const validPass = rolePasswords[match.role] || rolePasswords.owner;
-      if (validPass.includes(password)) {
-        const sessionData = {
-          user: match,
-          token: `loc_token_${Date.now()}`,
-          must_change_password: Boolean(match.must_change_password),
-          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-        };
-        this.saveSession(sessionData);
-        return sessionData;
+      // 2. Check seeded account AES-256-GCM encrypted payload
+      const seedEncrypted = ENCRYPTED_SEED_ACCOUNTS[cleanEmail];
+      if (seedEncrypted) {
+        const isSeedMatch = await verifyEncryptedPasswordBrowser(password, seedEncrypted);
+        if (isSeedMatch) {
+          const sessionData = {
+            user: match,
+            token: `loc_token_${Date.now()}`,
+            must_change_password: Boolean(match.must_change_password),
+            expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          };
+          this.saveSession(sessionData);
+          return sessionData;
+        }
+      }
+
+      // 3. Check role default AES-256-GCM encrypted payloads
+      const roleDefaultRaw = ENCRYPTED_ROLE_DEFAULTS[match.role] || ENCRYPTED_ROLE_DEFAULTS.owner;
+      const roleEncryptedList = Array.isArray(roleDefaultRaw) ? roleDefaultRaw : [roleDefaultRaw];
+      for (const encryptedCandidate of roleEncryptedList) {
+        if (!encryptedCandidate) continue;
+        const isRoleMatch = await verifyEncryptedPasswordBrowser(password, encryptedCandidate);
+        if (isRoleMatch) {
+          const sessionData = {
+            user: match,
+            token: `loc_token_${Date.now()}`,
+            must_change_password: Boolean(match.must_change_password),
+            expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          };
+          this.saveSession(sessionData);
+          return sessionData;
+        }
       }
     }
     return null;
   },
 
   /**
-   * Save custom staff password locally for instant fallback authentication
+   * Encrypt and save custom staff password locally using AES-256-GCM (.env key)
    */
-  saveStaffCredentialLocal(email, password) {
+  async saveStaffCredentialLocal(email, password) {
     if (!email || !password) return;
     try {
       const cleanEmail = String(email).trim().toLowerCase();
-      const map = JSON.parse(localStorage.getItem(STAFF_PASSWORDS_STORAGE_KEY) || '{}') || {};
-      map[cleanEmail] = String(password).trim();
-      localStorage.setItem(STAFF_PASSWORDS_STORAGE_KEY, JSON.stringify(map));
+      const encryptedPayload = await encryptPasswordBrowser(String(password).trim());
+      const map = await this.getEncryptedStaffCredentialsMap();
+      map[cleanEmail] = encryptedPayload;
+      localStorage.setItem(STAFF_ENCRYPTED_PASSWORDS_STORAGE_KEY, JSON.stringify(map));
     } catch (e) {
-      console.warn('Could not persist staff credential locally:', e);
+      console.warn('Could not persist encrypted staff credential locally:', e);
     }
   },
 
@@ -944,7 +1114,7 @@ export const authService = {
           const data = await res.json();
           if (data.staff) {
             this.saveRegisteredUser(data.staff);
-            this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
+            await this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
             return data.staff;
           }
         } else {
@@ -972,7 +1142,7 @@ export const authService = {
       restaurant_slug: restaurantSlug,
       must_change_password: false,
     });
-    this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
+    await this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
     return saved;
   },
 
@@ -1032,7 +1202,7 @@ export const authService = {
     });
 
     if (cleanPassword) {
-      this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
+      await this.saveStaffCredentialLocal(cleanEmail, cleanPassword);
     }
 
     return updated;
@@ -1142,22 +1312,22 @@ export const authService = {
     if (!target) {
       throw new Error('Account not found.');
     }
-    let customMap = {};
-    try {
-      customMap = JSON.parse(localStorage.getItem(STAFF_PASSWORDS_STORAGE_KEY) || '{}') || {};
-    } catch {
-      customMap = {};
-    }
+    const customEncryptedMap = await this.getEncryptedStaffCredentialsMap();
     const emailKey = String(target.email || '').trim().toLowerCase();
-    const fallbackPasswords = {
-      admin: 'AdminPass123!',
-      owner: 'OwnerPass123!',
-      manager: 'ManagerPass123!',
-      cashier: 'CashierPass123!',
-      waiter: 'WaiterPass123!',
-    };
+    const encryptedRecord =
+      customEncryptedMap[emailKey] ||
+      target.password_encrypted ||
+      ENCRYPTED_SEED_ACCOUNTS[emailKey] ||
+      (Array.isArray(ENCRYPTED_ROLE_DEFAULTS[target.role])
+        ? ENCRYPTED_ROLE_DEFAULTS[target.role][0]
+        : ENCRYPTED_ROLE_DEFAULTS[target.role]) ||
+      (Array.isArray(ENCRYPTED_ROLE_DEFAULTS.owner)
+        ? ENCRYPTED_ROLE_DEFAULTS.owner[0]
+        : ENCRYPTED_ROLE_DEFAULTS.owner);
+
+    const decryptedPassword = await decryptPasswordBrowser(encryptedRecord);
     return {
-      password: customMap[emailKey] || fallbackPasswords[target.role] || 'OwnerPass123!',
+      password: decryptedPassword,
       autoHideSeconds: 15,
     };
   },
@@ -1254,6 +1424,9 @@ export const authService = {
         if (res.ok) {
           const data = await res.json();
           this.saveRegisteredUser(data.user);
+          if (password || data.generatedPassword) {
+            await this.saveStaffCredentialLocal(cleanEmail, password || data.generatedPassword);
+          }
           return {
             user: data.user,
             generatedPassword: data.generatedPassword,
@@ -1279,7 +1452,7 @@ export const authService = {
 
     // Persist password locally for admin view & login fallback
     if (password) {
-      this.saveStaffCredentialLocal(cleanEmail, password);
+      await this.saveStaffCredentialLocal(cleanEmail, password);
     }
 
     // Fallback registration
@@ -1304,11 +1477,17 @@ export const authService = {
   },
 
   /**
-   * Session Management
+   * Cryptographically Signed Session Management
+   * Prevents DevTools localStorage session forging or role/tenant tampering.
    */
   saveSession(sessionData) {
     try {
-      localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(sessionData));
+      if (!sessionData || !sessionData.user || !sessionData.token) return;
+      const signedSession = {
+        ...sessionData,
+        signature: computeSessionSignature(sessionData),
+      };
+      localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(signedSession));
     } catch (e) {
       console.warn('Failed to save session:', e);
     }
@@ -1317,27 +1496,55 @@ export const authService = {
   getCurrentSession() {
     try {
       const stored = localStorage.getItem(CURRENT_SESSION_KEY);
-      if (stored) {
-        const session = JSON.parse(stored);
-        if (session && session.expiresAt && session.expiresAt > Date.now()) {
-          return session;
-        }
+      if (!stored) return null;
+
+      const session = JSON.parse(stored);
+      if (!session || !session.user || !session.expiresAt || session.expiresAt <= Date.now()) {
+        localStorage.removeItem(CURRENT_SESSION_KEY);
+        return null;
       }
+
+      // 1. Verify cryptographic signature (derived from .env key)
+      if (!verifySessionSignature(session)) {
+        console.warn('Security Alert: Session signature invalid or tampered. Terminating session.');
+        localStorage.removeItem(CURRENT_SESSION_KEY);
+        return null;
+      }
+
+      // 2. Validate role and cross-check against registered user directory
+      const validRoles = ['admin', 'owner', 'manager', 'cashier', 'waiter'];
+      const sessionRole = String(session.user.role || '').toLowerCase();
+      if (!validRoles.includes(sessionRole)) {
+        localStorage.removeItem(CURRENT_SESSION_KEY);
+        return null;
+      }
+
+      const registered = this.findExistingUserByEmail(session.user.email);
+      if (!registered) {
+        localStorage.removeItem(CURRENT_SESSION_KEY);
+        return null;
+      }
+
+      // Prevent role escalation or cross-tenant slug tampering
+      if (
+        registered.role !== sessionRole ||
+        (sessionRole !== 'admin' &&
+          String(registered.restaurant_slug || '').toLowerCase() !==
+            String(session.user.restaurant_slug || '').toLowerCase())
+      ) {
+        localStorage.removeItem(CURRENT_SESSION_KEY);
+        return null;
+      }
+
+      return session;
     } catch (e) {
       console.warn('Invalid session found in storage:', e);
+      localStorage.removeItem(CURRENT_SESSION_KEY);
     }
     return null;
   },
 
   async logout() {
     localStorage.removeItem(CURRENT_SESSION_KEY);
-    try {
-      const { data } = await supabase.auth.getSession();
-      const sbEmail = data?.session?.user?.email;
-      // Only sign out of Supabase if the Supabase session belongs to a staff/owner user, not a customer
-      if (sbEmail && this.findExistingUserByEmail(sbEmail)) {
-        await supabase.auth.signOut();
-      }
-    } catch {}
   },
 };

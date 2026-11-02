@@ -14,6 +14,7 @@ import OrderRatingModal from '../components/Customer/OrderRatingModal.jsx';
 import { orderService } from '../services/orderService.js';
 import BlurUpImage from '../components/Common/BlurUpImage.jsx';
 import { EmptyStateIllustration } from '../components/Common/Illustrations.jsx';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../components/Common/InfiniteScrollSentinel.jsx';
 import {
   User,
   MapPin,
@@ -72,7 +73,7 @@ export default function CustomerAccountPage() {
     toggleFavorite,
   } = useCustomerAuth();
 
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
 
   // Query Param Tab Support (e.g. /account?tab=favorites)
   const searchParams = new URLSearchParams(location.search);
@@ -94,6 +95,7 @@ export default function CustomerAccountPage() {
   // Profile Form state
   const [profileForm, setProfileForm] = useState({
     name: '',
+    phone: '',
     email: '',
     avatar: '',
     preferred_language: 'en',
@@ -133,6 +135,7 @@ export default function CustomerAccountPage() {
     if (customer) {
       setProfileForm({
         name: customer.name || '',
+        phone: customer.phone || '',
         email: customer.email || '',
         avatar: customer.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(customer.name || 'Guest')}`,
         preferred_language: 'en',
@@ -233,6 +236,11 @@ export default function CustomerAccountPage() {
       return true;
     });
   }, [customerOrders, orderDateFilter, customStartDate, customEndDate]);
+
+  const customerOrdersScroll = useInfiniteScroll(filteredOrders, { initialCount: 6, step: 6 });
+  const favoritesScroll = useInfiniteScroll(favoriteRestaurants, { initialCount: 6, step: 6 });
+  const addressesScroll = useInfiniteScroll(addresses, { initialCount: 6, step: 6 });
+  const duesScroll = useInfiniteScroll(customerDues.duesByRestaurant, { initialCount: 6, step: 6 });
 
   // Save Profile
   const handleSaveProfile = async (e) => {
@@ -454,7 +462,8 @@ export default function CustomerAccountPage() {
   if (!isCustomerAuthenticated) {
     return (
       <div
-        className="min-h-screen bg-[#FFF9F2] dark:bg-[#17110C] text-[#2B2118] dark:text-[#FFF9F2] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans"
+        dir={isRTL ? 'rtl' : 'ltr'}
+        className="min-h-screen bg-[#FFF9F2] dark:bg-[#17110C] text-[#2B2118] dark:text-[#FFF9F2] flex flex-col justify-center py-12 pb-24 px-4 sm:px-6 lg:px-8 font-sans"
       >
         <CustomerAuthModal
           isOpen={true}
@@ -472,6 +481,7 @@ export default function CustomerAccountPage() {
             <span>{t('exploreRestaurants')}</span>
           </Link>
         </div>
+        <CustomerBottomNav />
       </div>
     );
   }
@@ -576,10 +586,16 @@ export default function CustomerAccountPage() {
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-1.5 text-xs text-[#7A6A5C] dark:text-[#CBB8A8]">
-                <span className="flex items-center gap-1 font-mono font-medium">
-                  <Phone className="w-3.5 h-3.5 text-[#F26B1D]" />
-                  <span dir="ltr">+{customer.phone}</span>
-                </span>
+                {customer.phone && (
+                  <span className="flex items-center gap-1 font-mono font-medium">
+                    <Phone className="w-3.5 h-3.5 text-[#F26B1D]" />
+                    <span dir="ltr">
+                      {customer.phone.startsWith('0') || customer.phone.startsWith('+')
+                        ? customer.phone
+                        : `+${customer.phone}`}
+                    </span>
+                  </span>
+                )}
                 {customer.email && (
                   <span className="flex items-center gap-1">
                     <Mail className="w-3.5 h-3.5 text-[#F26B1D]" />
@@ -899,11 +915,12 @@ export default function CustomerAccountPage() {
                 </label>
                 <div className="relative">
                   <input
-                    type="text"
-                    disabled
-                    value={`+${customer.phone}`}
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    placeholder="e.g. 03001234567"
                     dir="ltr"
-                    className="w-full px-4 py-3 min-h-[48px] rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] bg-slate-100 dark:bg-[#1E1712] text-xs sm:text-sm font-mono font-bold text-[#7A6A5C] dark:text-[#8E7A6B] cursor-not-allowed"
+                    className="w-full px-4 py-3 min-h-[48px] rounded-2xl border border-[#F0E4D7] dark:border-[#382B20] bg-[#FFF9F2]/50 dark:bg-[#281D16] text-xs sm:text-sm font-mono font-bold text-[#2B2118] dark:text-[#FFF9F2] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] focus:bg-white dark:focus:bg-[#201712]"
                   />
                 </div>
               </div>
@@ -981,94 +998,105 @@ export default function CustomerAccountPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {addresses.map((addr) => (
-                  <div
-                    key={addr.id}
-                    className={`card-warm p-5 transition flex flex-col justify-between ${
-                      addr.is_default
-                        ? 'border-[#F26B1D] ring-2 ring-[#F26B1D]/15'
-                        : 'border-[#F0E4D7] dark:border-[#382B20]'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="p-2 rounded-xl bg-[#FFF9F2] dark:bg-[#2E2018] border border-[#F0E4D7] dark:border-[#382B20]">
-                            {renderLabelIcon(addr.label)}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {addressesScroll.visibleItems.map((addr) => (
+                    <div
+                      key={addr.id}
+                      className={`card-warm p-5 transition flex flex-col justify-between ${
+                        addr.is_default
+                          ? 'border-[#F26B1D] ring-2 ring-[#F26B1D]/15'
+                          : 'border-[#F0E4D7] dark:border-[#382B20]'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-xl bg-[#FFF9F2] dark:bg-[#2E2018] border border-[#F0E4D7] dark:border-[#382B20]">
+                              {renderLabelIcon(addr.label)}
+                            </div>
+                            <span className="font-bold text-sm text-[#2B2118] dark:text-[#FFF9F2]">{addr.label}</span>
                           </div>
-                          <span className="font-bold text-sm text-[#2B2118] dark:text-[#FFF9F2]">{addr.label}</span>
+                          {addr.is_default && (
+                            <span className="px-2.5 py-1 rounded-full bg-[#FFF1E6] dark:bg-[#382417] text-[#F26B1D] text-[10px] font-bold border border-[#FCD8BF] dark:border-[#523522] flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>{t('defaultAddress')}</span>
+                            </span>
+                          )}
                         </div>
-                        {addr.is_default && (
-                          <span className="px-2.5 py-1 rounded-full bg-[#FFF1E6] dark:bg-[#382417] text-[#F26B1D] text-[10px] font-bold border border-[#FCD8BF] dark:border-[#523522] flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>{t('defaultAddress')}</span>
-                          </span>
+
+                        <p className="text-xs sm:text-sm text-[#2B2118] dark:text-[#FFF9F2] font-medium leading-relaxed">
+                          {addr.address}
+                        </p>
+
+                        {addr.landmark && (
+                          <p className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8] mt-1.5 flex items-center gap-1">
+                            <span className="font-bold text-[#F26B1D]">{t('landmark')}:</span>
+                            <span>{addr.landmark}</span>
+                          </p>
+                        )}
+
+                        {addr.delivery_note && (
+                          <p className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8] mt-1 flex items-center gap-1.5 bg-[#FFF9F2] dark:bg-[#281D16] p-2.5 rounded-xl border border-[#F0E4D7] dark:border-[#382B20]">
+                            <Info className="w-4 h-4 text-[#F26B1D] shrink-0" />
+                            <span>
+                              <strong>{t('note')}:</strong> {addr.delivery_note}
+                            </span>
+                          </p>
+                        )}
+
+                        {addr.latitude && addr.longitude && (
+                          <p className="text-[11px] font-mono text-[#9E8E81] mt-1.5" dir="ltr">
+                            GPS: {Number(addr.latitude).toFixed(4)}, {Number(addr.longitude).toFixed(4)}
+                          </p>
                         )}
                       </div>
 
-                      <p className="text-xs sm:text-sm text-[#2B2118] dark:text-[#FFF9F2] font-medium leading-relaxed">
-                        {addr.address}
-                      </p>
-
-                      {addr.landmark && (
-                        <p className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8] mt-1.5 flex items-center gap-1">
-                          <span className="font-bold text-[#F26B1D]">{t('landmark')}:</span>
-                          <span>{addr.landmark}</span>
-                        </p>
-                      )}
-
-                      {addr.delivery_note && (
-                        <p className="text-xs text-[#7A6A5C] dark:text-[#CBB8A8] mt-1 flex items-center gap-1.5 bg-[#FFF9F2] dark:bg-[#281D16] p-2.5 rounded-xl border border-[#F0E4D7] dark:border-[#382B20]">
-                          <Info className="w-4 h-4 text-[#F26B1D] shrink-0" />
-                          <span>
-                            <strong>{t('note')}:</strong> {addr.delivery_note}
-                          </span>
-                        </p>
-                      )}
-
-                      {addr.latitude && addr.longitude && (
-                        <p className="text-[11px] font-mono text-[#9E8E81] mt-1.5" dir="ltr">
-                          GPS: {Number(addr.latitude).toFixed(4)}, {Number(addr.longitude).toFixed(4)}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 mt-4 border-t border-[#F0E4D7]/70 dark:border-[#382B20]">
-                      <div>
-                        {!addr.is_default && (
+                      <div className="flex items-center justify-between pt-4 mt-4 border-t border-[#F0E4D7]/70 dark:border-[#382B20]">
+                        <div>
+                          {!addr.is_default && (
+                            <button
+                              type="button"
+                              onClick={() => handleSetDefaultAddress(addr)}
+                              className="min-h-[44px] text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#F26B1D] transition cursor-pointer flex items-center"
+                            >
+                              {t('setAsDefault')}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleSetDefaultAddress(addr)}
-                            className="min-h-[44px] text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#F26B1D] transition cursor-pointer flex items-center"
+                            onClick={() => {
+                              setEditingAddress(addr);
+                              setIsAddressModalOpen(true);
+                            }}
+                            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] hover:bg-[#FFF1E6] dark:hover:bg-[#35251C] text-[#2B2118] dark:text-[#FFF9F2] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold transition cursor-pointer flex items-center"
                           >
-                            {t('setAsDefault')}
+                            {t('edit')}
                           </button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingAddress(addr);
-                            setIsAddressModalOpen(true);
-                          }}
-                          className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] hover:bg-[#FFF1E6] dark:hover:bg-[#35251C] text-[#2B2118] dark:text-[#FFF9F2] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold transition cursor-pointer flex items-center"
-                        >
-                          {t('edit')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteAddress(addr.id)}
-                          className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-[#9E8E81] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer flex items-center justify-center"
-                          title="Delete address"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAddress(addr.id)}
+                            className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-[#9E8E81] hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer flex items-center justify-center"
+                            title="Delete address"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <InfiniteScrollSentinel
+                  hasMore={addressesScroll.hasMore}
+                  onLoadMore={addressesScroll.loadMore}
+                  shownCount={addressesScroll.visibleCount}
+                  totalCount={addressesScroll.totalCount}
+                  initialCount={addressesScroll.initialCount}
+                  itemLabel="saved addresses"
+                  className="rounded-2xl border border-[#F0E4D7]"
+                />
               </div>
             )}
           </div>
@@ -1180,7 +1208,7 @@ export default function CustomerAccountPage() {
                     </button>
                   </div>
                 )}
-                {filteredOrders.map((ord) => {
+                {customerOrdersScroll.visibleItems.map((ord) => {
                   const isLive = ['new', 'confirmed', 'preparing', 'out_for_delivery', 'ready'].includes(ord.status);
                   const isCancelled = ord.status === 'cancelled' || ord.status === 'rejected';
 
@@ -1260,18 +1288,30 @@ export default function CustomerAccountPage() {
 
                       {/* Cancelled Order Banner */}
                       {isCancelled && (
-                        <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 flex items-center justify-between gap-2 text-xs text-rose-700 dark:text-rose-300 font-bold">
-                          <div className="flex items-center gap-2">
-                            <X className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                            <span>This order was cancelled by the restaurant.</span>
+                        <div className="p-3.5 rounded-2xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 space-y-2 text-xs text-rose-700 dark:text-rose-300 font-bold">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <X className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                              <span>This order was cancelled by the restaurant.</span>
+                            </div>
+                            {ord.cancelled_at && (
+                              <span className="text-[11px] font-medium text-rose-600/80 dark:text-rose-300/80 shrink-0">
+                                {new Date(ord.cancelled_at).toLocaleTimeString('en-GB', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            )}
                           </div>
-                          {ord.cancelled_at && (
-                            <span className="text-[11px] font-medium text-rose-600/80 dark:text-rose-300/80 shrink-0">
-                              {new Date(ord.cancelled_at).toLocaleTimeString('en-GB', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
+                          {ord.cancellation_reason && (
+                            <div className="p-2.5 rounded-xl bg-white dark:bg-[#221A14] border border-rose-200/80 dark:border-rose-900/60 text-rose-900 dark:text-rose-200">
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
+                                Reason for Cancellation
+                              </span>
+                              <p className="text-xs font-semibold mt-0.5">
+                                &ldquo;{ord.cancellation_reason}&rdquo;
+                              </p>
+                            </div>
                           )}
                         </div>
                       )}
@@ -1343,6 +1383,15 @@ export default function CustomerAccountPage() {
                     </div>
                   );
                 })}
+                <InfiniteScrollSentinel
+                  hasMore={customerOrdersScroll.hasMore}
+                  onLoadMore={customerOrdersScroll.loadMore}
+                  shownCount={customerOrdersScroll.visibleCount}
+                  totalCount={customerOrdersScroll.totalCount}
+                  initialCount={customerOrdersScroll.initialCount}
+                  itemLabel="orders"
+                  className="rounded-2xl border border-[#F0E4D7]"
+                />
               </div>
             )}
           </div>
@@ -1390,8 +1439,9 @@ export default function CustomerAccountPage() {
                 </Link>
               </div>
             ) : (
+              <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {favoriteRestaurants.map((store) => (
+                {favoritesScroll.visibleItems.map((store) => (
                   <div
                     key={store.id}
                     className="card-warm group flex flex-col justify-between overflow-hidden"
@@ -1449,6 +1499,16 @@ export default function CustomerAccountPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+              <InfiniteScrollSentinel
+                hasMore={favoritesScroll.hasMore}
+                onLoadMore={favoritesScroll.loadMore}
+                shownCount={favoritesScroll.visibleCount}
+                totalCount={favoritesScroll.totalCount}
+                initialCount={favoritesScroll.initialCount}
+                itemLabel="favorite restaurants"
+                className="rounded-2xl border border-[#F0E4D7]"
+              />
               </div>
             )}
           </div>
@@ -1514,7 +1574,7 @@ export default function CustomerAccountPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {customerDues.duesByRestaurant.map((item, idx) => (
+                {duesScroll.visibleItems.map((item, idx) => (
                   <div
                     key={idx}
                     className="card-warm p-5 space-y-4"
@@ -1578,6 +1638,15 @@ export default function CustomerAccountPage() {
                     )}
                   </div>
                 ))}
+                <InfiniteScrollSentinel
+                  hasMore={duesScroll.hasMore}
+                  onLoadMore={duesScroll.loadMore}
+                  shownCount={duesScroll.visibleCount}
+                  totalCount={duesScroll.totalCount}
+                  initialCount={duesScroll.initialCount}
+                  itemLabel="restaurant ledgers"
+                  className="rounded-2xl border border-[#F0E4D7]"
+                />
               </div>
             )}
           </div>
@@ -1684,9 +1753,21 @@ export default function CustomerAccountPage() {
               </div>
 
               {(selectedOrderDetails.status === 'cancelled' || selectedOrderDetails.status === 'rejected') && (
-                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-bold flex items-center gap-2">
-                  <X className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                  <span>This order was cancelled by the restaurant.</span>
+                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-bold space-y-2">
+                  <div className="flex items-center gap-2">
+                    <X className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                    <span>This order was cancelled by the restaurant.</span>
+                  </div>
+                  {selectedOrderDetails.cancellation_reason && (
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#221A14] border border-rose-200/80 dark:border-rose-900/60 text-rose-900 dark:text-rose-200">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
+                        Reason for Cancellation
+                      </span>
+                      <p className="text-xs font-semibold mt-0.5">
+                        &ldquo;{selectedOrderDetails.cancellation_reason}&rdquo;
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

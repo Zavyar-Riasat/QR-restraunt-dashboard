@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import {
   FileText,
   Printer,
@@ -20,7 +20,7 @@ import {
   DEFAULT_TEMPLATE_SETTINGS,
   SAMPLE_PREVIEW_ORDER,
 } from '../../services/printer/printerTypes';
-import PrintTemplateRenderer from './PrintTemplateRenderer';
+const PrintTemplateRenderer = lazy(() => import('./PrintTemplateRenderer'));
 
 const FOOTER_PRESETS = [
   'Thank you for ordering with us! Visit again soon.',
@@ -404,22 +404,24 @@ export default function PrintTemplatesSection({ restaurant }) {
               <div className="h-2 bg-slate-300 w-full rounded-t-sm border-b border-dashed border-slate-400 opacity-60" />
 
               {/* Rendered Live Template */}
-              <PrintTemplateRenderer
-                templateType={templateType}
-                paperSize={paperSize}
-                order={SAMPLE_PREVIEW_ORDER}
-                restaurant={
-                  restaurant || {
-                    name: 'Dineflow Kitchen & Grill',
-                    slug: 'burgersmoke',
-                    phone: '923001234567',
-                    whatsapp_number: '923001234567',
-                    logo_url: restaurant?.logo_url || null,
+              <Suspense fallback={null}>
+                <PrintTemplateRenderer
+                  templateType={templateType}
+                  paperSize={paperSize}
+                  order={SAMPLE_PREVIEW_ORDER}
+                  restaurant={
+                    restaurant || {
+                      name: 'Dineflow Kitchen & Grill',
+                      slug: 'burgersmoke',
+                      phone: '923001234567',
+                      whatsapp_number: '923001234567',
+                      logo_url: restaurant?.logo_url || null,
+                    }
                   }
-                }
-                settings={settings}
-                isLivePrint={false}
-              />
+                  settings={settings}
+                  isLivePrint={false}
+                />
+              </Suspense>
 
               {/* Bottom Serrated Cut Effect */}
               <div className="h-3 w-full bg-radial from-transparent to-slate-200 border-t-2 border-dotted border-slate-400 rounded-b-sm" />

@@ -48,11 +48,14 @@ export function getEncryptionKey() {
   loadDotenvIfNeeded();
   const rawKey =
     process.env.PASSWORD_ENCRYPTION_KEY ||
-    'db378a42f50094b111d11f2134bdd76545334c8cf94a55c2a446f48737a81a99';
+    process.env.VITE_PASSWORD_ENCRYPTION_KEY;
   if (!rawKey) {
     throw new Error(
       'PASSWORD_ENCRYPTION_KEY environment variable is missing. A 32-byte secret key is required.'
     );
+  }
+  if (/^0+$/.test(rawKey.trim())) {
+    throw new Error('All-zero encryption keys are forbidden. Use a cryptographically random 32-byte key in .env.');
   }
 
   // 1. If 64-character hex string (32 bytes)

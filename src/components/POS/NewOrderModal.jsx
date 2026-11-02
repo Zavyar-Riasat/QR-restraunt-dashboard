@@ -23,6 +23,7 @@ import { tableService, TABLE_STATUS } from '../../services/tableService';
 import { printerService } from '../../services/printer/printerService';
 import { TEMPLATE_TYPES, PRINT_TARGETS } from '../../services/printer/printerTypes';
 import DeliveryLocationPicker from '../DeliveryLocationPicker';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../Common/InfiniteScrollSentinel';
 
 export default function NewOrderModal({
   isOpen,
@@ -317,6 +318,9 @@ export default function NewOrderModal({
       return matchCat && matchSearch;
     });
   }, [menuItems, selectedCategory, searchQuery]);
+
+  const posTablesScroll = useInfiniteScroll(filteredTables, { initialCount: 16, step: 16 });
+  const posMenuScroll = useInfiniteScroll(filteredMenuItems, { initialCount: 12, step: 12 });
 
   // Handle clicking an item from the menu catalog
   const handleItemClick = (item) => {
@@ -1073,89 +1077,106 @@ export default function NewOrderModal({
                     No tables match your filter.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {filteredTables.map((tbl) => {
-                      const isSelected = selectedTable?.table_number === tbl.table_number;
-                      const isOccupied = tbl.status === TABLE_STATUS.OCCUPIED;
-                      const isPending = tbl.status === TABLE_STATUS.BILL_PENDING;
+                  <div
+                    onScroll={posTablesScroll.handleContainerScroll}
+                    className="max-h-48 overflow-y-auto pr-1 space-y-2"
+                  >
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                      {posTablesScroll.visibleItems.map((tbl) => {
+                        const isSelected = selectedTable?.table_number === tbl.table_number;
+                        const isOccupied = tbl.status === TABLE_STATUS.OCCUPIED;
+                        const isPending = tbl.status === TABLE_STATUS.BILL_PENDING;
 
-                      return (
-                        <button
-                          key={tbl.id}
-                          type="button"
-                          onClick={() => handleSelectTable(tbl)}
-                          className={`p-2.5 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer relative group ${
-                            isSelected
-                              ? 'bg-[#2B2118] text-white border-[#F26B1D] shadow-md ring-2 ring-[#F26B1D]/30'
-                              : isOccupied
-                              ? 'bg-[#FFF1E6] text-[#2B2118] border-[#FCD8BF] hover:border-[#F26B1D]'
-                              : isPending
-                              ? 'bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100/70'
-                              : 'bg-white text-[#2B2118] border-[#F0E4D7] hover:border-emerald-500 hover:bg-emerald-50/20'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-heading font-black text-xs sm:text-sm tracking-tight">
-                              T{tbl.table_number}
-                            </span>
-                            <span
-                              className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md ${
-                                isSelected
-                                  ? 'bg-white/15 text-white'
-                                  : 'bg-[#FFF9F2] text-[#7A6A5C] border border-[#F0E4D7]'
-                              }`}
-                            >
-                              {tbl.capacity}p
-                            </span>
-                          </div>
-
-                          <div
-                            className={`text-[10px] font-semibold mt-1 truncate ${
-                              isSelected ? 'text-white/85' : 'text-[#7A6A5C]'
+                        return (
+                          <button
+                            key={tbl.id}
+                            type="button"
+                            onClick={() => handleSelectTable(tbl)}
+                            className={`p-2.5 rounded-2xl border text-left transition flex flex-col justify-between cursor-pointer relative group ${
+                              isSelected
+                                ? 'bg-[#2B2118] text-white border-[#F26B1D] shadow-md ring-2 ring-[#F26B1D]/30'
+                                : isOccupied
+                                ? 'bg-[#FFF1E6] text-[#2B2118] border-[#FCD8BF] hover:border-[#F26B1D]'
+                                : isPending
+                                ? 'bg-amber-50 text-amber-950 border-amber-300 hover:bg-amber-100/70'
+                                : 'bg-white text-[#2B2118] border-[#F0E4D7] hover:border-emerald-500 hover:bg-emerald-50/20'
                             }`}
                           >
-                            {tbl.name}
-                          </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-heading font-black text-xs sm:text-sm tracking-tight">
+                                T{tbl.table_number}
+                              </span>
+                              <span
+                                className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md ${
+                                  isSelected
+                                    ? 'bg-white/15 text-white'
+                                    : 'bg-[#FFF9F2] text-[#7A6A5C] border border-[#F0E4D7]'
+                                }`}
+                              >
+                                {tbl.capacity}p
+                              </span>
+                            </div>
 
-                          <div className="mt-1.5 flex items-center justify-between">
-                            {isOccupied ? (
-                              <span
-                                className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md w-full justify-center ${
-                                  isSelected
-                                    ? 'bg-[#F26B1D] text-white'
-                                    : 'bg-[#F26B1D]/15 text-[#D95A12]'
-                                }`}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                                <span>Open Tab</span>
-                              </span>
-                            ) : isPending ? (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-amber-200/70 text-amber-900 px-1.5 py-0.5 rounded-md w-full justify-center">
-                                <span>Bill Due</span>
-                              </span>
-                            ) : (
-                              <span
-                                className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md w-full justify-center ${
-                                  isSelected
-                                    ? 'bg-emerald-500/20 text-emerald-300'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                                }`}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                <span>Free</span>
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                            <div
+                              className={`text-[10px] font-semibold mt-1 truncate ${
+                                isSelected ? 'text-white/85' : 'text-[#7A6A5C]'
+                              }`}
+                            >
+                              {tbl.name}
+                            </div>
+
+                            <div className="mt-1.5 flex items-center justify-between">
+                              {isOccupied ? (
+                                <span
+                                  className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md w-full justify-center ${
+                                    isSelected
+                                      ? 'bg-[#F26B1D] text-white'
+                                      : 'bg-[#F26B1D]/15 text-[#D95A12]'
+                                  }`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                                  <span>Open Tab</span>
+                                </span>
+                              ) : isPending ? (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-amber-200/70 text-amber-900 px-1.5 py-0.5 rounded-md w-full justify-center">
+                                  <span>Bill Due</span>
+                                </span>
+                              ) : (
+                                <span
+                                  className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md w-full justify-center ${
+                                    isSelected
+                                      ? 'bg-emerald-500/20 text-emerald-300'
+                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                  }`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  <span>Free</span>
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <InfiniteScrollSentinel
+                      hasMore={posTablesScroll.hasMore}
+                      onLoadMore={posTablesScroll.loadMore}
+                      shownCount={posTablesScroll.visibleCount}
+                      totalCount={posTablesScroll.totalCount}
+                      initialCount={posTablesScroll.initialCount}
+                      itemLabel="tables"
+                      className="rounded-xl border border-[#F0E4D7]"
+                    />
                   </div>
                 )}
               </div>
             )}
 
             {/* Menu Items Grid */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
+            <div
+              onScroll={posMenuScroll.handleContainerScroll}
+              className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3"
+            >
               {filteredMenuItems.length === 0 ? (
                 <div className="text-center py-16 text-[#9E8E81]">
                   <UtensilsCrossed className="w-12 h-12 mx-auto mb-2 opacity-40" />
@@ -1163,69 +1184,80 @@ export default function NewOrderModal({
                   <p className="text-xs text-[#7A6A5C] mt-0.5">Try searching for something else or pick another category.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {filteredMenuItems.map((item) => {
-                    const hasChoices = Array.isArray(item.variants?.options) && item.variants.options.length > 0;
-                    const imageUrl = item.variants?.image_url;
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {posMenuScroll.visibleItems.map((item) => {
+                      const hasChoices = Array.isArray(item.variants?.options) && item.variants.options.length > 0;
+                      const imageUrl = item.variants?.image_url;
 
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleItemClick(item)}
-                        className="p-3 rounded-2xl bg-white border border-[#F0E4D7] hover:border-[#F26B1D] hover:shadow-md transition text-left flex flex-col justify-between group cursor-pointer active:scale-98"
-                      >
-                        {/* Item Image / Fallback Thumbnail */}
-                        <div className="relative w-full h-24 sm:h-28 rounded-xl overflow-hidden bg-slate-100 mb-2.5">
-                          {imageUrl ? (
-                            <img
-                              src={imageUrl}
-                              alt={item.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                              <UtensilsCrossed className="w-8 h-8" />
-                            </div>
-                          )}
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleItemClick(item)}
+                          className="p-3 rounded-2xl bg-white border border-[#F0E4D7] hover:border-[#F26B1D] hover:shadow-md transition text-left flex flex-col justify-between group cursor-pointer active:scale-98"
+                        >
+                          {/* Item Image / Fallback Thumbnail */}
+                          <div className="relative w-full h-24 sm:h-28 rounded-xl overflow-hidden bg-slate-100 mb-2.5">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={item.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                <UtensilsCrossed className="w-8 h-8" />
+                              </div>
+                            )}
 
-                          {hasChoices && (
-                            <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-white text-[9px] font-bold">
-                              Options
+                            {hasChoices && (
+                              <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-white text-[9px] font-bold">
+                                Options
+                              </span>
+                            )}
+
+                            {item.variants?.is_deal && (
+                              <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#E5484D] text-white text-[9px] font-black uppercase tracking-wider">
+                                Deal
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            <h3 className="font-heading font-black text-xs sm:text-sm text-[#2B2118] line-clamp-1 group-hover:text-[#F26B1D] transition">
+                              {item.title}
+                            </h3>
+                            {item.description && (
+                              <p className="text-[11px] text-[#7A6A5C] line-clamp-1 mt-0.5">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#F0E4D7]/70">
+                            <span className="font-mono font-black text-xs sm:text-sm text-[#2B2118]">
+                              {formatPKR(item.price)}
                             </span>
-                          )}
-
-                          {item.variants?.is_deal && (
-                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#E5484D] text-white text-[9px] font-black uppercase tracking-wider">
-                              Deal
+                            <span className="w-6 h-6 rounded-lg bg-[#FFF9F2] group-hover:bg-[#F26B1D] group-hover:text-white text-[#F26B1D] flex items-center justify-center transition shadow-2xs">
+                              <Plus className="w-3.5 h-3.5 stroke-[3]" />
                             </span>
-                          )}
-                        </div>
-
-                        <div>
-                          <h3 className="font-heading font-black text-xs sm:text-sm text-[#2B2118] line-clamp-1 group-hover:text-[#F26B1D] transition">
-                            {item.title}
-                          </h3>
-                          {item.description && (
-                            <p className="text-[11px] text-[#7A6A5C] line-clamp-1 mt-0.5">
-                              {item.description}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#F0E4D7]/70">
-                          <span className="font-mono font-black text-xs sm:text-sm text-[#2B2118]">
-                            {formatPKR(item.price)}
-                          </span>
-                          <span className="w-6 h-6 rounded-lg bg-[#FFF9F2] group-hover:bg-[#F26B1D] group-hover:text-white text-[#F26B1D] flex items-center justify-center transition shadow-2xs">
-                            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <InfiniteScrollSentinel
+                    hasMore={posMenuScroll.hasMore}
+                    onLoadMore={posMenuScroll.loadMore}
+                    shownCount={posMenuScroll.visibleCount}
+                    totalCount={posMenuScroll.totalCount}
+                    initialCount={posMenuScroll.initialCount}
+                    itemLabel="dishes"
+                    className="rounded-2xl border border-[#F0E4D7]"
+                  />
+                </>
               )}
             </div>
           </div>
@@ -1349,50 +1381,27 @@ export default function NewOrderModal({
                       className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-[#F0E4D7] text-xs text-[#2B2118] placeholder-[#9E8E81] focus:outline-none focus:border-[#F26B1D]"
                     />
 
-                    {/* Serving Waiter Assignment & Full Details */}
-                    <div className="p-2.5 rounded-xl bg-white border border-[#F0E4D7] space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C]">
-                          👨‍🍳 Waiter Taking Order:
+                    {/* Serving Waiter Name */}
+                    <div className="px-2.5 py-2 rounded-xl bg-white border border-[#F0E4D7] flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-[#7A6A5C]">
+                        👨‍🍳 Waiter:
+                      </span>
+                      {lockedTableWaiter ? (
+                        <span className="text-xs font-extrabold text-[#2B2118]">
+                          {lockedTableWaiter.name}
                         </span>
-                        {lockedTableWaiter ? (
-                          <span
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-extrabold text-amber-900 flex items-center gap-1"
-                            title="This table is already occupied by this waiter. Another waiter cannot occupy this table."
-                          >
-                            🔒 {lockedTableWaiter.name} ({lockedTableWaiter.staff_code})
-                          </span>
-                        ) : (
-                          <select
-                            value={selectedWaiter?.id || ''}
-                            onChange={(e) => setSelectedWaiterId(e.target.value)}
-                            className="px-2 py-1 rounded-lg bg-[#FFF9F2] border border-[#F0E4D7] text-[11px] font-bold text-[#2B2118] focus:outline-none focus:border-[#F26B1D]"
-                          >
-                            {restaurantWaiters.map((w) => (
-                              <option key={w.id} value={w.id}>
-                                {w.name} ({w.staff_code})
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                      {lockedTableWaiter && (
-                        <div className="px-2 py-1 rounded-lg bg-amber-50/70 border border-amber-200/70 text-[10px] font-bold text-amber-800">
-                          🔒 Occupied by {lockedTableWaiter.name} — Other waiters cannot occupy this table until it is closed.
-                        </div>
-                      )}
-                      {selectedWaiter && (
-                        <div className="pt-1 border-t border-slate-100 grid grid-cols-2 gap-1 text-[10px] text-[#7A6A5C]">
-                          <div>
-                            ID: <strong className="font-mono text-[#2B2118]">{selectedWaiter.staff_code}</strong> • {selectedWaiter.role_label || 'Floor Waiter'}
-                          </div>
-                          <div className="text-right font-mono text-[#2B2118]">
-                            📞 {selectedWaiter.phone}
-                          </div>
-                          <div className="col-span-2 truncate text-[#7A6A5C]">
-                            ✉️ {selectedWaiter.email} • 🕒 {selectedWaiter.shift || 'Main Floor Shift'}
-                          </div>
-                        </div>
+                      ) : (
+                        <select
+                          value={selectedWaiter?.id || ''}
+                          onChange={(e) => setSelectedWaiterId(e.target.value)}
+                          className="px-2 py-1 rounded-lg bg-[#FFF9F2] border border-[#F0E4D7] text-xs font-bold text-[#2B2118] focus:outline-none focus:border-[#F26B1D]"
+                        >
+                          {restaurantWaiters.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.name}
+                            </option>
+                          ))}
+                        </select>
                       )}
                     </div>
                   </div>

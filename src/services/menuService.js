@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient.js';
+import { postgresClient, isPostgresConfigured } from '../lib/postgresClient.js';
 import { restaurantService } from './restaurantService.js';
 
 const STORAGE_KEY = 'foodbypass_demo_data';
@@ -8,17 +8,10 @@ export const menuService = {
    * Fetch restaurant and full menu tree by tenant slug
    */
   async getMenuBySlug(slug) {
-    const isConfigured = Boolean(
-      typeof import.meta !== 'undefined' &&
-      import.meta.env?.VITE_SUPABASE_URL &&
-      import.meta.env?.VITE_SUPABASE_ANON_KEY &&
-      !import.meta.env?.VITE_SUPABASE_URL.includes('your-project-ref')
-    );
-
-    if (isConfigured) {
+    if (isPostgresConfigured()) {
       try {
-        // 1. Fetch restaurant by slug (Public RLS SELECT policy allows this)
-        const { data: restaurantData, error: restError } = await supabase
+        // 1. Fetch restaurant by slug
+        const { data: restaurantData, error: restError } = await postgresClient
           .from('restaurants')
           .select('*')
           .eq('slug', slug)
@@ -29,12 +22,12 @@ export const menuService = {
 
           // 2. Fetch categories & menu items in parallel
           const [categoriesRes, itemsRes] = await Promise.all([
-            supabase
+            postgresClient
               .from('categories')
               .select('id, name')
               .eq('restaurant_id', restaurant.id)
               .order('name', { ascending: true }),
-            supabase
+            postgresClient
               .from('menu_items')
               .select('id, category_id, title, price, variants')
               .eq('restaurant_id', restaurant.id)
@@ -84,7 +77,7 @@ export const menuService = {
           }
         }
       } catch (err) {
-        console.warn('Supabase fetch by slug failed, checking local state:', err.message);
+        console.warn('PostgreSQL fetch by slug failed, checking local state:', err.message);
       }
     }
 

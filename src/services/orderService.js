@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient.js';
+import { postgresClient, isPostgresConfigured } from '../lib/postgresClient.js';
 import { toPaisa, toRupees, computeOrderPaymentState } from '../utils/currencyUtils.js';
 
 const ORDERS_STORAGE_PREFIX = 'dinehq_orders_';
@@ -116,17 +116,8 @@ export const playLoudKitchenAlarm = () => {
   }
 };
 
-const isSupabaseConfigured = () => {
-  return Boolean(
-    typeof import.meta !== 'undefined' &&
-    import.meta.env?.VITE_SUPABASE_URL &&
-    import.meta.env?.VITE_SUPABASE_ANON_KEY &&
-    !import.meta.env.VITE_SUPABASE_URL.includes('your-project-ref')
-  );
-};
 
-const isUuid = (val) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
+const isUuid = (val) => Boolean(val && String(val).trim().length > 0);
 
 let _ordersTableAvailable = true;
 const isOrdersTableMissingError = (err) => {
@@ -809,6 +800,7 @@ export const orderService = {
         paymentMethod: p.payment_method || 'cash',
         payment_status: p.payment_status,
         amount_received: p.amount_received ?? p.initial_payment_amount,
+        has_khata_tracking: p.initial_payment_amount !== undefined || Boolean(p.has_khata_tracking),
         ...p,
       };
       cart = (p.items || []).map((it) => ({
@@ -1033,16 +1025,17 @@ export const orderService = {
     newOrder.payments = initialPayments;
     newOrder.payment_status = initialPaymentState.paymentStatus;
     newOrder.amount_received = initialPaymentState.amountPaid;
+    if (customerDetails?.has_khata_tracking) newOrder.has_khata_tracking = true;
     newOrder.explicit_paid = Boolean(
       customerDetails?.explicit_paid ||
         customerDetails?.payment_status === 'paid' ||
         initialPaymentState.paymentStatus === 'paid'
     );
 
-    // 1. Try persisting to Supabase if an orders table exists and restId is a valid UUID
-    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(restId)) {
+    // 1. Try persisting to PostgreSQL if an orders table exists and restId is a valid UUID
+    if (isPostgresConfigured() && _ordersTableAvailable && isUuid(restId)) {
       try {
-        const { error } = await supabase.from('orders').insert([
+        const { error } = await postgresClient.from('orders').insert([
           {
             id: newOrder.id,
             restaurant_id: restId,
@@ -1177,8 +1170,20 @@ export const orderService = {
               }
             }
             const isOrderCompleted = copy.status === 'completed' || copy.status === 'delivered';
+            const hasKhataTracking = Boolean(
+              copy.has_khata_tracking ||
+              copy.payment_status === 'partial' ||
+              (Array.isArray(copy.payments) &&
+                copy.payments.length > 0 &&
+                copy.payments.some((p) => Array.isArray(p.edit_history) || p.is_void))
+            );
             const isExplicitlyPaid = Boolean(copy.explicit_paid) || isOrderCompleted;
-            if (isExplicitlyPaid) {
+            if (hasKhataTracking && !isOrderCompleted) {
+              const pState = computeOrderPaymentState(copy);
+              copy.payment_status = pState.paymentStatus;
+              copy.explicit_paid = pState.paymentStatus === 'paid';
+              copy.amount_received = pState.amountPaid;
+            } else if (isExplicitlyPaid) {
               if (copy.order_type === 'dine_in' || copy.table_number || copy.table) {
                 copy.waiter_marked_paid = true;
                 copy.waiter_collected_by = copy.waiter_collected_by || copy.waiter_name || 'Hamza Ali';
@@ -1334,10 +1339,10 @@ export const orderService = {
       }
     }
 
-    // 2. Query Supabase if configured and orders table is available
-    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
+    // 2. Query PostgreSQL if configured and orders table is available
+    if (isPostgresConfigured() && _ordersTableAvailable && isUuid(orderId)) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('orders')
           .select('*')
           .eq('id', orderId)
@@ -1348,7 +1353,7 @@ export const orderService = {
         }
         if (data && !error) return data;
       } catch (e) {
-        console.warn('Supabase getOrderById error:', e);
+        console.warn('PostgreSQL getOrderById error:', e);
       }
     }
 
@@ -1376,6 +1381,10 @@ export const orderService = {
             status: 'cancelled',
             cancelled_at: additionalUpdates.cancelled_at || o.cancelled_at || new Date().toISOString(),
             cancelled_by: additionalUpdates.cancelled_by || 'restaurant',
+            cancellation_reason:
+              additionalUpdates.cancellation_reason !== undefined
+                ? additionalUpdates.cancellation_reason
+                : o.cancellation_reason || null,
             payment_status: 'unpaid',
             explicit_paid: false,
             amount_received: 0,
@@ -1415,13 +1424,31 @@ export const orderService = {
     try {
       localStorage.setItem(storageKey, JSON.stringify(updated));
 
-      if (['completed', 'delivered', 'cancelled'].includes(newStatus) && typeof window !== 'undefined') {
+      if (['completed', 'delivered'].includes(newStatus) && typeof window !== 'undefined') {
         try {
           const activeRaw = localStorage.getItem('dinehq_active_order');
           if (activeRaw) {
             const activeParsed = JSON.parse(activeRaw);
             if (activeParsed?.id === orderId) {
               localStorage.removeItem('dinehq_active_order');
+            }
+          }
+        } catch {}
+      } else if (newStatus === 'cancelled' && typeof window !== 'undefined' && updatedOrder) {
+        try {
+          const activeRaw = localStorage.getItem('dinehq_active_order');
+          if (activeRaw) {
+            const activeParsed = JSON.parse(activeRaw);
+            if (activeParsed?.id === orderId) {
+              localStorage.setItem(
+                'dinehq_active_order',
+                JSON.stringify({
+                  ...activeParsed,
+                  status: 'cancelled',
+                  cancelled_at: updatedOrder.cancelled_at,
+                  cancellation_reason: updatedOrder.cancellation_reason || null,
+                })
+              );
             }
           }
         } catch {}
@@ -1438,8 +1465,8 @@ export const orderService = {
       console.warn('Failed to update order status:', e);
     }
 
-    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
-      supabase
+    if (isPostgresConfigured() && _ordersTableAvailable && isUuid(orderId)) {
+      postgresClient
         .from('orders')
         .update({ status: newStatus, ...additionalUpdates })
         .eq('id', orderId)
@@ -1636,10 +1663,10 @@ export const orderService = {
       }
     }
 
-    // 2. Persist to Supabase if configured
-    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
+    // 2. Persist to PostgreSQL if configured
+    if (isPostgresConfigured() && _ordersTableAvailable && isUuid(orderId)) {
       try {
-        const { error } = await supabase
+        const { error } = await postgresClient
           .from('orders')
           .update({ customer_rating: cleanRating })
           .eq('id', orderId);
@@ -1647,7 +1674,7 @@ export const orderService = {
           _ordersTableAvailable = false;
         }
       } catch (e) {
-        console.warn('Supabase rating update error:', e);
+        console.warn('PostgreSQL rating update error:', e);
       }
     }
 
@@ -1863,8 +1890,8 @@ export const orderService = {
       console.warn('Failed to append items to order:', e);
     }
 
-    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
-      supabase.from('orders').update({
+    if (isPostgresConfigured() && _ordersTableAvailable && isUuid(orderId)) {
+      postgresClient.from('orders').update({
         items: combinedItems,
         subtotal: newSubtotal,
         total_payable: newTotal,
@@ -1945,8 +1972,8 @@ export const orderService = {
       console.warn('Failed to update order items:', e);
     }
 
-    if (isSupabaseConfigured() && _ordersTableAvailable && isUuid(orderId)) {
-      supabase.from('orders').update({
+    if (isPostgresConfigured() && _ordersTableAvailable && isUuid(orderId)) {
+      postgresClient.from('orders').update({
         items: updatedItems,
         subtotal: newSubtotal,
         total_payable: newTotal,
@@ -1962,7 +1989,19 @@ export const orderService = {
   /**
    * Calculate real dynamic KPIs for a restaurant based on actual orders
    */
-  getOrderStats(restaurantId) {
+  getOrderStats(restaurantId, { seedIfMissing = false } = {}) {
+    if (
+      !seedIfMissing &&
+      restaurantId &&
+      restaurantId !== 'rest-101' &&
+      typeof window !== 'undefined' &&
+      typeof localStorage !== 'undefined'
+    ) {
+      const storageKey = `${ORDERS_STORAGE_PREFIX}${restaurantId}`;
+      if (!localStorage.getItem(storageKey)) {
+        return { totalOrders: 0, grossVolume: 0, savedCommission: 0, activeCount: 0 };
+      }
+    }
     const orders = this.getOrders(restaurantId);
     const validOrders = orders.filter((o) => o.status !== 'cancelled' && o.status !== 'new');
     const totalOrders = validOrders.length;

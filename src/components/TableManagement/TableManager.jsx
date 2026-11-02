@@ -26,6 +26,7 @@ import { orderService } from '../../services/orderService';
 import { authService } from '../../services/authService';
 import { formatPKR } from '../../utils/currencyUtils';
 import { downloadAllTableQrsPdf } from '../../utils/tableQrPdfGenerator';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../Common/InfiniteScrollSentinel';
 
 export default function TableManager({
   restaurant,
@@ -36,6 +37,7 @@ export default function TableManager({
   const userRole = String(currentUser?.role || 'owner').toLowerCase();
   const canManageLayout = userRole === 'owner' || userRole === 'manager' || userRole === 'admin';
   const isWaiter = userRole === 'waiter';
+  const canMarkPaid = !isWaiter;
   const canViewWaiterRecords =
     !isWaiter && (userRole === 'owner' || userRole === 'manager' || userRole === 'cashier' || userRole === 'admin');
 
@@ -105,6 +107,47 @@ export default function TableManager({
     return liveTables.filter((t) => t.section === activeSectionFilter);
   }, [liveTables, activeSectionFilter]);
 
+  const tablesScroll = useInfiniteScroll(filteredTables, { initialCount: 8, step: 8 });
+
+  const allTableOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) => (o.order_type === 'dine_in' || o.table_number || o.table) && o.status !== 'cancelled'
+      ),
+    [orders]
+  );
+
+  const filteredTableOrders = useMemo(() => {
+    if (selectedWaiterFilter === 'all') return allTableOrders;
+    return allTableOrders.filter((ord) => {
+      const wDetails = authService.resolveWaiterDetails(ord, restaurant?.slug, restaurant?.id);
+      return wDetails.staff_code === selectedWaiterFilter;
+    });
+  }, [allTableOrders, selectedWaiterFilter, restaurant?.slug, restaurant?.id]);
+
+  const waiterTableOrdersScroll = useInfiniteScroll(filteredTableOrders, {
+    initialCount: 6,
+    step: 6,
+  });
+
+  const modalWaiterOrders = useMemo(() => {
+    if (!selectedWaiterModal) return [];
+    return orders.filter((o) => {
+      if (o.status === 'cancelled') return false;
+      if (o.order_type !== 'dine_in' && !o.table_number && !o.table) return false;
+      const resolved = authService.resolveWaiterDetails(o, restaurant?.slug, restaurant?.id);
+      return (
+        resolved.staff_code === selectedWaiterModal.staff_code ||
+        resolved.name === selectedWaiterModal.name
+      );
+    });
+  }, [orders, selectedWaiterModal, restaurant?.slug, restaurant?.id]);
+
+  const modalWaiterOrdersScroll = useInfiniteScroll(modalWaiterOrders, {
+    initialCount: 8,
+    step: 8,
+  });
+
   // Statistics
   const freeCount = liveTables.filter((t) => t.status === TABLE_STATUS.FREE).length;
   const occupiedCount = liveTables.filter((t) => t.status === TABLE_STATUS.OCCUPIED).length;
@@ -160,39 +203,18 @@ export default function TableManager({
     setTimeout(() => setCopiedTableId(null), 2000);
   };
 
-  const handleMarkTableOrderPaidByWaiter = (tbl, activeOrder) => {
-    if (!activeOrder?.id) return;
+  const handleMarkTableOrderPaidByCashier = (tbl, activeOrder) => {
+    if (!activeOrder?.id || !canMarkPaid) return;
     const restId = restaurant?.id || 'rest-101';
-    const waiterDetails =
-      currentUser?.role === 'waiter'
-        ? authService.resolveWaiterDetails(currentUser.name, restaurant?.slug, restId)
-        : tbl?.waiter_details ||
-          authService.resolveWaiterDetails(activeOrder, restaurant?.slug, restId);
-    orderService.markOrderPaidByWaiter(restId, activeOrder.id, waiterDetails, tbl?.table_number);
+    const cashierName = currentUser?.name || currentUser?.email || 'Cashier';
+    orderService.updateOrderPaymentStatus(restId, activeOrder.id, true, cashierName);
     setTables(tableService.getTables(restId));
   };
 
   const handleCloseTable = (tbl) => {
-    if (tbl.activeOrder) {
-      const isPaid = Boolean(
-        tbl.activeOrder.payment_status === 'paid' &&
-          (tbl.activeOrder.explicit_paid || tbl.activeOrder.status === 'completed')
-      );
-      if (!isPaid) {
-        window.alert(
-          `Order #${tbl.activeOrder.id} cannot be completed until it is marked as PAID! Please mark the bill as Paid first.`
-        );
-        return;
-      }
-    }
-    const confirmMsg = tbl.activeOrder
-      ? `Close Table ${tbl.table_number} and mark order completed?`
-      : `Mark Table ${tbl.table_number} as Free and ready for the next guests?`;
-    if (window.confirm(confirmMsg)) {
-      const restId = restaurant?.id || 'rest-101';
-      tableService.closeTable(restId, tbl.table_number, orderService);
-      setTables(tableService.getTables(restId));
-    }
+    const restId = restaurant?.id || 'rest-101';
+    tableService.closeTable(restId, tbl.table_number, orderService);
+    setTables(tableService.getTables(restId));
   };
 
   const getTableAssignedWaiter = (tbl) => {
@@ -416,7 +438,7 @@ export default function TableManager({
 
       {/* Table Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
-        {filteredTables.map((tbl) => {
+        {tablesScroll.visibleItems.map((tbl) => {
           const isOccupied = tbl.status === TABLE_STATUS.OCCUPIED;
           const isPending = tbl.status === TABLE_STATUS.BILL_PENDING;
           const activeOrder = tbl.activeOrder;
@@ -487,12 +509,11 @@ export default function TableManager({
                         📝 {tbl.occupancy_note}
                       </div>
                     )}
-                    {/* Waiter Order & Cash Collection Full Details Record */}
+                    {/* Waiter Order & Cashier Payment Status Record */}
                     {(() => {
                       const wDetails =
                         tbl.waiter_details ||
                         authService.resolveWaiterDetails(activeOrder, restaurant?.slug, restaurant?.id);
-                      const collectedDetails = activeOrder.waiter_collected_details || wDetails;
                       return (
                         <div className="p-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-1.5 text-[10px]">
                           <div className="flex items-center justify-between gap-1 pb-1 border-b border-[#F0E4D7]/80">
@@ -515,31 +536,6 @@ export default function TableManager({
                           <div className="text-[#7A6A5C] flex items-center justify-between gap-1">
                             <span>📞 {wDetails.phone}</span>
                             <span className="truncate">{wDetails.role_label || 'Floor Waiter'}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[#7A6A5C] font-semibold">Money Taken By:</span>
-                            {activeOrder.waiter_marked_paid ? (
-                              <span className="font-bold text-emerald-700 truncate">
-                                ✓ {collectedDetails.name} ({collectedDetails.staff_code})
-                                {activeOrder.waiter_paid_at
-                                  ? ` • ${new Date(activeOrder.waiter_paid_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                                  : ''}
-                              </span>
-                            ) : (
-                              <span className="font-semibold text-amber-700">Pending Waiter</span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[#7A6A5C] font-semibold">Cashier Status:</span>
-                            {activeOrder.payment_status === 'paid' && (activeOrder.explicit_paid || activeOrder.status === 'completed') ? (
-                              <span className="font-bold text-emerald-700 truncate">
-                                ✓ Verified ({activeOrder.cashier_verified_by || 'Cashier'})
-                              </span>
-                            ) : activeOrder.waiter_marked_paid ? (
-                              <span className="font-bold text-blue-700">Awaiting Cashier</span>
-                            ) : (
-                              <span className="font-semibold text-slate-500">Unpaid</span>
-                            )}
                           </div>
                         </div>
                       );
@@ -616,7 +612,7 @@ export default function TableManager({
                         </div>
                       );
                     })()}
-                    <div className={activeOrder ? 'grid grid-cols-1' : 'grid grid-cols-2 gap-1.5'}>
+                    <div className="grid grid-cols-2 gap-1.5">
                       <button
                         type="button"
                         onClick={() => {
@@ -636,73 +632,16 @@ export default function TableManager({
                         <span>{activeOrder ? '+ Add Items' : 'Take Order'}</span>
                       </button>
 
-                      {!activeOrder && (
-                        <button
-                          type="button"
-                          onClick={() => handleCloseTable(tbl)}
-                          className="py-2 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
-                          title="Free table"
-                        >
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Free Table</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleCloseTable(tbl)}
+                        className="w-full py-2 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                        title="Free table after customer paid the bill and moved from the table"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Free Table</span>
+                      </button>
                     </div>
-
-                    {activeOrder && (() => {
-                      const isOrderPaid = Boolean(
-                        activeOrder.payment_status === 'paid' &&
-                          (activeOrder.explicit_paid || activeOrder.status === 'completed')
-                      );
-                      const isWaiterPaid = Boolean(activeOrder.waiter_marked_paid) || isOrderPaid;
-                      return (
-                        <div className="space-y-1.5">
-                          {!isWaiterPaid ? (
-                            <button
-                              type="button"
-                              onClick={() => handleMarkTableOrderPaidByWaiter(tbl, activeOrder)}
-                              className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                              title="Step 1: Waiter marks bill as paid after collecting money from table"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5 text-white" />
-                              <span>Waiter: Mark Paid ({formatPKR(activeOrder.total_payable)})</span>
-                            </button>
-                          ) : !isOrderPaid ? (
-                            <div className="w-full py-2 px-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold text-center">
-                              ✓ Waiter Collected ({activeOrder.waiter_collected_by || activeOrder.waiter_name || 'Waiter'}) • Cashier Marks Paid in Orders
-                            </div>
-                          ) : (
-                            <div className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-bold text-center">
-                              ✓ Paid & Confirmed by Cashier ({activeOrder.cashier_verified_by || 'Cashier'})
-                            </div>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => handleCloseTable(tbl)}
-                            className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs ${
-                              isOrderPaid
-                                ? 'bg-slate-900 hover:bg-slate-800 text-white cursor-pointer'
-                                : 'bg-slate-100 text-slate-400 border border-dashed border-slate-300 cursor-not-allowed'
-                            }`}
-                            title={
-                              isOrderPaid
-                                ? 'Close table and mark order completed'
-                                : 'Waiter must mark paid and Cashier must confirm paid on Orders page before closing table'
-                            }
-                          >
-                            <CheckCircle className={`w-3.5 h-3.5 ${isOrderPaid ? 'text-emerald-400' : 'text-slate-400'}`} />
-                            <span>
-                              {isOrderPaid
-                                ? 'Close Table & Complete Order'
-                                : isWaiterPaid
-                                ? '🔒 Cashier Must Mark Paid on Orders Page'
-                                : '🔒 Waiter Must Mark Paid First'}
-                            </span>
-                          </button>
-                        </div>
-                      );
-                    })()}
 
                     <div className="flex items-center justify-between text-[11px] text-[#7A6A5C] pt-1">
                       <button
@@ -789,6 +728,15 @@ export default function TableManager({
           );
         })}
       </div>
+      <InfiniteScrollSentinel
+        hasMore={tablesScroll.hasMore}
+        onLoadMore={tablesScroll.loadMore}
+        shownCount={tablesScroll.visibleCount}
+        totalCount={tablesScroll.totalCount}
+        initialCount={tablesScroll.initialCount}
+        itemLabel="tables"
+        className="rounded-2xl border border-[#F0E4D7]"
+      />
 
       {/* ========================================================
           OCCUPY TABLE MODAL (Customer Seating & Needs)
@@ -1176,20 +1124,9 @@ export default function TableManager({
           Restricted to Owner, Manager, and Cashier only (Hidden for Waiters)
           ======================================================== */}
       {canViewWaiterRecords && (() => {
-        const allTableOrders = orders.filter(
-          (o) => (o.order_type === 'dine_in' || o.table_number || o.table) && o.status !== 'cancelled'
-        );
         const totalTableRevenue = allTableOrders
           .filter((o) => o.waiter_marked_paid || o.payment_status === 'paid')
           .reduce((sum, o) => sum + (Number(o.total_payable) || 0), 0);
-
-        const filteredTableOrders =
-          selectedWaiterFilter === 'all'
-            ? allTableOrders
-            : allTableOrders.filter((ord) => {
-                const wDetails = authService.resolveWaiterDetails(ord, restaurant?.slug, restaurant?.id);
-                return wDetails.staff_code === selectedWaiterFilter;
-              });
 
         const getInitials = (fullName = '') =>
           String(fullName)
@@ -1254,25 +1191,29 @@ export default function TableManager({
               </div>
             </div>
 
-            {/* Table Orders Record */}
+            {/* Table Orders Record (Scroll-Optimized) */}
             {filteredTableOrders.length === 0 ? (
               <div className="p-10 text-center text-xs text-[#9E8E81]">
                 No table orders recorded yet. When a waiter takes an order or collects payment from a table, the full record appears here.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-[#FFF9F2]/90 border-b border-[#F0E4D7] text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C]">
-                      <th className="py-3.5 px-5">Table #</th>
-                      <th className="py-3.5 px-5">Order ID & Time</th>
-                      <th className="py-3.5 px-5">Order Taken By (Waiter Full Details)</th>
-                      <th className="py-3.5 px-5">Cashier Final Status</th>
-                      <th className="py-3.5 px-5 text-right">Bill Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F0E4D7]/70">
-                    {filteredTableOrders.map((ord) => {
+              <div>
+                <div
+                  onScroll={waiterTableOrdersScroll.handleContainerScroll}
+                  className="overflow-x-auto max-h-[540px] overflow-y-auto"
+                >
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="sticky top-0 z-10 bg-[#FFF9F2] shadow-2xs">
+                      <tr className="bg-[#FFF9F2] border-b border-[#F0E4D7] text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C]">
+                        <th className="py-3.5 px-5">Table #</th>
+                        <th className="py-3.5 px-5">Order ID & Time</th>
+                        <th className="py-3.5 px-5">Order Taken By (Waiter Full Details)</th>
+                        <th className="py-3.5 px-5">Cashier Final Status</th>
+                        <th className="py-3.5 px-5 text-right">Bill Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F0E4D7]/70">
+                      {waiterTableOrdersScroll.visibleItems.map((ord) => {
                       const tblNum = ord.table_number || ord.table || 'Dine-In';
                       const matchingTbl = liveTables.find(
                         (t) => String(t.table_number) === String(tblNum)
@@ -1291,7 +1232,6 @@ export default function TableManager({
                         ord.payment_status === 'paid' &&
                           (ord.explicit_paid || ord.status === 'completed' || ord.status === 'delivered')
                       );
-                      const isWaiterPaid = Boolean(ord.waiter_marked_paid) || isCashierPaid;
 
                       return (
                         <tr
@@ -1394,30 +1334,25 @@ export default function TableManager({
                                   <CheckCircle className="w-3 h-3" />
                                   <span>Paid • {ord.cashier_verified_by || 'Cashier'}</span>
                                 </span>
-                                {ord.waiter_paid_at && (
-                                  <div className="text-[10px] text-[#7A6A5C] font-medium pl-1">
-                                    Waiter collected at{' '}
-                                    {new Date(ord.waiter_paid_at).toLocaleTimeString([], {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })}
-                                  </div>
-                                )}
                               </div>
-                            ) : isWaiterPaid ? (
-                              <div className="space-y-1">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-200 font-bold text-[10px]">
-                                  <Clock className="w-3 h-3" />
-                                  <span>Ready for Cashier Verification</span>
+                            ) : canMarkPaid ? (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10px]">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>Unpaid</span>
                                 </span>
-                                <div className="text-[10px] text-emerald-700 font-semibold pl-1">
-                                  ✓ Cash collected by {waiterDetails.name}
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkTableOrderPaidByCashier(matchingTbl, ord)}
+                                  className="px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] transition cursor-pointer shadow-2xs"
+                                >
+                                  ✓ Mark Paid
+                                </button>
                               </div>
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10px]">
                                 <Clock className="w-3 h-3 text-amber-600" />
-                                <span>Waiter Collection Pending</span>
+                                <span>Unpaid</span>
                               </span>
                             )}
                           </td>
@@ -1434,8 +1369,17 @@ export default function TableManager({
                         </tr>
                       );
                     })}
-                  </tbody>
-                </table>
+                    </tbody>
+                  </table>
+                  <InfiniteScrollSentinel
+                    hasMore={waiterTableOrdersScroll.hasMore}
+                    onLoadMore={waiterTableOrdersScroll.loadMore}
+                    shownCount={waiterTableOrdersScroll.visibleCount}
+                    totalCount={waiterTableOrdersScroll.totalCount}
+                    initialCount={waiterTableOrdersScroll.initialCount}
+                    itemLabel="waiter table orders"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -1490,7 +1434,10 @@ export default function TableManager({
               </button>
             </div>
 
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+            <div
+              onScroll={modalWaiterOrdersScroll.handleContainerScroll}
+              className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs"
+            >
               {/* Waiter Full Contact & Identity Card */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7]">
                 <div className="space-y-1">
@@ -1527,15 +1474,7 @@ export default function TableManager({
 
               {/* Waiter's Table Orders & Cash Collection History */}
               {(() => {
-                const waiterOrders = orders.filter((o) => {
-                  if (o.status === 'cancelled') return false;
-                  if (o.order_type !== 'dine_in' && !o.table_number && !o.table) return false;
-                  const resolved = authService.resolveWaiterDetails(o, restaurant?.slug, restaurant?.id);
-                  return (
-                    resolved.staff_code === selectedWaiterModal.staff_code ||
-                    resolved.name === selectedWaiterModal.name
-                  );
-                });
+                const waiterOrders = modalWaiterOrders;
                 const totalCash = waiterOrders
                   .filter((o) => o.waiter_marked_paid || o.payment_status === 'paid')
                   .reduce((sum, o) => sum + (Number(o.total_payable) || 0), 0);
@@ -1557,7 +1496,7 @@ export default function TableManager({
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {waiterOrders.map((ord) => (
+                        {modalWaiterOrdersScroll.visibleItems.map((ord) => (
                           <div
                             key={ord.id}
                             className="p-3.5 rounded-2xl bg-white border border-[#F0E4D7] flex items-center justify-between gap-3 flex-wrap hover:border-[#F26B1D]/40 transition"
@@ -1594,6 +1533,14 @@ export default function TableManager({
                             </div>
                           </div>
                         ))}
+                        <InfiniteScrollSentinel
+                          hasMore={modalWaiterOrdersScroll.hasMore}
+                          onLoadMore={modalWaiterOrdersScroll.loadMore}
+                          shownCount={modalWaiterOrdersScroll.visibleCount}
+                          totalCount={modalWaiterOrdersScroll.totalCount}
+                          itemLabel="waiter orders"
+                          className="rounded-2xl border border-[#F0E4D7]"
+                        />
                       </div>
                     )}
                   </div>

@@ -26,6 +26,7 @@ import {
   generateFullReport,
 } from '../../utils/orderReportUtils';
 import OrderDetailsModal from '../Orders/OrderDetailsModal';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../Common/InfiniteScrollSentinel';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -140,6 +141,8 @@ export default function TodaySalesSummaryModal({
       .reduce((sum, o) => sum + (Number(o.total_payable) || 0), 0);
   }, [displayedOrders]);
 
+  const reportOrdersScroll = useInfiniteScroll(displayedOrders, { initialCount: 8, step: 8 });
+
   if (!isOpen) return null;
 
   const restaurantName = restaurant?.name || 'Burger & Smoke Co.';
@@ -159,7 +162,7 @@ export default function TodaySalesSummaryModal({
         minute: '2-digit',
         hour12: true,
       });
-    } catch  {
+    } catch {
       return isoString;
     }
   };
@@ -218,12 +221,12 @@ export default function TodaySalesSummaryModal({
     const topItemsRowsHtml =
       report.topItems && report.topItems.length > 0
         ? report.topItems
-            .map((item, idx) => {
-              const itemShare =
-                report.grossSales > 0
-                  ? Math.round((item.revenue / report.grossSales) * 100)
-                  : 0;
-              return `
+          .map((item, idx) => {
+            const itemShare =
+              report.grossSales > 0
+                ? Math.round((item.revenue / report.grossSales) * 100)
+                : 0;
+            return `
                 <tr>
                   <td class="mono muted">#${idx + 1}</td>
                   <td class="bold">${escapeHtml(item.title)}</td>
@@ -232,25 +235,25 @@ export default function TodaySalesSummaryModal({
                   <td class="right mono bold">${escapeHtml(formatPKR(item.revenue))}</td>
                 </tr>
               `;
-            })
-            .join('')
+          })
+          .join('')
         : `<tr><td colspan="5" class="center muted">No menu items recorded in this period.</td></tr>`;
 
     const ordersRowsHtml =
       displayedOrders.length > 0
         ? displayedOrders
-            .map((order, _idx) => {
-              const itemsSummary = Array.isArray(order.items)
-                ? order.items
-                    .map((it) => `${it.quantity || 1}x ${it.title || 'Item'}`)
-                    .join(', ')
-                : '—';
-              const customerSubtitle = order.table_number
-                ? `Table ${order.table_number}`
-                : order.customer_address || order.customer_phone || 'In-Store';
-              const statusLabel = (order.status || 'new').replace(/_/g, ' ').toUpperCase();
+          .map((order, _idx) => {
+            const itemsSummary = Array.isArray(order.items)
+              ? order.items
+                .map((it) => `${it.quantity || 1}x ${it.title || 'Item'}`)
+                .join(', ')
+              : '—';
+            const customerSubtitle = order.table_number
+              ? `Table ${order.table_number}`
+              : order.customer_address || order.customer_phone || 'In-Store';
+            const statusLabel = (order.status || 'new').replace(/_/g, ' ').toUpperCase();
 
-              return `
+            return `
                 <tr>
                   <td class="mono bold nowrap">
                     <div>#${escapeHtml(order.id)}</div>
@@ -274,8 +277,8 @@ export default function TodaySalesSummaryModal({
                   <td class="right mono bold nowrap">${escapeHtml(formatPKR(order.total_payable || 0))}</td>
                 </tr>
               `;
-            })
-            .join('')
+          })
+          .join('')
         : `<tr><td colspan="7" class="center muted">No orders recorded for this period.</td></tr>`;
 
     const htmlDocument = `<!DOCTYPE html>
@@ -305,7 +308,6 @@ export default function TodaySalesSummaryModal({
     .report-sheet {
       width: 100%;
     }
-    /* Header */
     .header {
       display: flex;
       justify-content: space-between;
@@ -350,8 +352,6 @@ export default function TodaySalesSummaryModal({
     .doc-meta strong {
       color: #0f172a;
     }
-
-    /* KPI Strip */
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -390,8 +390,6 @@ export default function TodaySalesSummaryModal({
       color: #64748b;
       margin-top: 2px;
     }
-
-    /* Two-column tables */
     .two-col {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -478,7 +476,6 @@ export default function TodaySalesSummaryModal({
 </head>
 <body>
   <div class="report-sheet">
-    <!-- 1. Header -->
     <div class="header">
       <div>
         <h1 class="brand-title">${escapeHtml(restaurantName)}</h1>
@@ -492,8 +489,6 @@ export default function TodaySalesSummaryModal({
         <p class="doc-meta">Reference ID: <strong>${escapeHtml(reportRefCode)}</strong></p>
       </div>
     </div>
-
-    <!-- 2. KPI Summary Cards -->
     <div class="kpi-grid">
       <div class="kpi-card primary">
         <div class="kpi-label">Gross Revenue</div>
@@ -516,8 +511,6 @@ export default function TodaySalesSummaryModal({
         <div class="kpi-sub">Across ${report.uniqueDishesCount || 0} menu items</div>
       </div>
     </div>
-
-    <!-- 3. Side-by-Side Payment & Service Type Breakdowns -->
     <div class="two-col">
       <div>
         <h3 class="section-title">Payment Channel Breakdown</h3>
@@ -554,7 +547,6 @@ export default function TodaySalesSummaryModal({
           </tfoot>
         </table>
       </div>
-
       <div>
         <h3 class="section-title">Service Type Breakdown</h3>
         <table>
@@ -597,8 +589,6 @@ export default function TodaySalesSummaryModal({
         </table>
       </div>
     </div>
-
-    <!-- 4. Top Selling Menu Items -->
     <div class="section-block">
       <h3 class="section-title">Top Selling Menu Items (${escapeHtml(rangeLabel)})</h3>
       <table>
@@ -616,8 +606,6 @@ export default function TodaySalesSummaryModal({
         </tbody>
       </table>
     </div>
-
-    <!-- 5. Detailed Orders Ledger -->
     <div class="section-block">
       <h3 class="section-title">Detailed Orders Ledger (${displayedOrders.length} ${displayedOrders.length === 1 ? 'Order' : 'Orders'})</h3>
       <table class="orders-table">
@@ -643,8 +631,6 @@ export default function TodaySalesSummaryModal({
         </tfoot>
       </table>
     </div>
-
-    <!-- 6. Footer -->
     <div class="footer">
       <div>Verified System Financial Statement &bull; Dineflow Restaurant Management Platform</div>
       <div class="mono">Ref: ${escapeHtml(reportRefCode)} &bull; Window: ${escapeHtml(rangeLabel)}</div>
@@ -683,7 +669,7 @@ export default function TodaySalesSummaryModal({
       try {
         frameWindow.focus();
         frameWindow.print();
-      } catch  {
+      } catch {
         window.print();
       } finally {
         setTimeout(() => {
@@ -788,11 +774,10 @@ export default function TodaySalesSummaryModal({
                   key={p.id}
                   type="button"
                   onClick={() => setMode(p.id)}
-                  className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${
-                    isActive
+                  className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition cursor-pointer text-xs ${isActive
                       ? 'bg-[#F26B1D] text-white shadow-xs font-black'
                       : 'bg-white hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7]'
-                  }`}
+                    }`}
                 >
                   {p.label}
                 </button>
@@ -805,114 +790,114 @@ export default function TodaySalesSummaryModal({
             mode === 'custom' ||
             mode === 'specific_month' ||
             mode === 'specific_year') && (
-            <div className="p-3 bg-white rounded-2xl border border-[#F0E4D7] flex flex-wrap items-center gap-3 text-xs animate-fadeIn">
-              {mode === 'specific_date' && (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <label className="font-bold text-[#7A6A5C]">Select Day:</label>
-                    <input
-                      type="date"
-                      value={specificDate}
-                      onChange={(e) => setSpecificDate(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <label className="font-bold text-[#7A6A5C]">From Time:</label>
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <label className="font-bold text-[#7A6A5C]">To Time:</label>
-                    <input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
-                    />
-                  </div>
-                </>
-              )}
+              <div className="p-3 bg-white rounded-2xl border border-[#F0E4D7] flex flex-wrap items-center gap-3 text-xs animate-fadeIn">
+                {mode === 'specific_date' && (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <label className="font-bold text-[#7A6A5C]">Select Day:</label>
+                      <input
+                        type="date"
+                        value={specificDate}
+                        onChange={(e) => setSpecificDate(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <label className="font-bold text-[#7A6A5C]">From Time:</label>
+                      <input
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <label className="font-bold text-[#7A6A5C]">To Time:</label>
+                      <input
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
+                      />
+                    </div>
+                  </>
+                )}
 
-              {mode === 'specific_month' && (
-                <div className="flex items-center gap-2">
-                  <label className="font-bold text-[#7A6A5C]">Select Month & Year:</label>
+                {mode === 'specific_month' && (
+                  <div className="flex items-center gap-2">
+                    <label className="font-bold text-[#7A6A5C]">Select Month & Year:</label>
+                    <input
+                      type="month"
+                      value={specificMonth}
+                      onChange={(e) => setSpecificMonth(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                {mode === 'specific_year' && (
+                  <div className="flex items-center gap-2">
+                    <label className="font-bold text-[#7A6A5C]">Select Year:</label>
+                    <select
+                      value={specificYear}
+                      onChange={(e) => setSpecificYear(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
+                    >
+                      <option value="2026">2026</option>
+                      <option value="2025">2025</option>
+                      <option value="2024">2024</option>
+                      <option value="2023">2023</option>
+                    </select>
+                  </div>
+                )}
+
+                {mode === 'custom' && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <label className="font-bold text-[#7A6A5C]">Start:</label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] cursor-pointer"
+                      />
+                      <input
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="px-2 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] cursor-pointer"
+                      />
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                    <div className="flex items-center gap-1.5">
+                      <label className="font-bold text-[#7A6A5C]">End:</label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] cursor-pointer"
+                      />
+                      <input
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        className="px-2 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <label className="flex items-center gap-1.5 ml-auto text-[#7A6A5C] cursor-pointer">
                   <input
-                    type="month"
-                    value={specificMonth}
-                    onChange={(e) => setSpecificMonth(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
+                    type="checkbox"
+                    checked={includeCancelled}
+                    onChange={(e) => setIncludeCancelled(e.target.checked)}
+                    className="rounded text-[#F26B1D] focus:ring-[#F26B1D]"
                   />
-                </div>
-              )}
-
-              {mode === 'specific_year' && (
-                <div className="flex items-center gap-2">
-                  <label className="font-bold text-[#7A6A5C]">Select Year:</label>
-                  <select
-                    value={specificYear}
-                    onChange={(e) => setSpecificYear(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F26B1D]/20 cursor-pointer"
-                  >
-                    <option value="2026">2026</option>
-                    <option value="2025">2025</option>
-                    <option value="2024">2024</option>
-                    <option value="2023">2023</option>
-                  </select>
-                </div>
-              )}
-
-              {mode === 'custom' && (
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <label className="font-bold text-[#7A6A5C]">Start:</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] cursor-pointer"
-                    />
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="px-2 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] cursor-pointer"
-                    />
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                  <div className="flex items-center gap-1.5">
-                    <label className="font-bold text-[#7A6A5C]">End:</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] cursor-pointer"
-                    />
-                    <input
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className="px-2 py-1.5 rounded-xl border border-[#F0E4D7] bg-[#FFF9F2] text-xs font-bold text-[#2B2118] cursor-pointer"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <label className="flex items-center gap-1.5 ml-auto text-[#7A6A5C] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeCancelled}
-                  onChange={(e) => setIncludeCancelled(e.target.checked)}
-                  className="rounded text-[#F26B1D] focus:ring-[#F26B1D]"
-                />
-                <span>Include cancelled tickets</span>
-              </label>
-            </div>
-          )}
+                  <span>Include cancelled tickets</span>
+                </label>
+              </div>
+            )}
 
           {/* Current Active Filter Badge */}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#7A6A5C]">
@@ -1274,133 +1259,144 @@ export default function TodaySalesSummaryModal({
                 </div>
               ) : (
                 <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-900 text-white uppercase font-bold text-[10px] tracking-wider">
-                      <tr>
-                        <th className="py-2.5 px-3">Order &amp; Time</th>
-                        <th className="py-2.5 px-3">Customer &amp; Channel</th>
-                        <th className="py-2.5 px-3">Ordered Items</th>
-                        <th className="py-2.5 px-2.5 text-center">Payment &amp; Status</th>
-                        <th className="py-2.5 px-3 text-right">Amount</th>
-                        <th className="py-2.5 px-2.5 text-center no-print">Receipt</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
-                      {displayedOrders.map((order) => {
-                        const itemsList = Array.isArray(order.items) ? order.items : [];
-                        const customerSubtitle = order.table_number
-                          ? `Table ${order.table_number}`
-                          : order.customer_address || order.customer_phone || 'In-Store';
+                  <div
+                    onScroll={reportOrdersScroll.handleContainerScroll}
+                    className="max-h-[460px] overflow-y-auto overflow-x-auto"
+                  >
+                    <table className="w-full text-xs text-left">
+                      <thead className="sticky top-0 z-10 bg-slate-900 text-white uppercase font-bold text-[10px] tracking-wider">
+                        <tr>
+                          <th className="py-2.5 px-3">Order &amp; Time</th>
+                          <th className="py-2.5 px-3">Customer &amp; Channel</th>
+                          <th className="py-2.5 px-3">Ordered Items</th>
+                          <th className="py-2.5 px-2.5 text-center">Payment &amp; Status</th>
+                          <th className="py-2.5 px-3 text-right">Amount</th>
+                          <th className="py-2.5 px-2.5 text-center no-print">Receipt</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {reportOrdersScroll.visibleItems.map((order) => {
+                          const itemsList = Array.isArray(order.items) ? order.items : [];
+                          const customerSubtitle = order.table_number
+                            ? `Table ${order.table_number}`
+                            : order.customer_address || order.customer_phone || 'In-Store';
 
-                        return (
-                          <tr key={order.id} className="hover:bg-slate-50/80 transition align-top">
-                            {/* Order ID & Date/Time */}
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              <div className="font-mono font-black text-slate-900 text-xs">
-                                #{order.id}
-                              </div>
-                              <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                                {formatOrderTimestamp(order.created_at)}
-                              </div>
-                            </td>
-
-                            {/* Customer / Address / Type Badge */}
-                            <td className="py-3 px-3">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-slate-900">
-                                  {order.customer_name || 'Walk-in Customer'}
-                                </span>
-                                <span
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                    order.order_type === 'dine_in' || order.table_number
-                                      ? 'bg-purple-100 text-purple-800'
-                                      : order.order_type === 'delivery'
-                                      ? 'bg-blue-100 text-blue-800'
-                                      : 'bg-emerald-100 text-emerald-800'
-                                  }`}
-                                >
-                                  {getOrderTypeLabel(order)}
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                                {customerSubtitle}
-                              </div>
-                            </td>
-
-                            {/* Ordered Items (Readable multi-item breakdown) */}
-                            <td className="py-3 px-3">
-                              {itemsList.length > 0 ? (
-                                <div className="space-y-0.5 text-[11px] text-slate-700">
-                                  {itemsList.map((it, idx) => (
-                                    <div key={idx} className="leading-snug">
-                                      <span className="font-mono font-bold text-slate-900">
-                                        {it.quantity || 1}×
-                                      </span>{' '}
-                                      <span>{it.title}</span>
-                                    </div>
-                                  ))}
+                          return (
+                            <tr key={order.id} className="hover:bg-slate-50/80 transition align-top">
+                              {/* Order ID & Date/Time */}
+                              <td className="py-3 px-3 whitespace-nowrap">
+                                <div className="font-mono font-black text-slate-900 text-xs">
+                                  #{order.id}
                                 </div>
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
+                                <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                  {formatOrderTimestamp(order.created_at)}
+                                </div>
+                              </td>
 
-                            {/* Payment & Order Status */}
-                            <td className="py-3 px-2.5 text-center whitespace-nowrap">
-                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                <span>PAID</span>
-                                <span className="text-emerald-600">•</span>
-                                <span>{getPaymentMethodLabel(order)}</span>
-                              </div>
-                              <div className="mt-1">
-                                <span
-                                  className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold capitalize ${
-                                    order.status === 'completed'
-                                      ? 'bg-slate-100 text-slate-700'
-                                      : order.status === 'cancelled'
-                                      ? 'bg-red-100 text-red-700'
-                                      : 'bg-orange-100 text-orange-800 font-extrabold'
-                                  }`}
+                              {/* Customer / Address / Type Badge */}
+                              <td className="py-3 px-3">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-slate-900">
+                                    {order.customer_name || 'Walk-in Customer'}
+                                  </span>
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${order.order_type === 'dine_in' || order.table_number
+                                        ? 'bg-purple-100 text-purple-800'
+                                        : order.order_type === 'delivery'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : 'bg-emerald-100 text-emerald-800'
+                                      }`}
+                                  >
+                                    {getOrderTypeLabel(order)}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                                  {customerSubtitle}
+                                </div>
+                              </td>
+
+                              {/* Ordered Items (Readable multi-item breakdown) */}
+                              <td className="py-3 px-3">
+                                {itemsList.length > 0 ? (
+                                  <div className="space-y-0.5 text-[11px] text-slate-700">
+                                    {itemsList.map((it, idx) => (
+                                      <div key={idx} className="leading-snug">
+                                        <span className="font-mono font-bold text-slate-900">
+                                          {it.quantity || 1}×
+                                        </span>{' '}
+                                        <span>{it.title}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+
+                              {/* Payment & Order Status */}
+                              <td className="py-3 px-2.5 text-center whitespace-nowrap">
+                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  <span>PAID</span>
+                                  <span className="text-emerald-600">•</span>
+                                  <span>{getPaymentMethodLabel(order)}</span>
+                                </div>
+                                <div className="mt-1">
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold capitalize ${order.status === 'completed'
+                                        ? 'bg-slate-100 text-slate-700'
+                                        : order.status === 'cancelled'
+                                          ? 'bg-red-100 text-red-700'
+                                          : 'bg-orange-100 text-orange-800 font-extrabold'
+                                      }`}
+                                  >
+                                    {order.status ? order.status.replace(/_/g, ' ') : 'new'}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* Total Amount */}
+                              <td className="py-3 px-3 text-right font-mono font-black text-slate-900 whitespace-nowrap text-xs">
+                                {formatPKR(order.total_payable || 0)}
+                              </td>
+
+                              {/* Action (Screen Only) */}
+                              <td className="py-3 px-2.5 text-center whitespace-nowrap no-print">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedDetailOrder(order)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer inline-flex items-center gap-1"
+                                  title="View complete order receipt details"
                                 >
-                                  {order.status ? order.status.replace(/_/g, ' ') : 'new'}
-                                </span>
-                              </div>
-                            </td>
-
-                            {/* Total Amount */}
-                            <td className="py-3 px-3 text-right font-mono font-black text-slate-900 whitespace-nowrap text-xs">
-                              {formatPKR(order.total_payable || 0)}
-                            </td>
-
-                            {/* Action (Screen Only) */}
-                            <td className="py-3 px-2.5 text-center whitespace-nowrap no-print">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedDetailOrder(order)}
-                                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer inline-flex items-center gap-1"
-                                title="View complete order receipt details"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>View</span>
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-slate-900">
-                        <td colSpan={4} className="py-3 px-3 text-right uppercase text-[11px] tracking-wider">
-                          Total Period Revenue ({displayedOrders.length}{' '}
-                          {displayedOrders.length === 1 ? 'Order' : 'Orders'})
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono font-black text-sm text-[#F26B1D] whitespace-nowrap">
-                          {formatPKR(displayedTotalAmount)}
-                        </td>
-                        <td className="no-print" />
-                      </tr>
-                    </tfoot>
-                  </table>
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-slate-900">
+                          <td colSpan={4} className="py-3 px-3 text-right uppercase text-[11px] tracking-wider">
+                            Total Period Revenue ({displayedOrders.length}{' '}
+                            {displayedOrders.length === 1 ? 'Order' : 'Orders'})
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-black text-sm text-[#F26B1D] whitespace-nowrap">
+                            {formatPKR(displayedTotalAmount)}
+                          </td>
+                          <td className="no-print" />
+                        </tr>
+                      </tfoot>
+                    </table>
+                    <InfiniteScrollSentinel
+                      hasMore={reportOrdersScroll.hasMore}
+                      onLoadMore={reportOrdersScroll.loadMore}
+                      shownCount={reportOrdersScroll.visibleCount}
+                      totalCount={reportOrdersScroll.totalCount}
+                      initialCount={reportOrdersScroll.initialCount}
+                      itemLabel="report orders"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -1425,7 +1421,7 @@ export default function TodaySalesSummaryModal({
           order={selectedDetailOrder}
           onClose={() => setSelectedDetailOrder(null)}
           restaurant={restaurant}
-          onUpdateStatus={() => {}}
+          onUpdateStatus={() => { }}
         />
       )}
     </div>

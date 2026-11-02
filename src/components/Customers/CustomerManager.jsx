@@ -10,7 +10,7 @@ import {
   ShoppingBag,
   CreditCard,
   MapPin,
-  } from 'lucide-react';
+} from 'lucide-react';
 import {
   formatPKR,
   formatPhone,
@@ -19,6 +19,7 @@ import {
 import { customerKhataService } from '../../services/customerKhataService';
 import CustomerDetailModal from './CustomerDetailModal';
 import CustomerFormModal from './CustomerFormModal';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../Common/InfiniteScrollSentinel';
 
 export default function CustomerManager({
   restaurant,
@@ -98,6 +99,8 @@ export default function CustomerManager({
 
     return result;
   }, [customers, search, sortBy]);
+
+  const customersScroll = useInfiniteScroll(filteredCustomers, { initialCount: 7, step: 7 });
 
   // Overall Statistics
   const totalSpentPaisa = useMemo(() => {
@@ -243,92 +246,105 @@ export default function CustomerManager({
           </div>
         ) : (
           <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-2xs">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Customer Details & Contact</th>
-                  <th className="py-3 px-3 text-center">Orders</th>
-                  <th className="py-3 px-4 text-right">Total Spent</th>
-                  <th className="py-3 px-4 text-right">
-                    <span className="inline-block w-[116px] text-center">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredCustomers.map((cust) => {
-                  return (
-                    <tr
-                      key={cust.phone}
-                      className="hover:bg-slate-50/80 transition group"
-                    >
-                      {/* Name & Phone & Full Details */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCustomer(cust)}
-                            className="font-bold text-sm text-[#2B2118] hover:text-[#F26B1D] text-left cursor-pointer flex items-center gap-1.5"
-                          >
-                            <span>{cust.name}</span>
-                          </button>
-                        </div>
+            <div
+              onScroll={customersScroll.handleContainerScroll}
+              className="max-h-[480px] overflow-y-auto overflow-x-auto"
+            >
+              <table className="w-full text-left text-xs">
+                <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="py-3 px-4">Customer Details & Contact</th>
+                    <th className="py-3 px-3 text-center">Orders</th>
+                    <th className="py-3 px-4 text-right">Total Spent</th>
+                    <th className="py-3 px-4 text-right">
+                      <span className="inline-block w-[116px] text-center">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {customersScroll.visibleItems.map((cust) => {
+                    return (
+                      <tr
+                        key={cust.phone}
+                        className="hover:bg-slate-50/80 transition group"
+                      >
+                        {/* Name & Phone & Full Details */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCustomer(cust)}
+                              className="font-bold text-sm text-[#2B2118] hover:text-[#F26B1D] text-left cursor-pointer flex items-center gap-1.5"
+                            >
+                              <span>{cust.name}</span>
+                            </button>
+                          </div>
 
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1 flex-wrap">
-                          <a
-                            href={`tel:+${cust.phone}`}
-                            className="hover:text-emerald-700 hover:underline flex items-center gap-1 text-emerald-800 font-semibold font-mono"
-                          >
-                            <Phone className="w-3 h-3 text-emerald-600" />
-                            <span>{formatPhone(cust.phone)}</span>
-                          </a>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1 flex-wrap">
+                            <a
+                              href={`tel:+${cust.phone}`}
+                              className="hover:text-emerald-700 hover:underline flex items-center gap-1 text-emerald-800 font-semibold font-mono"
+                            >
+                              <Phone className="w-3 h-3 text-emerald-600" />
+                              <span>{formatPhone(cust.phone)}</span>
+                            </a>
 
-                          {cust.address && (
-                            <span className="flex items-center gap-1 text-slate-600 font-sans">
-                              <MapPin className="w-3 h-3 text-[#F26B1D] shrink-0" />
-                              <span className="truncate max-w-[280px]">{cust.address}</span>
-                            </span>
-                          )}
+                            {cust.address && (
+                              <span className="flex items-center gap-1 text-slate-600 font-sans">
+                                <MapPin className="w-3 h-3 text-[#F26B1D] shrink-0" />
+                                <span className="truncate max-w-[280px]">{cust.address}</span>
+                              </span>
+                            )}
 
-                          {cust.notes && (
-                            <span className="text-[10px] text-slate-400 italic">
-                              • &quot;{cust.notes}&quot;
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                            {cust.notes && (
+                              <span className="text-[10px] text-slate-400 italic">
+                                • &quot;{cust.notes}&quot;
+                              </span>
+                            )}
+                          </div>
+                        </td>
 
-                      {/* Orders Count */}
-                      <td className="py-3.5 px-3 text-center font-bold text-slate-800 font-mono text-sm">
-                        <span className="px-2.5 py-1 rounded-lg bg-slate-100">
-                          {cust.total_orders_count}
-                        </span>
-                      </td>
+                        {/* Orders Count */}
+                        <td className="py-3.5 px-3 text-center font-bold text-slate-800 font-mono text-sm">
+                          <span className="px-2.5 py-1 rounded-lg bg-slate-100">
+                            {cust.total_orders_count}
+                          </span>
+                        </td>
 
-                      {/* Total Spent */}
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-base text-slate-900">
-                        {formatPKR(cust.total_spent)}
-                      </td>
+                        {/* Total Spent */}
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-base text-slate-900">
+                          {formatPKR(cust.total_spent)}
+                        </td>
 
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* View Details Button */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCustomer(cust)}
-                            className="w-[116px] justify-center px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#2B2118] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:text-[#F26B1D] whitespace-nowrap"
-                            title="View customer profile and order history"
-                          >
-                            <span>View Details</span>
-                            <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* View Details Button */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCustomer(cust)}
+                              className="w-[116px] justify-center px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#2B2118] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs hover:text-[#F26B1D] whitespace-nowrap"
+                              title="View customer profile and order history"
+                            >
+                              <span>View Details</span>
+                              <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <InfiniteScrollSentinel
+                hasMore={customersScroll.hasMore}
+                onLoadMore={customersScroll.loadMore}
+                shownCount={customersScroll.visibleCount}
+                totalCount={customersScroll.totalCount}
+                initialCount={customersScroll.initialCount}
+                itemLabel="customers"
+              />
+            </div>
           </div>
         )}
       </div>

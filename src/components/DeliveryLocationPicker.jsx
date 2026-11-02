@@ -18,7 +18,7 @@ import {
   DEFAULT_MAP_ZOOM,
 } from '../config/mapConfig.js';
 
-import LeafletMap from './Map/LeafletMap.jsx';
+const LeafletMap = React.lazy(() => import('./Map/LeafletMap.jsx'));
 
 export default function DeliveryLocationPicker({
   locationData = {

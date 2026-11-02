@@ -4,13 +4,16 @@ import { isReservedSlug } from '../config/appConfig';
 import { menuService } from '../services/menuService';
 import { restaurantService } from '../services/restaurantService';
 import { marketplaceService } from '../services/marketplaceService';
+import { orderService } from '../services/orderService';
 import { checkRestaurantDeliveryCoverage } from '../utils/geoValidation';
 import VariantCustomizationModal from '../components/VariantCustomizationModal';
 import CustomerCartDrawer from '../components/CustomerCartDrawer';
 import CustomerOrderTracker from '../components/CustomerOrderTracker';
 import DirectOrderCheckout from '../components/DirectOrderCheckout';
 import CustomerAuthModal from '../components/Customer/CustomerAuthModal';
+import InstallAppButton from '../components/PWA/InstallAppButton';
 import ErrorBoundary from '../components/ErrorBoundary';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../components/Common/InfiniteScrollSentinel';
 import { useCustomerAuth } from '../context/CustomerAuthContext';
 import { formatPKR } from '../utils/currencyUtils';
 import {
@@ -32,6 +35,7 @@ import {
   Truck,
   ArrowRight,
   X,
+  XCircle,
   User,
 } from 'lucide-react';
 import {
@@ -198,6 +202,7 @@ export default function CustomerMenuPage() {
   const [desktopOrder, setDesktopOrder] = useState(null);
   const [activeTrackerModalOrder, setActiveTrackerModalOrder] = useState(null);
   const [persistedActiveOrderId, setPersistedActiveOrderId] = useState(null);
+  const [persistedActiveOrderData, setPersistedActiveOrderData] = useState(null);
   const [scannedTable, setScannedTable] = useState(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
@@ -209,7 +214,8 @@ export default function CustomerMenuPage() {
 
   // Table QR guard: Only hide back button when arrived via table QR
   const hasTableQr = Boolean(scannedTable);
-  const hideHeaderBackButton = hasTableQr;
+  const hasOpenDineInOrder = Boolean(hasTableQr && (persistedActiveOrderId || desktopOrder));
+  const hideHeaderBackButton = hasTableQr || hasOpenDineInOrder;
   const handledHighlightRef = useRef(null);
 
   const handleBackClick = () => {
@@ -220,32 +226,88 @@ export default function CustomerMenuPage() {
     }
   };
 
-  // Check for active order from URL query or local storage
+  // Check for active order from URL query or local storage and sync status in real time
   useEffect(() => {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const queryOrderId = urlParams.get('order') || urlParams.get('orderId');
+    const syncActiveOrder = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryOrderId = urlParams.get('order') || urlParams.get('orderId');
+        const currentRestId = restaurant?.id || initialSyncMenu?.restaurant?.id;
 
-      if (queryOrderId) {
-        setPersistedActiveOrderId(queryOrderId);
-        setActiveTrackerModalOrder({ id: queryOrderId });
-      } else {
+        if (queryOrderId) {
+          setPersistedActiveOrderId(queryOrderId);
+          const found = await orderService.getOrderById(queryOrderId, currentRestId);
+          if (found) setPersistedActiveOrderData(found);
+          return;
+        }
+
         const raw = localStorage.getItem('dinehq_active_order');
         if (raw) {
           const parsed = JSON.parse(raw);
-          const currentRestId = initialSyncMenu?.restaurant?.id;
           if (
             parsed?.id &&
             (!parsed.restaurantId || !currentRestId || parsed.restaurantId === currentRestId)
           ) {
             setPersistedActiveOrderId(parsed.id);
+            const found = await orderService.getOrderById(parsed.id, currentRestId);
+            if (found) {
+              setPersistedActiveOrderData(found);
+            } else {
+              setPersistedActiveOrderData(parsed);
+            }
+            return;
           }
+        } else {
+          setPersistedActiveOrderId(null);
+          setPersistedActiveOrderData(null);
         }
+      } catch (e) {
+        console.warn('Error checking active order:', e);
       }
-    } catch (e) {
-      console.warn('Error checking active order:', e);
-    }
-  }, []);
+    };
+
+    syncActiveOrder();
+
+    const handleStatusEvent = (e) => {
+      if (e.detail?.order) {
+        setPersistedActiveOrderData((prev) =>
+          prev?.id === e.detail.orderId || persistedActiveOrderId === e.detail.orderId
+            ? e.detail.order
+            : prev
+        );
+      }
+      syncActiveOrder();
+    };
+
+    const handleStorageEvent = (e) => {
+      if (
+        !e.key ||
+        e.key === 'dinehq_active_order' ||
+        e.key.startsWith('dineflow_orders_') ||
+        e.key.startsWith('dinehq_orders')
+      ) {
+        syncActiveOrder();
+      }
+    };
+
+    window.addEventListener('dinehq_order_status_updated', handleStatusEvent);
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('focus', syncActiveOrder);
+
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryOrderId = urlParams.get('order') || urlParams.get('orderId');
+      if (queryOrderId) {
+        setActiveTrackerModalOrder({ id: queryOrderId });
+      }
+    } catch {}
+
+    return () => {
+      window.removeEventListener('dinehq_order_status_updated', handleStatusEvent);
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('focus', syncActiveOrder);
+    };
+  }, [restaurant?.id, persistedActiveOrderId]);
 
   // Load menu data
   useEffect(() => {
@@ -530,6 +592,8 @@ export default function CustomerMenuPage() {
     return matchesCategory && matchesSearch;
   });
 
+  const customerDishesScroll = useInfiniteScroll(filteredItems, { initialCount: 8, step: 8 });
+
   const getCategoryName = (catId) => {
     const cat = categories.find((c) => c.id === catId);
     return cat ? formatCategoryName(cat.name) : 'General';
@@ -663,7 +727,7 @@ export default function CustomerMenuPage() {
 
                   {/* Distance badge */}
                   {deliveryCoverage?.distanceKm != null && (
-                    <span className="font-bold text-slate-700 flex items-center gap-0.5">
+                    <span className="font-bold text-slate-700 flex items-center gap-0.5" title={deliveryCoverage?.deliversToUser ? "Delivers to you" : "Outside delivery area"}>
                       <MapPin className="w-3 h-3 text-[#F26B1D]" />
                       <span>{deliveryCoverage.distanceKm} km</span>
                     </span>
@@ -680,7 +744,10 @@ export default function CustomerMenuPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Install App Button in Customer Menu Navbar */}
+            <InstallAppButton appName={restaurant?.name || 'Dineflow'} />
+
             {/* Customer Account / Avatar Pill */}
             {isCustomerAuthenticated && customer ? (
               <Link
@@ -750,23 +817,78 @@ export default function CustomerMenuPage() {
           </div>
         </div>
 
-        {/* Active Order Live Tracker Notification Banner */}
+        {/* Active Order Live Tracker / Cancelled Notification Banner */}
         {persistedActiveOrderId && (
-          <div className="bg-[#E7F6EC] border-t border-[#C0E9CE] py-2 px-3 sm:px-6">
-            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2 font-bold text-[#1F9D55] min-w-0">
-                <span className="w-2 h-2 rounded-full bg-[#1F9D55] animate-ping shrink-0" />
-                <span className="truncate">Active Order #{persistedActiveOrderId} is being processed!</span>
+          persistedActiveOrderData?.status === 'cancelled' ? (
+            <div className="bg-rose-50 border-t border-rose-200 py-2.5 px-3 sm:px-6 animate-fadeIn">
+              <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-start sm:items-center gap-2 text-rose-900 min-w-0">
+                  <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5 sm:mt-0" />
+                  <div className="min-w-0">
+                    <span className="font-extrabold">
+                      Order #{persistedActiveOrderId} was cancelled by the restaurant.
+                    </span>
+                    {persistedActiveOrderData?.cancellation_reason && (
+                      <span className="block sm:inline sm:ml-2 font-semibold text-rose-700">
+                        Reason: &ldquo;{persistedActiveOrderData.cancellation_reason}&rdquo;
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveTrackerModalOrder(
+                        persistedActiveOrderData?.id
+                          ? persistedActiveOrderData
+                          : { id: persistedActiveOrderId }
+                      )
+                    }
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[11px] shadow-xs transition cursor-pointer"
+                  >
+                    View Details
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPersistedActiveOrderId(null);
+                      setPersistedActiveOrderData(null);
+                      try {
+                        localStorage.removeItem('dinehq_active_order');
+                      } catch {}
+                    }}
+                    className="p-1.5 rounded-xl bg-white hover:bg-rose-100 text-rose-700 border border-rose-200 transition cursor-pointer"
+                    title="Dismiss notice"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => setActiveTrackerModalOrder({ id: persistedActiveOrderId })}
-                className="px-3 py-1.5 rounded-xl bg-[#1F9D55] text-white font-extrabold text-[11px] shadow-sm hover:brightness-95 transition cursor-pointer flex items-center gap-1.5 shrink-0 self-end sm:self-auto"
-              >
-                <Clock className="w-3 h-3" />
-                <span>Track Live Status</span>
-              </button>
             </div>
-          </div>
+          ) : (
+            <div className="bg-[#E7F6EC] border-t border-[#C0E9CE] py-2 px-3 sm:px-6">
+              <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 font-bold text-[#1F9D55] min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-[#1F9D55] animate-ping shrink-0" />
+                  <span className="truncate">Active Order #{persistedActiveOrderId} is being processed!</span>
+                </div>
+                <button
+                  onClick={() =>
+                    setActiveTrackerModalOrder(
+                      persistedActiveOrderData?.id
+                        ? persistedActiveOrderData
+                        : { id: persistedActiveOrderId }
+                    )
+                  }
+                  className="px-3 py-1.5 rounded-xl bg-[#1F9D55] text-white font-extrabold text-[11px] shadow-sm hover:brightness-95 transition cursor-pointer flex items-center gap-1.5 shrink-0 self-end sm:self-auto"
+                >
+                  <Clock className="w-3 h-3" />
+                  <span>Track Live Status</span>
+                </button>
+              </div>
+            </div>
+          )
         )}
 
         {/* Table Auto-Detection Banner */}
@@ -1005,8 +1127,9 @@ export default function CustomerMenuPage() {
                 </p>
               </div>
             ) : (
+              <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {filteredItems.map((item) => {
+                {customerDishesScroll.visibleItems.map((item) => {
                   const isAvailable = getItemAvailability(item);
                   const isSoldOut = !isAvailable;
                   const itemIsDeal = isDeal(item);
@@ -1147,6 +1270,16 @@ export default function CustomerMenuPage() {
                     </div>
                   );
                 })}
+              </div>
+              <InfiniteScrollSentinel
+                hasMore={customerDishesScroll.hasMore}
+                onLoadMore={customerDishesScroll.loadMore}
+                shownCount={customerDishesScroll.visibleCount}
+                totalCount={customerDishesScroll.totalCount}
+                initialCount={customerDishesScroll.initialCount}
+                itemLabel="dishes"
+                className="rounded-2xl border border-[#F0E4D7]"
+              />
               </div>
             )}
           </div>
@@ -1390,6 +1523,10 @@ export default function CustomerMenuPage() {
         isDeliverableToCustomer={deliveryCoverage?.deliversToUser}
         devRangeBypass={isDevMode && devRangeBypass}
         deliveryAreas={deliveryAreas}
+        onOrderPlaced={(newOrder) => {
+          setPersistedActiveOrderId(newOrder.id);
+          setPersistedActiveOrderData(newOrder);
+        }}
         onCartClear={() => {
           setCart([]);
           try {
@@ -1420,6 +1557,7 @@ export default function CustomerMenuPage() {
               onOrderPlaced={(newOrder) => {
                 setIsDesktopCheckout(false);
                 setPersistedActiveOrderId(newOrder.id);
+                setPersistedActiveOrderData(newOrder);
                 setActiveTrackerModalOrder(newOrder);
                 setCart([]);
                 try {

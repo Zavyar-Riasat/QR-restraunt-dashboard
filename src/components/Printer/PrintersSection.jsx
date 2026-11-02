@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import {
   Printer,
   Plus,
@@ -20,7 +20,7 @@ import {
   DRIVER_IDS,
   PRINT_TARGETS,
 } from '../../services/printer/printerTypes';
-import PrinterSetupWizard from './PrinterSetupWizard';
+const PrinterSetupWizard = lazy(() => import('./PrinterSetupWizard'));
 import PrinterEditModal from './PrinterEditModal';
 import PrinterHealthCheckModal from './PrinterHealthCheckModal';
 
@@ -449,14 +449,18 @@ export default function PrintersSection({ categories = [] }) {
       )}
 
       {/* Setup Wizard Modal */}
-      <PrinterSetupWizard
-        isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-        categories={categories}
-        onPrinterAdded={() => {
-          setPrinters(printerService.getPrinters());
-        }}
-      />
+      {isWizardOpen && (
+        <Suspense fallback={null}>
+          <PrinterSetupWizard
+            isOpen={isWizardOpen}
+            onClose={() => setIsWizardOpen(false)}
+            categories={categories}
+            onPrinterAdded={() => {
+              setPrinters(printerService.getPrinters());
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Edit Modal */}
       <PrinterEditModal

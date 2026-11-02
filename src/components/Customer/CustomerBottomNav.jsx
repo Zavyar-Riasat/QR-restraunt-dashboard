@@ -11,7 +11,7 @@ import { useLanguage } from '../../context/LanguageContext.jsx';
  * - 5 items: Home, Search, Favorites, Orders, Account
  * - Dark-mode and RTL support
  */
-export default function CustomerBottomNav({ onSearchClick }) {
+export default function CustomerBottomNav({ onSearchClick, onHomeClick, isSearchActive = false }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { customer, favorites, isCustomerAuthenticated } = useCustomerAuth();
@@ -21,59 +21,91 @@ export default function CustomerBottomNav({ onSearchClick }) {
   const currentTab = searchParams.get('tab');
   const isHomePage = location.pathname === '/';
   const isAccountPage = location.pathname === '/account';
+  const searchHighlighted = isHomePage && (isSearchActive || location.search.includes('focus=search'));
+
+  const handleHomePress = (e) => {
+    if (isHomePage) {
+      e.preventDefault();
+      if (onHomeClick) {
+        onHomeClick();
+      }
+      if (location.search.includes('focus=search')) {
+        navigate('/', { replace: true });
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleSearchPress = (e) => {
-    if (onSearchClick) {
-      e.preventDefault();
-      onSearchClick();
-    } else if (!isHomePage) {
+    e.preventDefault();
+    if (!isHomePage) {
       navigate('/?focus=search');
-    } else {
-      const searchInput = document.getElementById('marketplace-search-input');
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      return;
+    }
+
+    if (!location.search.includes('focus=search')) {
+      navigate('/?focus=search', { replace: true });
+    }
+
+    if (onSearchClick) {
+      onSearchClick();
+      return;
+    }
+
+    const mobileInput = document.getElementById('marketplace-mobile-search-input');
+    const desktopInput = document.getElementById('marketplace-search-input');
+    const targetInput =
+      mobileInput && mobileInput.offsetParent !== null ? mobileInput : desktopInput || mobileInput;
+
+    if (targetInput) {
+      targetInput.focus();
+      targetInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 
   const navItems = [
     {
       id: 'home',
-      label: t('home'),
+      label: t('home') || 'Home',
       to: '/',
       icon: Home,
-      isActive: isHomePage && !location.search.includes('focus=search'),
+      onClick: handleHomePress,
+      isActive: isHomePage && !searchHighlighted,
     },
     {
       id: 'search',
-      label: t('search'),
+      label: t('search') || 'Search',
       to: '/?focus=search',
       icon: Search,
       onClick: handleSearchPress,
-      isActive: isHomePage && location.search.includes('focus=search'),
+      isActive: searchHighlighted,
     },
     {
       id: 'favorites',
-      label: t('favorites'),
-      to: isCustomerAuthenticated ? '/account?tab=favorites' : '/account',
+      label: t('favorites') || 'Favorites',
+      to: '/account?tab=favorites',
       icon: Heart,
       badge: favorites?.length > 0 ? favorites.length : null,
       isActive: isAccountPage && currentTab === 'favorites',
     },
     {
       id: 'orders',
-      label: t('orders'),
-      to: isCustomerAuthenticated ? '/account?tab=orders' : '/account',
+      label: t('orders') || 'Orders',
+      to: '/account?tab=orders',
       icon: ShoppingBag,
       isActive: isAccountPage && (!currentTab || currentTab === 'orders'),
     },
     {
       id: 'account',
-      label: isCustomerAuthenticated && customer?.name ? customer.name.split(' ')[0] : t('account'),
-      to: '/account',
+      label:
+        isCustomerAuthenticated && customer?.name
+          ? customer.name.split(' ')[0]
+          : t('account') || 'Account',
+      to: '/account?tab=profile',
       icon: User,
-      isActive: isAccountPage && currentTab === 'profile',
+      isActive:
+        isAccountPage &&
+        ['profile', 'addresses', 'dues', 'settings'].includes(currentTab),
     },
   ];
 

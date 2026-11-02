@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
-import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
@@ -9,63 +8,49 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize session on mount
-  useEffect(() => {
-    async function initAuth() {
-      try {
-        // 1. Check local session storage
-        const currentSession = authService.getCurrentSession();
-        if (currentSession && currentSession.user) {
-          setUser(currentSession.user);
-          setSession(currentSession);
-        } else {
-          // 2. Check Supabase auth session ONLY if it belongs to a registered staff/owner account
-          // (Prevents customer Google OAuth sessions from escalating into staff/owner sessions)
-          const { data } = await supabase.auth.getSession();
-          if (data?.session?.user) {
-            const sbUser = data.session.user;
-            const validStaffRoles = ['admin', 'owner', 'manager', 'cashier', 'waiter'];
-            const metaRole = String(sbUser.user_metadata?.role || '').toLowerCase();
-            const registeredStaff = authService.findExistingUserByEmail(sbUser.email);
+  const verifyAndSyncSession = useCallback(() => {
+    const verifiedSession = authService.getCurrentSession();
+    if (verifiedSession && verifiedSession.user) {
+      setUser(verifiedSession.user);
+      setSession(verifiedSession);
+      return verifiedSession;
+    } else {
+      setUser(null);
+      setSession(null);
+      return null;
+    }
+  }, []);
 
-            if (validStaffRoles.includes(metaRole) || registeredStaff) {
-              const userObj = registeredStaff || {
-                id: sbUser.id,
-                email: sbUser.email,
-                name: sbUser.user_metadata?.name || 'Restaurant Owner',
-                role: metaRole || 'owner',
-                restaurant_name: sbUser.user_metadata?.restaurant_name || 'Burger & Smoke Co.',
-                restaurant_slug: sbUser.user_metadata?.restaurant_slug || 'burgersmoke',
-              };
-              setUser(userObj);
-              setSession({ user: userObj, token: data.session.access_token });
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Error during auth initialization:', err);
-      } finally {
-        setLoading(false);
-      }
+  // Initialize and continuously monitor session cryptographic integrity
+  useEffect(() => {
+    try {
+      verifyAndSyncSession();
+    } catch (err) {
+      console.warn('Error during auth initialization:', err);
+      setUser(null);
+      setSession(null);
+    } finally {
+      setLoading(false);
     }
 
-    initAuth();
+    // Real-time anti-tamper listener: if someone edits localStorage in DevTools, immediately verify or revoke
+    const handleStorageOrFocus = () => {
+      verifyAndSyncSession();
+    };
 
-    // Listen to Supabase auth state change (preserve local staff sessions when customer signs out of Google OAuth)
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, _newSession) => {
-      if (event === 'SIGNED_OUT') {
-        const localStaffSession = authService.getCurrentSession();
-        if (!localStaffSession?.user) {
-          setUser(null);
-          setSession(null);
-        }
-      }
-    });
+    window.addEventListener('storage', handleStorageOrFocus);
+    window.addEventListener('focus', handleStorageOrFocus);
+
+    const integrityTimer = setInterval(() => {
+      verifyAndSyncSession();
+    }, 15000);
 
     return () => {
-      authListener?.subscription?.unsubscribe();
+      window.removeEventListener('storage', handleStorageOrFocus);
+      window.removeEventListener('focus', handleStorageOrFocus);
+      clearInterval(integrityTimer);
     };
-  }, []);
+  }, [verifyAndSyncSession]);
 
   const login = async (email, password) => {
     const sessionData = await authService.login(email, password);
@@ -101,25 +86,18 @@ export function AuthProvider({ children }) {
 
   const updateUserCredentials = async (userId, updates) => {
     const updated = await authService.updateUserCredentials(userId, updates);
-    // If the active logged in user was modified, update React context state immediately
     if (user && (user.id === userId || user.email === updates.currentEmail || user.email === updated.email)) {
-      setUser({
-        ...user,
-        email: updated.email,
-        name: updated.name,
-        role: updated.role,
-        restaurant_name: updated.restaurant_name,
-        restaurant_slug: updated.restaurant_slug,
-        phone: updated.phone || updated.whatsapp_number,
-        whatsapp_number: updated.phone || updated.whatsapp_number,
-      });
-      setSession(authService.getCurrentSession());
+      const refreshed = authService.getCurrentSession();
+      setUser(refreshed?.user || null);
+      setSession(refreshed || null);
     }
     return updated;
   };
 
   const changePassword = async (currentPassword, newPassword) => {
-    return await authService.changePassword(currentPassword, newPassword);
+    const res = await authService.changePassword(currentPassword, newPassword);
+    verifyAndSyncSession();
+    return res;
   };
 
   const viewPassword = async (userId) => {

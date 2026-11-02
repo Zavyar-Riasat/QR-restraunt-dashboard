@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient.js';
+import { postgresClient, isPostgresConfigured } from '../lib/postgresClient.js';
 
 const STORAGE_KEY = 'foodbypass_demo_data';
 const SETTINGS_PREFIX = 'dinehq_rest_settings_';
@@ -1264,28 +1264,20 @@ export const ALL_SEED_RESTAURANTS = {
   },
 };
 
-const isSupabaseConfigured = () => {
-  return Boolean(
-    typeof import.meta !== 'undefined' &&
-    import.meta.env?.VITE_SUPABASE_URL && 
-    import.meta.env?.VITE_SUPABASE_ANON_KEY &&
-    !import.meta.env.VITE_SUPABASE_URL.includes('your-project-ref')
-  );
-};
 
 const isUuid = (val) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val || ''));
 
 export const restaurantService = {
-  isConfigured: isSupabaseConfigured,
+  isConfigured: isPostgresConfigured,
 
   /**
    * Fetch all restaurants (for master admin and restaurant switcher)
    */
   async getAllRestaurants() {
-    if (isSupabaseConfigured()) {
+    if (isPostgresConfigured()) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('restaurants')
           .select('id, name, slug, whatsapp_number, owner_id')
           .order('name');
@@ -1293,7 +1285,7 @@ export const restaurantService = {
           return data.map((r) => this.mergeExtendedSettings(r));
         }
       } catch (e) {
-        console.warn('Error fetching all restaurants from Supabase:', e);
+        console.warn('Error fetching all restaurants from PostgreSQL:', e);
       }
     }
 
@@ -1500,9 +1492,9 @@ export const restaurantService = {
   async getInitialState(filter = {}) {
     const { restaurantId, slug, ownerId } = filter;
 
-    if (isSupabaseConfigured()) {
+    if (isPostgresConfigured()) {
       try {
-        let restaurantQuery = supabase.from('restaurants').select('*');
+        let restaurantQuery = postgresClient.from('restaurants').select('*');
 
         // Resolve non-UUID seed restaurantId (e.g. 'rest-101') to its slug so we don't pass non-UUID to uuid column
         let resolvedSlug = slug;
@@ -1533,8 +1525,8 @@ export const restaurantService = {
         if (restaurants && restaurants.length > 0) {
           const restaurant = this.mergeExtendedSettings(restaurants[0]);
           const [catRes, itemRes] = await Promise.all([
-            supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('created_at'),
-            supabase.from('menu_items').select('*').eq('restaurant_id', restaurant.id).order('created_at'),
+            postgresClient.from('categories').select('*').eq('restaurant_id', restaurant.id).order('created_at'),
+            postgresClient.from('menu_items').select('*').eq('restaurant_id', restaurant.id).order('created_at'),
           ]);
 
           let resolvedCategories = catRes.data || [];
@@ -1551,7 +1543,7 @@ export const restaurantService = {
             return item;
           });
 
-          // Merge or fallback to local saved state if RLS prevented writes to Supabase
+          // Merge or fallback to local saved state
           if (typeof localStorage !== 'undefined') {
             try {
               const savedRaw =
@@ -1591,7 +1583,7 @@ export const restaurantService = {
             } catch  {}
           }
 
-          // If both Supabase and localStorage had 0 categories for a known seed slug, hydrate seed menu
+          // If both PostgreSQL and localStorage had 0 categories for a known seed slug, hydrate seed menu
           if (
             resolvedCategories.length === 0 &&
             restaurant.slug &&
@@ -1613,7 +1605,7 @@ export const restaurantService = {
           };
         }
       } catch (err) {
-        console.warn('Supabase fetch failed, falling back to local sandbox:', err.message);
+        console.warn('PostgreSQL fetch failed, falling back to local sandbox:', err.message);
       }
     }
 
@@ -1692,7 +1684,7 @@ export const restaurantService = {
    * 1. Update Restaurant Settings (Phone number, slug, name, is_open, delivery_mode, delivery_fee, min_order_amount, prep_time)
    */
   async updateRestaurant(restaurantId, updates) {
-    // 1. Separate base columns for Supabase
+    // 1. Separate base columns for PostgreSQL
     const baseColumns = {};
     if (updates.name !== undefined) baseColumns.name = updates.name;
     if (updates.slug !== undefined) baseColumns.slug = updates.slug;
@@ -1724,14 +1716,14 @@ export const restaurantService = {
       console.warn('Failed to save extended restaurant settings:', e);
     }
 
-    if (isSupabaseConfigured() && isUuid(restaurantId) && Object.keys(baseColumns).length > 0) {
+    if (isPostgresConfigured() && isUuid(restaurantId) && Object.keys(baseColumns).length > 0) {
       try {
         const safeColumns = { ...baseColumns };
         if (safeColumns.logo_url !== undefined) {
           safeColumns.logo = safeColumns.logo_url;
           delete safeColumns.logo_url;
         }
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('restaurants')
           .update(safeColumns)
           .eq('id', restaurantId)
@@ -1754,9 +1746,9 @@ export const restaurantService = {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       String(restaurantId || '')
     );
-    if (isSupabaseConfigured() && isUuid) {
+    if (isPostgresConfigured() && isUuid) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('categories')
           .insert([{ restaurant_id: restaurantId, name }])
           .select()
@@ -1766,10 +1758,10 @@ export const restaurantService = {
           return data;
         }
         if (error) {
-          console.warn('Supabase createCategory fallback to local state:', error.message);
+          console.warn('PostgreSQL createCategory fallback to local state:', error.message);
         }
       } catch (err) {
-        console.warn('Supabase createCategory notice:', err.message);
+        console.warn('PostgreSQL createCategory notice:', err.message);
       }
     }
     return { id: `cat-${Date.now()}`, restaurant_id: restaurantId, name };
@@ -1779,9 +1771,9 @@ export const restaurantService = {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       String(categoryId || '')
     );
-    if (isSupabaseConfigured() && isUuid) {
+    if (isPostgresConfigured() && isUuid) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('categories')
           .update({ name })
           .eq('id', categoryId)
@@ -1792,10 +1784,10 @@ export const restaurantService = {
           return data;
         }
         if (error) {
-          console.warn('Supabase updateCategory fallback to local state:', error.message);
+          console.warn('PostgreSQL updateCategory fallback to local state:', error.message);
         }
       } catch (err) {
-        console.warn('Supabase updateCategory notice:', err.message);
+        console.warn('PostgreSQL updateCategory notice:', err.message);
       }
     }
     return { id: categoryId, name };
@@ -1805,13 +1797,13 @@ export const restaurantService = {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       String(categoryId || '')
     );
-    if (isSupabaseConfigured() && isUuid) {
+    if (isPostgresConfigured() && isUuid) {
       try {
         // Cascade delete items in this category first to avoid foreign key violations
-        await supabase.from('menu_items').delete().eq('category_id', categoryId);
-        const { error } = await supabase.from('categories').delete().eq('id', categoryId);
+        await postgresClient.from('menu_items').delete().eq('category_id', categoryId);
+        const { error } = await postgresClient.from('categories').delete().eq('id', categoryId);
         if (error) {
-          console.warn('Supabase deleteCategory fallback to local state:', error.message);
+          console.warn('PostgreSQL deleteCategory fallback to local state:', error.message);
         }
       } catch (e) {
         console.warn('Notice on cascade delete category:', e);
@@ -1830,9 +1822,9 @@ export const restaurantService = {
     const isCatUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       String(itemData?.category_id || '')
     );
-    if (isSupabaseConfigured() && isUuid && isCatUuid) {
+    if (isPostgresConfigured() && isUuid && isCatUuid) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('menu_items')
           .insert([
             {
@@ -1850,10 +1842,10 @@ export const restaurantService = {
           return data;
         }
         if (error) {
-          console.warn('Supabase createMenuItem fallback to local state:', error.message);
+          console.warn('PostgreSQL createMenuItem fallback to local state:', error.message);
         }
       } catch (err) {
-        console.warn('Supabase createMenuItem notice:', err.message);
+        console.warn('PostgreSQL createMenuItem notice:', err.message);
       }
     }
     return {
@@ -1867,7 +1859,7 @@ export const restaurantService = {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       String(itemId || '')
     );
-    if (isSupabaseConfigured() && isUuid) {
+    if (isPostgresConfigured() && isUuid) {
       try {
         const payload = {};
         if (updates.category_id) payload.category_id = updates.category_id;
@@ -1875,7 +1867,7 @@ export const restaurantService = {
         if (updates.price !== undefined) payload.price = parseFloat(updates.price);
         if (updates.variants !== undefined) payload.variants = updates.variants;
 
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('menu_items')
           .update(payload)
           .eq('id', itemId)
@@ -1886,10 +1878,10 @@ export const restaurantService = {
           return data;
         }
         if (error) {
-          console.warn('Supabase updateMenuItem fallback to local state:', error.message);
+          console.warn('PostgreSQL updateMenuItem fallback to local state:', error.message);
         }
       } catch (err) {
-        console.warn('Supabase updateMenuItem notice:', err.message);
+        console.warn('PostgreSQL updateMenuItem notice:', err.message);
       }
     }
     return { id: itemId, ...updates, price: parseFloat(updates.price) };
@@ -1899,14 +1891,14 @@ export const restaurantService = {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       String(itemId || '')
     );
-    if (isSupabaseConfigured() && isUuid) {
+    if (isPostgresConfigured() && isUuid) {
       try {
-        const { error } = await supabase.from('menu_items').delete().eq('id', itemId);
+        const { error } = await postgresClient.from('menu_items').delete().eq('id', itemId);
         if (error) {
-          console.warn('Supabase deleteMenuItem fallback to local state:', error.message);
+          console.warn('PostgreSQL deleteMenuItem fallback to local state:', error.message);
         }
       } catch (err) {
-        console.warn('Supabase deleteMenuItem notice:', err.message);
+        console.warn('PostgreSQL deleteMenuItem notice:', err.message);
       }
     }
     return true;

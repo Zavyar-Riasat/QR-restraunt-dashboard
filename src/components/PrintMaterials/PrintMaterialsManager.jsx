@@ -2256,7 +2256,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
   );
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-7 shadow-xs space-y-6 print:p-0 print:border-none print:shadow-none">
+    <div className="bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-7 shadow-xs space-y-4 sm:space-y-6 print:p-0 print:border-none print:shadow-none overflow-hidden">
       <input
         type="file"
         ref={fileInputRef}
@@ -2286,86 +2286,94 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
       </div>
 
       {/* Tab Header */}
-      <div className="no-print p-5 rounded-3xl bg-gradient-to-r from-[#FFF9F2] via-[#FFFDF9] to-[#FFF9F2] border border-[#F0E4D7] flex flex-col xl:flex-row xl:items-center justify-between gap-4 shadow-2xs">
-        <div className="flex items-start sm:items-center gap-3.5">
-          <span className="w-11 h-11 rounded-2xl bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF] flex items-center justify-center shrink-0 shadow-2xs">
+      <div className="no-print p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#FFF9F2] via-[#FFFDF9] to-[#FFF9F2] border border-[#F0E4D7] flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 sm:gap-4 shadow-2xs">
+        <div className="flex items-start sm:items-center gap-3">
+          <span className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF] flex items-center justify-center shrink-0 shadow-2xs">
             <Printer className="w-5 h-5" />
           </span>
-          <div>
-            <h2 className="text-lg sm:text-xl font-heading font-black text-[#2B2118] tracking-tight flex items-center gap-2 flex-wrap">
-              <span>Print QR & Flyer Studio</span>
-              <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#FFF1E6] text-[#D95A12] border border-[#FCD8BF]">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base sm:text-xl font-heading font-black text-[#2B2118] tracking-tight">
+                Print QR &amp; Flyer Studio
+              </h2>
+              <span className="text-[10px] sm:text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-[#FFF1E6] text-[#D95A12] border border-[#FCD8BF] shrink-0">
                 Owner Control
               </span>
-            </h2>
-            <p className="text-xs text-[#7A6A5C] mt-0.5">
-              Drag corners to resize QR, drag & drop elements, click text to edit & bold, add custom text boxes.
+            </div>
+            <p className="text-[11px] sm:text-xs text-[#7A6A5C] mt-0.5 leading-snug">
+              Customize table tents, stickers, flyers, and print-ready 300 DPI QR codes.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Utility Group */}
-          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white border border-[#F0E4D7] shadow-2xs">
-            <button
-              onClick={handleCopyLink}
-              className="px-3 py-1.5 rounded-xl bg-transparent hover:bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#F26B1D]" />}
-              <span>{copied ? 'Copied' : 'Copy Menu URL'}</span>
-            </button>
-
-            <div className="w-px h-4 bg-[#F0E4D7]" />
-
-            <button
-              onClick={handleDownloadSVG}
-              className="px-3 py-1.5 rounded-xl bg-transparent hover:bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-              title="Download Vector SVG of QR alone"
-            >
-              <FileCode className="w-3.5 h-3.5 text-[#F26B1D]" />
-              <span>QR SVG</span>
-            </button>
-          </div>
-
-          {/* Export Group */}
+        {/* Action & Export Toolbar: Uniform 2-Col Grid on Mobile, Flex Row on Tablet/Desktop */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full xl:w-auto">
           <button
+            type="button"
+            onClick={handleCopyLink}
+            className="w-full sm:w-auto px-3 py-2 rounded-xl bg-white hover:bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap"
+          >
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-[#F26B1D] shrink-0" />
+            )}
+            <span>{copied ? 'Copied!' : 'Copy Menu URL'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadSVG}
+            className="w-full sm:w-auto px-3 py-2 rounded-xl bg-white hover:bg-[#FFF9F2] border border-[#F0E4D7] text-[#2B2118] text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap"
+            title="Download Vector SVG of QR alone"
+          >
+            <FileCode className="w-3.5 h-3.5 text-[#F26B1D] shrink-0" />
+            <span>Download SVG</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleDownloadPNG}
             disabled={isExportingPNG}
-            className="px-3.5 py-2 rounded-xl bg-[#FFF1E6] hover:bg-[#FFE4CF] border border-[#FCD8BF] text-[#D95A12] text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+            className="w-full sm:w-auto px-3 py-2 rounded-xl bg-[#FFF1E6] hover:bg-[#FFE4CF] border border-[#FCD8BF] text-[#D95A12] text-xs font-extrabold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50 whitespace-nowrap"
           >
-            <Download className="w-3.5 h-3.5 text-[#F26B1D]" />
+            <Download className="w-3.5 h-3.5 text-[#F26B1D] shrink-0" />
             <span>{isExportingPNG ? 'Rendering...' : 'Download PNG'}</span>
           </button>
 
           <button
+            type="button"
             onClick={handleDownloadPDF}
             disabled={isExportingPDF}
-            className="px-3.5 py-2 rounded-xl bg-[#2B2118] hover:bg-[#3D2F22] border border-[#2B2118] text-white text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            className="w-full sm:w-auto px-3 py-2 rounded-xl bg-[#2B2118] hover:bg-[#3D2F22] border border-[#2B2118] text-white text-xs font-extrabold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 whitespace-nowrap"
             title="Export 300 DPI PDF ready for professional print shops"
           >
-            <FileText className="w-3.5 h-3.5 text-[#FFA94D]" />
-            <span>{isExportingPDF ? 'Generating PDF...' : 'Download PDF (300 DPI)'}</span>
+            <FileText className="w-3.5 h-3.5 text-[#FFA94D] shrink-0" />
+            <span className=" sm:hidden">{isExportingPDF ? 'Generating...' : 'PDF (300 DPI)'}</span>
+            <span className="hidden sm:inline">{isExportingPDF ? 'Generating PDF...' : 'Download PDF (300 DPI)'}</span>
           </button>
 
           <button
+            type="button"
             onClick={handleExportAllTableQrs}
             disabled={isExportingAllTablePdf || availableTables.length === 0}
-            className="px-3.5 py-2 rounded-xl bg-[#433022] hover:bg-[#2B2118] border border-[#5A4230] text-[#FFF1E6] text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            className="w-full sm:w-auto px-3 py-2 rounded-xl bg-[#433022] hover:bg-[#2B2118] border border-[#5A4230] text-[#FFF1E6] text-xs font-extrabold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 whitespace-nowrap"
             title="Download all table QR standee cards as a single PDF"
           >
             {isExportingAllTablePdf ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FFA94D]" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FFA94D] shrink-0" />
             ) : (
-              <Download className="w-3.5 h-3.5 text-[#FFA94D]" />
+              <Download className="w-3.5 h-3.5 text-[#FFA94D] shrink-0" />
             )}
-            <span>{isExportingAllTablePdf ? 'Generating...' : 'All Table QRs (PDF)'}</span>
+            <span>{isExportingAllTablePdf ? 'Generating...' : 'All Table QRs'}</span>
           </button>
 
           <button
+            type="button"
             onClick={handlePrint}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#D95A12] hover:from-[#D95A12] hover:to-[#C24E0D] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-[#F26B1D]/25 transition flex items-center gap-1.5 cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#D95A12] hover:from-[#D95A12] hover:to-[#C24E0D] text-white text-xs sm:text-sm font-extrabold shadow-md shadow-[#F26B1D]/25 transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <Printer className="w-4 h-4 stroke-[2.5]" />
+            <Printer className="w-4 h-4 stroke-[2.5] shrink-0" />
             <span>Print Now</span>
           </button>
         </div>
@@ -2397,19 +2405,20 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
       )}
 
       {/* Visual Format Selector (Grid of 15 Cards) */}
-      <div className="no-print space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#FFF9F2]/80 border border-[#F0E4D7]">
-          <span className="text-xs font-extrabold uppercase tracking-wider text-[#2B2118] flex items-center gap-2 pl-1">
+      <div className="no-print space-y-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 p-3 sm:p-3.5 rounded-2xl bg-[#FFF9F2]/80 border border-[#F0E4D7]">
+          <span className="text-xs font-extrabold uppercase tracking-wider text-[#2B2118] flex items-center gap-2 pl-0.5 shrink-0">
             <Layers className="w-4 h-4 text-[#F26B1D]" />
-            Pick Print Format:
+            <span>Pick Print Format:</span>
           </span>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap items-center gap-1.5 w-full lg:w-auto">
             {FORMAT_CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
+                type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition whitespace-nowrap cursor-pointer ${
+                className={`px-2.5 sm:px-3.5 py-2 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-extrabold transition text-center truncate cursor-pointer ${
                   selectedCategory === cat.id
                     ? 'bg-[#2B2118] text-white shadow-xs'
                     : 'bg-white text-[#7A6A5C] border border-[#F0E4D7] hover:border-[#F26B1D]/40 hover:text-[#2B2118]'
@@ -2429,7 +2438,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
                 key={format.id}
                 type="button"
                 onClick={() => setSelectedFormatId(format.id)}
-                className={`p-3 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between cursor-pointer relative overflow-hidden group ${
+                className={`min-w-0 p-3 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between cursor-pointer relative overflow-hidden group ${
                   isSelected
                     ? 'bg-[#FFF1E6] border-[#F26B1D] ring-2 ring-[#F26B1D]/20 shadow-sm'
                     : 'bg-white border-[#F0E4D7] hover:border-[#F26B1D]/40 hover:bg-[#FFF9F2] shadow-xs'
@@ -2492,9 +2501,9 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
       </div>
 
       {/* Editor & Live Exact-Ratio Preview Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start print:block">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-7 items-start print:block">
         {/* Left Column: Format & Owner Design Customizer Controls */}
-        <div className="no-print lg:col-span-5 space-y-4">
+        <div className="no-print order-2 lg:order-1 lg:col-span-5 space-y-4">
           {/* Module 1: Format & Target Options */}
           <div className="p-4 rounded-2xl bg-[#FFF9F2]/75 border border-[#F0E4D7] space-y-3">
             <div className="flex items-center justify-between pb-2.5 border-b border-[#F0E4D7]">
@@ -3717,26 +3726,26 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
         </div>
 
         {/* Right Column: Live Exact-Ratio Preview Surface & Controls */}
-        <div className="lg:col-span-7 print:w-full space-y-3">
+        <div className="order-1 lg:order-2 lg:col-span-7 print:w-full space-y-3">
           {/* Preview Toolbar with "+ Add Text Box" Quick Action */}
-          <div className="no-print flex flex-wrap items-center justify-between gap-2 pb-1">
-            <div className="flex items-center gap-2">
+          <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
+            <div className="flex items-center justify-between sm:justify-start gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-amber-600" />
-                Live Print Canvas ({selectedSize.label})
+                <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Live Print Canvas ({selectedSize.label})</span>
               </span>
-              <span className="text-[10px] font-mono text-slate-400">
+              <span className="text-[10px] font-mono text-slate-400 shrink-0">
                 Ratio: {selectedFormat.aspectRatio}
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between sm:justify-end gap-2 flex-wrap">
               {/* Quick "Reset Layout" Canvas Button when any element has been custom moved */}
               {hasAnyCustomPosition && (
                 <button
                   type="button"
                   onClick={handleResetAllPositions}
-                  className="px-2.5 py-1 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                   title="Restore all texts and QR back to their default template slots"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -3748,7 +3757,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
               <button
                 type="button"
                 onClick={handleAddCustomTextBox}
-                className="px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                className="px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
                 title="Add a new movable text box to the card"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -3791,7 +3800,7 @@ export default function PrintMaterialsManager({ restaurant, onNavigateToSettings
           {/* Exact-Ratio Preview Canvas Container */}
           <div
             onClick={() => setSelectedElementId(null)}
-            className="relative p-4 sm:p-6 rounded-3xl bg-[#FFF9F2]/90 border border-[#F0E4D7] flex items-center justify-center overflow-auto min-h-[500px]"
+            className="relative p-2.5 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#FFF9F2]/90 border border-[#F0E4D7] flex items-center justify-center overflow-auto min-h-[380px] sm:min-h-[500px]"
           >
             {/* Copy / Paste Toast Notification */}
             {copyToast && (

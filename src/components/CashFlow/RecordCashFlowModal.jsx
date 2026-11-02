@@ -4,7 +4,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   CheckCircle2,
-  } from 'lucide-react';
+} from 'lucide-react';
 import {
   cashFlowService,
   CASH_IN_CATEGORIES,
@@ -28,15 +28,20 @@ export default function RecordCashFlowModal({
   const [description, setDescription] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [referenceNo, setReferenceNo] = useState('');
-  const [entryDate, setEntryDate] = useState(() => {
+  const getNowLocalISO = () => {
     const d = new Date();
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().slice(0, 16);
-  });
+  };
+
+  const [entryDate, setEntryDate] = useState(getNowLocalISO);
+  const [maxDateTime, setMaxDateTime] = useState(getNowLocalISO);
   const [errorMsg, setErrorMsg] = useState(null);
 
   // Sync state when editing or opening
   useEffect(() => {
+    const nowStr = getNowLocalISO();
+    setMaxDateTime(nowStr);
     if (entryToEdit) {
       setType(entryToEdit.type || 'in');
       setAmount(String(entryToEdit.amount || ''));
@@ -48,7 +53,8 @@ export default function RecordCashFlowModal({
       if (entryToEdit.date) {
         const d = new Date(entryToEdit.date);
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-        setEntryDate(d.toISOString().slice(0, 16));
+        const editStr = d.toISOString().slice(0, 16);
+        setEntryDate(editStr > nowStr ? nowStr : editStr);
       }
     } else {
       setType(initialType || 'in');
@@ -59,9 +65,7 @@ export default function RecordCashFlowModal({
       setDescription('');
       setPaymentMethod('cash');
       setReferenceNo('');
-      const d = new Date();
-      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-      setEntryDate(d.toISOString().slice(0, 16));
+      setEntryDate(nowStr);
     }
     setErrorMsg(null);
   }, [entryToEdit, initialType, isOpen]);
@@ -86,6 +90,16 @@ export default function RecordCashFlowModal({
       return;
     }
 
+    const selectedTimestamp = entryDate ? new Date(entryDate).getTime() : Date.now();
+    if (Number.isNaN(selectedTimestamp)) {
+      setErrorMsg('Please select a valid date and time.');
+      return;
+    }
+    if (selectedTimestamp > Date.now() + 60 * 1000) {
+      setErrorMsg('Future dates cannot be selected for expenses or cash entries. Please choose the current or a past date.');
+      return;
+    }
+
     const restId = restaurant?.id || 'rest-101';
     const payload = {
       type,
@@ -96,7 +110,7 @@ export default function RecordCashFlowModal({
       payment_method: paymentMethod,
       reference_no: referenceNo.trim(),
       recorded_by: currentUser?.name || currentUser?.email || 'Owner',
-      date: new Date(entryDate).toISOString(),
+      date: new Date(Math.min(selectedTimestamp, Date.now())).toISOString(),
     };
 
     try {
@@ -127,17 +141,15 @@ export default function RecordCashFlowModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`p-5 border-b flex items-center justify-between gap-3 ${
-          isCashIn
+        <div className={`p-5 border-b flex items-center justify-between gap-3 ${isCashIn
             ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
             : 'bg-rose-50/70 border-rose-200 text-rose-950'
-        }`}>
+          }`}>
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md ${
-              isCashIn
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md ${isCashIn
                 ? 'bg-emerald-600 shadow-emerald-600/30'
                 : 'bg-rose-600 shadow-rose-600/30'
-            }`}>
+              }`}>
               {isCashIn ? (
                 <ArrowDownLeft className="w-5 h-5 stroke-[2.5]" />
               ) : (
@@ -179,11 +191,10 @@ export default function RecordCashFlowModal({
               <button
                 type="button"
                 onClick={() => handleTypeChange('in')}
-                className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                  isCashIn
+                className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-2 transition cursor-pointer ${isCashIn
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'text-[#7A6A5C] hover:text-[#2B2118]'
-                }`}
+                  }`}
               >
                 <ArrowDownLeft className="w-4 h-4" />
                 <span>+ Cash In (Money In)</span>
@@ -191,11 +202,10 @@ export default function RecordCashFlowModal({
               <button
                 type="button"
                 onClick={() => handleTypeChange('out')}
-                className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
-                  !isCashIn
+                className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-2 transition cursor-pointer ${!isCashIn
                     ? 'bg-rose-600 text-white shadow-xs'
                     : 'text-[#7A6A5C] hover:text-[#2B2118]'
-                }`}
+                  }`}
               >
                 <ArrowUpRight className="w-4 h-4" />
                 <span>- Cash Out (Money Out)</span>
@@ -324,12 +334,24 @@ export default function RecordCashFlowModal({
             {/* Date & Time */}
             <div className="space-y-1">
               <label className="font-bold text-slate-700 uppercase tracking-wider text-[10px] block">
-                Date & Time
+                Date &amp; Time
               </label>
               <input
                 type="datetime-local"
                 value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
+                max={maxDateTime}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const nowStr = getNowLocalISO();
+                  setMaxDateTime(nowStr);
+                  if (val && val > nowStr) {
+                    setEntryDate(nowStr);
+                    setErrorMsg('Future date/time is not allowed for expenses.');
+                  } else {
+                    setEntryDate(val);
+                    setErrorMsg(null);
+                  }
+                }}
                 className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 text-[11px] text-[#2B2118] focus:outline-none focus:ring-2 focus:ring-[#F26B1D]"
               />
             </div>
@@ -346,11 +368,10 @@ export default function RecordCashFlowModal({
             </button>
             <button
               type="submit"
-              className={`px-5 py-2.5 rounded-xl text-white font-black shadow-md transition cursor-pointer flex items-center gap-1.5 ${
-                isCashIn
+              className={`px-5 py-2.5 rounded-xl text-white font-black shadow-md transition cursor-pointer flex items-center gap-1.5 ${isCashIn
                   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
                   : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30'
-              }`}
+                }`}
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{entryToEdit ? 'Save Changes' : isCashIn ? 'Add Cash In' : 'Record Cash Out'}</span>

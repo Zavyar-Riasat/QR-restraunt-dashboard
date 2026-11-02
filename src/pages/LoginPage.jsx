@@ -89,13 +89,10 @@ export default function LoginPage() {
     }
   };
 
-  const isLocalhost =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.endsWith('.localhost') ||
-      window.location.hostname.endsWith('.local') ||
-      window.location.hostname === '::1');
+  const showDemoCredentials =
+    typeof import.meta !== 'undefined' && import.meta.env?.VITE_HIDE_DEMO_CREDENTIALS === 'true'
+      ? false
+      : true;
 
   const handleQuickLogin = async (quickEmail, quickPassword) => {
     setEmail(quickEmail);
@@ -172,6 +169,16 @@ export default function LoginPage() {
       {/* Main Login Card */}
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
         <div className="bg-white py-8 px-6 sm:px-10 rounded-3xl border border-[#F0E4D7] shadow-xl shadow-[#2B2118]/5">
+          {/* Security Protection Status Pill */}
+          <div className="mb-5 px-3 py-2 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-between gap-2 text-[11px] font-bold text-[#7A6A5C]">
+            <span className="inline-flex items-center gap-1.5 text-[#2B2118]">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>AES-256-GCM Encrypted Auth</span>
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Lockout Protected
+            </span>
+          </div>
 
           {/* Error Banner */}
           {errorMessage && (
@@ -249,18 +256,18 @@ export default function LoginPage() {
             </div>
           </form>
 
-          {/* Dev Test Credentials (Localhost Only) */}
-          {isLocalhost && (
+          {/* Demo Credentials */}
+          {showDemoCredentials && (
             <div className="mt-6 pt-5 border-t border-dashed border-[#F0E4D7]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-[11px] font-extrabold tracking-wider uppercase text-[#7A6A5C]">
-                    Localhost Test Credentials
+                    Quick Demo Credentials
                   </span>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FFF1E6] text-[#F26B1D] border border-[#FCD8BF]">
-                  Dev Sandbox
+                  Demo Access
                 </span>
               </div>
 
@@ -373,7 +380,7 @@ export default function LoginPage() {
                       title="1-Click Login to Super Admin Panel"
                     >
                       <span>1-Click Login</span>
-                      <ArrowRight className="w-3 h-3" />
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
 

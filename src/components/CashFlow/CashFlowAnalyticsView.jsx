@@ -17,6 +17,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { formatPKR } from '../../utils/currencyUtils';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../Common/InfiniteScrollSentinel';
 
 function isOrderPaidHelper(order) {
   return Boolean(
@@ -344,9 +345,7 @@ export default function CashFlowAnalyticsView({
     const commissionSaved = Math.round(grossOrderSales * 0.3);
 
     // Top Dishes sorted by revenue
-    const topDishes = Array.from(dishMap.values())
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 8);
+    const topDishes = Array.from(dishMap.values()).sort((a, b) => b.revenue - a.revenue);
     const totalDishRevenue = Array.from(dishMap.values()).reduce((s, d) => s + d.revenue, 0);
 
     // Expense categories sorted by amount
@@ -400,6 +399,9 @@ export default function CashFlowAnalyticsView({
     };
   }, [orders, entries, matchesDateFilter]);
 
+  const topDishesScroll = useInfiniteScroll(analytics.topDishes, { initialCount: 6, step: 6 });
+  const dailyRowsScroll = useInfiniteScroll(analytics.dailyRows, { initialCount: 8, step: 8 });
+
   const handleExportAnalyticsCSV = () => {
     const headers = [
       'Date',
@@ -445,31 +447,31 @@ export default function CashFlowAnalyticsView({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Analytics Header & Date Period Bar */}
-      <div className="bg-gradient-to-r from-[#2B2118] via-[#3A2D21] to-[#2B2118] text-white rounded-3xl p-5 sm:p-6 shadow-md border border-[#F0E4D7]/20">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F26B1D]/20 border border-[#F26B1D]/40 text-[#FF9F5A] text-[11px] font-extrabold uppercase tracking-wider">
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span>Automatic Restaurant Earnings & Profit Analytics</span>
+    <div className="space-y-4">
+      {/* Compact Analytics Header & Date Period Bar */}
+      <div className="bg-gradient-to-r from-[#2B2118] via-[#3A2D21] to-[#2B2118] text-white rounded-2xl px-4 py-3.5 sm:px-5 sm:py-4 shadow-sm border border-[#F0E4D7]/20">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F26B1D]/20 border border-[#F26B1D]/40 text-[#FF9F5A] text-[10px] font-extrabold uppercase tracking-wider">
+              <BarChart3 className="w-3 h-3" />
+              <span>Real-Time Restaurant Earnings &amp; Profit</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-heading font-extrabold tracking-tight">
+            <h2 className="text-base sm:text-lg font-heading font-extrabold tracking-tight">
               {restName} — Owner Earnings Overview
             </h2>
-            <p className="text-xs text-amber-100/80 max-w-2xl">
-              Automatically calculated in real time from all kitchen orders, paid bills, delivery fees, discounts, and cash register expenses.
+            <p className="text-[11px] text-amber-100/75 max-w-2xl">
+              Auto-calculated from kitchen orders, paid bills, delivery fees, discounts, and register expenses.
             </p>
           </div>
 
           {/* Period Filter Controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-3 py-2 rounded-xl border border-white/15 text-xs">
-              <Calendar className="w-3.5 h-3.5 text-[#F5A623]" />
+          <div className="grid grid-cols-1 sm:flex sm:items-center gap-2 sm:flex-wrap w-full lg:w-auto">
+            <div className="flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-3 py-2 sm:py-1.5 rounded-xl border border-white/15 text-xs w-full sm:w-auto">
+              <Calendar className="w-3.5 h-3.5 text-[#F5A623] shrink-0" />
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="bg-transparent font-bold text-white text-xs focus:outline-none cursor-pointer"
+                className="w-full sm:w-auto bg-transparent font-bold text-white text-xs focus:outline-none cursor-pointer"
               >
                 <option value="all" className="text-slate-900">Period: All Time</option>
                 <option value="today" className="text-slate-900">Period: Today</option>
@@ -486,24 +488,24 @@ export default function CashFlowAnalyticsView({
                 type="date"
                 value={specificDate}
                 onChange={(e) => setSpecificDate(e.target.value)}
-                className="px-2.5 py-1.5 rounded-xl bg-white text-slate-900 text-xs font-bold cursor-pointer"
+                className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-xl bg-white text-slate-900 text-xs font-bold cursor-pointer"
               />
             )}
 
             {dateFilter === 'custom_range' && (
-              <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1.5 rounded-xl border border-white/15 text-xs">
+              <div className="grid grid-cols-2 sm:flex items-center gap-1.5 bg-white/10 px-2.5 py-1.5 sm:py-1 rounded-xl border border-white/15 text-xs w-full sm:w-auto">
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="bg-white text-slate-900 px-2 py-0.5 rounded-lg font-bold text-xs"
+                  className="w-full bg-white text-slate-900 px-2 py-0.5 rounded-lg font-bold text-xs"
                 />
-                <span>to</span>
+                <span className="hidden sm:inline">to</span>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="bg-white text-slate-900 px-2 py-0.5 rounded-lg font-bold text-xs"
+                  className="w-full bg-white text-slate-900 px-2 py-0.5 rounded-lg font-bold text-xs"
                 />
               </div>
             )}
@@ -511,267 +513,324 @@ export default function CashFlowAnalyticsView({
             <button
               type="button"
               onClick={handleExportAnalyticsCSV}
-              className="px-3.5 py-2 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-extrabold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-xl bg-[#F26B1D] hover:bg-[#D95A12] text-white text-xs font-extrabold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               title="Download Owner Earnings & Daily P&L CSV"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export Earnings CSV</span>
+              <Download className="w-3.5 h-3.5 shrink-0" />
+              <span>Export CSV</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 6 Automatic Owner Earnings KPI Cards (3 per row) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      {/* Compact 6-Card KPI Strip (6 per row on desktop, 3 on tablet, 2 on mobile) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
         {/* KPI 1: Net Owner Profit (Actual Restaurant Earnings) */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-emerald-50/40 border-2 border-emerald-300 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-emerald-800 mb-1">
-            <span className="font-extrabold uppercase tracking-wider">Net Owner Earnings (Profit)</span>
-            {analytics.netOwnerProfit >= 0 ? (
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
-            ) : (
-              <TrendingDown className="w-4 h-4 text-rose-600" />
-            )}
+        <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-50/90 via-white to-emerald-50/40 border border-emerald-300 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-emerald-800 mb-1">
+              <span className="font-extrabold uppercase tracking-wider truncate">Net Owner Earning</span>
+              <span className="w-5 h-5 rounded-md bg-emerald-100/80 flex items-center justify-center shrink-0">
+                {analytics.netOwnerProfit >= 0 ? (
+                  <TrendingUp className="w-3 h-3 text-emerald-600" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 text-rose-600" />
+                )}
+              </span>
+            </div>
+            <div
+              className={`text-base sm:text-lg font-black font-mono tracking-tight leading-tight ${
+                analytics.netOwnerProfit >= 0 ? 'text-emerald-800' : 'text-rose-700'
+              }`}
+            >
+              {analytics.netOwnerProfit >= 0
+                ? `+${formatPKR(analytics.netOwnerProfit)}`
+                : formatPKR(analytics.netOwnerProfit)}
+            </div>
           </div>
-          <div
-            className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-              analytics.netOwnerProfit >= 0 ? 'text-emerald-800' : 'text-rose-700'
-            }`}
-          >
-            {analytics.netOwnerProfit >= 0
-              ? `+${formatPKR(analytics.netOwnerProfit)}`
-              : formatPKR(analytics.netOwnerProfit)}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-emerald-200/70 text-[11px]">
-            <span className="text-slate-600 font-medium">
-              Realized (Paid): <strong className="text-emerald-800 font-mono">{formatPKR(analytics.realizedOwnerProfit)}</strong>
+          <div className="flex items-center justify-between gap-1 mt-2 pt-1.5 border-t border-emerald-200/60 text-[10px]">
+            <span className="text-slate-600 truncate">
+              Paid: <strong className="text-emerald-800 font-mono">{formatPKR(analytics.realizedOwnerProfit)}</strong>
             </span>
             <span
-              className={`px-2 py-0.5 rounded-full font-mono font-bold text-[10px] ${
+              className={`px-1.5 py-0.2 rounded-full font-mono font-bold text-[9px] shrink-0 ${
                 analytics.profitMarginPercent >= 0
                   ? 'bg-emerald-100 text-emerald-800'
                   : 'bg-rose-100 text-rose-800'
               }`}
             >
-              {analytics.profitMarginPercent}% Margin
+              {analytics.profitMarginPercent}%
             </span>
           </div>
         </div>
 
         {/* KPI 2: Gross Restaurant Sales Revenue (From Orders) */}
-        <div className="p-5 rounded-2xl bg-white border border-[#F0E4D7] shadow-2xs">
-          <div className="flex items-center justify-between text-xs text-[#7A6A5C] mb-1">
-            <span className="font-extrabold uppercase tracking-wider">Order Sales Revenue</span>
-            <ShoppingBag className="w-4 h-4 text-[#F26B1D]" />
+        <div className="p-3 rounded-xl bg-white border border-[#F0E4D7] shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-[#7A6A5C] mb-1">
+              <span className="font-extrabold uppercase tracking-wider truncate">Order Sales</span>
+              <span className="w-5 h-5 rounded-md bg-orange-50 flex items-center justify-center shrink-0">
+                <ShoppingBag className="w-3 h-3 text-[#F26B1D]" />
+              </span>
+            </div>
+            <div className="text-base sm:text-lg font-black text-[#2B2118] font-mono tracking-tight leading-tight">
+              {formatPKR(analytics.grossOrderSales)}
+            </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#2B2118] font-mono tracking-tight">
-            {formatPKR(analytics.grossOrderSales)}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[11px]">
-            <span className="text-emerald-700 font-bold font-mono">
-              ✓ Paid: {formatPKR(analytics.paidOrderSales)}
+          <div className="flex items-center justify-between gap-1 mt-2 pt-1.5 border-t border-slate-100 text-[10px]">
+            <span className="text-emerald-700 font-bold font-mono truncate">
+              ✓ {formatPKR(analytics.paidOrderSales)}
             </span>
             {analytics.unpaidOrderSales > 0 ? (
-              <span className="text-amber-700 font-bold font-mono">
-                Pending: {formatPKR(analytics.unpaidOrderSales)}
+              <span className="text-amber-700 font-bold font-mono shrink-0">
+                Due: {formatPKR(analytics.unpaidOrderSales)}
               </span>
             ) : (
-              <span className="text-slate-500">{analytics.validOrdersCount} Orders</span>
+              <span className="text-slate-500 shrink-0">{analytics.validOrdersCount} orders</span>
             )}
           </div>
         </div>
 
         {/* KPI 3: Total Operating Expenses */}
-        <div className="p-5 rounded-2xl bg-white border border-rose-200/80 shadow-2xs">
-          <div className="flex items-center justify-between text-xs text-rose-700 mb-1">
-            <span className="font-extrabold uppercase tracking-wider">Operating Expenses</span>
-            <ArrowUpRight className="w-4 h-4 text-rose-600" />
+        <div className="p-3 rounded-xl bg-white border border-rose-200/80 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-rose-700 mb-1">
+              <span className="font-extrabold uppercase tracking-wider truncate">Expenses</span>
+              <span className="w-5 h-5 rounded-md bg-rose-50 flex items-center justify-center shrink-0">
+                <ArrowUpRight className="w-3 h-3 text-rose-600" />
+              </span>
+            </div>
+            <div className="text-base sm:text-lg font-black text-rose-800 font-mono tracking-tight leading-tight">
+              -{formatPKR(analytics.operatingExpensesOut)}
+            </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-rose-800 font-mono tracking-tight">
-            -{formatPKR(analytics.operatingExpensesOut)}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-            <span>Purchases, utilities & wages</span>
+          <div className="flex items-center justify-between gap-1 mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500">
+            <span className="truncate">Bills, supplies &amp; wages</span>
             {analytics.ownerDrawingsOut > 0 && (
-              <span className="font-mono text-slate-600">
-                Drawings: {formatPKR(analytics.ownerDrawingsOut)}
+              <span className="font-mono text-slate-600 shrink-0">
+                -{formatPKR(analytics.ownerDrawingsOut)}
               </span>
             )}
           </div>
         </div>
 
         {/* KPI 4: Total Cash in Hand (Paid Sales + Cash In - Cash Out) */}
-        <div className="p-5 rounded-2xl bg-white border border-blue-200/80 shadow-2xs">
-          <div className="flex items-center justify-between text-xs text-blue-800 mb-1">
-            <span className="font-extrabold uppercase tracking-wider">Total Cash in Business</span>
-            <Wallet className="w-4 h-4 text-blue-600" />
+        <div className="p-3 rounded-xl bg-white border border-blue-200/80 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-blue-800 mb-1">
+              <span className="font-extrabold uppercase tracking-wider truncate">Cash in Business</span>
+              <span className="w-5 h-5 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                <Wallet className="w-3 h-3 text-blue-600" />
+              </span>
+            </div>
+            <div className="text-base sm:text-lg font-black text-blue-900 font-mono tracking-tight leading-tight">
+              {formatPKR(analytics.totalCashInHandWithSales)}
+            </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-blue-900 font-mono tracking-tight">
-            {formatPKR(analytics.totalCashInHandWithSales)}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-            <span>Paid Sales + Register Balance</span>
-            <span className="font-mono font-bold text-slate-700">
-              Reg: {formatPKR(analytics.registerOnlyBalance)}
+          <div className="flex items-center justify-between gap-1 mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500">
+            <span className="truncate">Register:</span>
+            <span className="font-mono font-bold text-slate-700 shrink-0">
+              {formatPKR(analytics.registerOnlyBalance)}
             </span>
           </div>
         </div>
 
         {/* KPI 5: Today's Live Earnings */}
-        <div className="p-5 rounded-2xl bg-white border border-[#F0E4D7] shadow-2xs">
-          <div className="flex items-center justify-between text-xs text-[#7A6A5C] mb-1">
-            <span className="font-extrabold uppercase tracking-wider">Today&apos;s Net Earning</span>
-            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-mono font-bold text-[10px]">
-              {analytics.todayOrdersCount} orders today
-            </span>
+        <div className="p-3 rounded-xl bg-white border border-[#F0E4D7] shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-1 text-[10px] text-[#7A6A5C] mb-1">
+              <span className="font-extrabold uppercase tracking-wider truncate">Today&apos;s Earning</span>
+              <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-mono font-bold text-[9px] shrink-0">
+                {analytics.todayOrdersCount} ord
+              </span>
+            </div>
+            <div
+              className={`text-base sm:text-lg font-black font-mono tracking-tight leading-tight ${
+                analytics.todayNetEarning >= 0 ? 'text-emerald-800' : 'text-rose-700'
+              }`}
+            >
+              {analytics.todayNetEarning >= 0
+                ? `+${formatPKR(analytics.todayNetEarning)}`
+                : formatPKR(analytics.todayNetEarning)}
+            </div>
           </div>
-          <div
-            className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
-              analytics.todayNetEarning >= 0 ? 'text-emerald-800' : 'text-rose-700'
-            }`}
-          >
-            {analytics.todayNetEarning >= 0
-              ? `+${formatPKR(analytics.todayNetEarning)}`
-              : formatPKR(analytics.todayNetEarning)}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[11px] text-[#7A6A5C] font-mono">
-            <span>Sales: {formatPKR(analytics.todayOrderSales)}</span>
-            <span>Exp: -{formatPKR(analytics.todayExpenses)}</span>
+          <div className="flex items-center justify-between gap-1 mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-[#7A6A5C] font-mono">
+            <span className="truncate">In: {formatPKR(analytics.todayOrderSales)}</span>
+            <span className="shrink-0">Out: -{formatPKR(analytics.todayExpenses)}</span>
           </div>
         </div>
 
         {/* KPI 6: Owner Capital vs Withdrawals */}
-        <div className="p-5 rounded-2xl bg-white border border-[#F0E4D7] shadow-2xs">
-          <div className="flex items-center justify-between text-xs text-[#7A6A5C] mb-1">
-            <span className="font-extrabold uppercase tracking-wider">Owner Capital Injected</span>
-            <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
+        <div className="p-3 rounded-xl bg-white border border-[#F0E4D7] shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-[10px] text-[#7A6A5C] mb-1">
+              <span className="font-extrabold uppercase tracking-wider truncate">Owner Capital</span>
+              <span className="w-5 h-5 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                <ArrowDownLeft className="w-3 h-3 text-emerald-600" />
+              </span>
+            </div>
+            <div className="text-base sm:text-lg font-black font-mono text-[#2B2118] tracking-tight leading-tight">
+              {formatPKR(analytics.ownerCapitalIn)}
+            </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-[#2B2118] tracking-tight">
-            {formatPKR(analytics.ownerCapitalIn)}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[11px] text-[#7A6A5C] font-mono">
-            <span>Other In: +{formatPKR(analytics.operatingCashIn)}</span>
-            <span>Drawn: -{formatPKR(analytics.ownerDrawingsOut)}</span>
+          <div className="flex items-center justify-between gap-1 mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-[#7A6A5C] font-mono">
+            <span className="truncate">Other: +{formatPKR(analytics.operatingCashIn)}</span>
+            <span className="shrink-0">Drawn: -{formatPKR(analytics.ownerDrawingsOut)}</span>
           </div>
         </div>
       </div>
 
       {/* Main Two-Column Financial Breakdown: P&L Statement + Order Channel & Payment Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         {/* Left Column (7 cols): Automatic Profit & Loss (P&L) Statement */}
-        <div className="lg:col-span-7 bg-white border border-[#F0E4D7] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#F0E4D7] pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center">
-                <Receipt className="w-5 h-5" />
+        <div className="lg:col-span-7 bg-white border border-[#F0E4D7] rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between gap-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b border-[#F0E4D7] pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center shrink-0">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-sm sm:text-base text-[#2B2118]">
+                    Automatic Profit &amp; Loss (P&amp;L) Statement
+                  </h3>
+                  <p className="text-[11px] text-[#7A6A5C]">
+                    Complete calculation of how much the restaurant owner earned
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-heading font-extrabold text-base text-[#2B2118]">
-                  Automatic Profit &amp; Loss (P&amp;L) Statement
-                </h3>
-                <p className="text-[11px] text-[#7A6A5C]">
-                  Complete calculation of how much the restaurant owner earned
-                </p>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-extrabold uppercase shrink-0">
+                Auto-Calculated
+              </span>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              {/* Revenue Section */}
+              <div className="p-3 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C]">
+                    1. Restaurant Sales &amp; Revenue Inflows
+                  </span>
+                  <span className="font-mono font-black text-[#2B2118] text-xs">
+                    {formatPKR(analytics.totalOperatingRevenue)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-700 text-[11px]">
+                  <span>Food &amp; Beverage Items Subtotal ({analytics.validOrdersCount} orders)</span>
+                  <span className="font-mono font-bold">{formatPKR(analytics.subtotalSum)}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-700 text-[11px]">
+                  <span>+ Delivery Charges Collected</span>
+                  <span className="font-mono font-bold text-emerald-700">
+                    +{formatPKR(analytics.deliveryFeeSum)}
+                  </span>
+                </div>
+                {analytics.discountSum > 0 && (
+                  <div className="flex items-center justify-between text-rose-700 text-[11px]">
+                    <span>- Customer Discounts Applied</span>
+                    <span className="font-mono font-bold">-{formatPKR(analytics.discountSum)}</span>
+                  </div>
+                )}
+
+                {analytics.operatingCashIn > 0 && (
+                  <div className="flex items-center justify-between text-emerald-800 pt-0.5 text-[11px]">
+                    <span>+ Other Operating Cash Inflows (Counter / Refunds)</span>
+                    <span className="font-mono font-bold">+{formatPKR(analytics.operatingCashIn)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Expenses Section */}
+              <div className="p-3 rounded-xl bg-rose-50/50 border border-rose-200/70 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-800">
+                    2. Operating Expenses (Cash Out)
+                  </span>
+                  <span className="font-mono font-black text-rose-800 text-xs">
+                    -{formatPKR(analytics.operatingExpensesOut)}
+                  </span>
+                </div>
+                {analytics.expenseCategories.length === 0 ? (
+                  <p className="text-[11px] text-slate-500">No operating expenses recorded in this period.</p>
+                ) : (
+                  <div className="space-y-1.5 pt-0.5">
+                    {analytics.expenseCategories.map((cat) => {
+                      const pct =
+                        analytics.operatingExpensesOut > 0
+                          ? Math.round((cat.amount / analytics.operatingExpensesOut) * 100)
+                          : 0;
+                      return (
+                        <div key={cat.label} className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-700 font-medium">
+                              {cat.label} <span className="text-slate-400">({cat.count})</span>
+                            </span>
+                            <span className="font-mono font-bold text-rose-700">
+                              -{formatPKR(cat.amount)} ({pct}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-rose-100 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-rose-500"
+                              style={{ width: `${Math.max(4, pct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-extrabold uppercase">
-              Auto-Calculated
-            </span>
           </div>
 
-          <div className="space-y-2.5 text-xs">
-            {/* Revenue Section */}
-            <div className="p-3.5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-2">
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C]">
-                1. Restaurant Sales &amp; Revenue Inflows
+          {/* 3. Net Profit Bottom Summary Bar */}
+          <div
+            className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+              analytics.netOwnerProfit >= 0
+                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                : 'bg-rose-50/70 border-rose-200 text-rose-900'
+            }`}
+          >
+            <div>
+              <div className="text-[10px] font-extrabold uppercase tracking-wider">
+                3. Net Owner Earnings (Revenue − Expenses)
               </div>
-              <div className="flex items-center justify-between text-slate-700">
-                <span>Food &amp; Beverage Items Subtotal ({analytics.validOrdersCount} orders)</span>
-                <span className="font-mono font-bold">{formatPKR(analytics.subtotalSum)}</span>
+              <div className="text-[11px] opacity-80 font-mono">
+                Realized Paid Profit: {formatPKR(analytics.realizedOwnerProfit)} • Margin: {analytics.profitMarginPercent}%
               </div>
-              <div className="flex items-center justify-between text-slate-700">
-                <span>+ Delivery Charges Collected</span>
-                <span className="font-mono font-bold text-emerald-700">
-                  +{formatPKR(analytics.deliveryFeeSum)}
-                </span>
-              </div>
-              {analytics.discountSum > 0 && (
-                <div className="flex items-center justify-between text-rose-700">
-                  <span>- Customer Discounts Applied</span>
-                  <span className="font-mono font-bold">-{formatPKR(analytics.discountSum)}</span>
-                </div>
-              )}
-
-              {analytics.operatingCashIn > 0 && (
-                <div className="flex items-center justify-between text-emerald-800 pt-1">
-                  <span>+ Other Operating Cash Inflows (Counter / Refunds)</span>
-                  <span className="font-mono font-bold">+{formatPKR(analytics.operatingCashIn)}</span>
-                </div>
-              )}
             </div>
-
-            {/* Expenses Section */}
-            <div className="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-200/70 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-800">
-                  2. Operating Expenses (Cash Out)
-                </span>
-                <span className="font-mono font-black text-rose-800 text-sm">
-                  -{formatPKR(analytics.operatingExpensesOut)}
-                </span>
-              </div>
-              {analytics.expenseCategories.length === 0 ? (
-                <p className="text-[11px] text-slate-500">No operating expenses recorded in this period.</p>
-              ) : (
-                <div className="space-y-1.5 pt-1">
-                  {analytics.expenseCategories.map((cat) => {
-                    const pct =
-                      analytics.operatingExpensesOut > 0
-                        ? Math.round((cat.amount / analytics.operatingExpensesOut) * 100)
-                        : 0;
-                    return (
-                      <div key={cat.label} className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-700 font-medium">
-                            {cat.label} <span className="text-slate-400">({cat.count})</span>
-                          </span>
-                          <span className="font-mono font-bold text-rose-700">
-                            -{formatPKR(cat.amount)} ({pct}%)
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 rounded-full bg-rose-100 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-rose-500"
-                            style={{ width: `${Math.max(4, pct)}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+            <div className="font-mono font-black text-base sm:text-lg shrink-0">
+              {analytics.netOwnerProfit >= 0
+                ? `+${formatPKR(analytics.netOwnerProfit)}`
+                : formatPKR(analytics.netOwnerProfit)}
             </div>
-
           </div>
         </div>
 
         {/* Right Column (5 cols): Channel Breakdown & Payment Modes */}
-        <div className="lg:col-span-5 space-y-5">
-          {/* Revenue by Order Type */}
-          <div className="bg-white border border-[#F0E4D7] rounded-3xl p-5 shadow-xs space-y-3.5">
+        <div className="lg:col-span-5 bg-white border border-[#F0E4D7] rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col justify-between gap-3">
+          <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-[#F0E4D7] pb-2.5">
               <div className="flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-[#F26B1D]" />
-                <h3 className="font-heading font-extrabold text-sm text-[#2B2118]">
-                  Earnings by Order Type
-                </h3>
+                <div className="w-8 h-8 rounded-xl bg-[#FFF1E6] text-[#F26B1D] flex items-center justify-center shrink-0">
+                  <PieChart className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-sm sm:text-base text-[#2B2118]">
+                    Earnings by Order Type
+                  </h3>
+                  <p className="text-[11px] text-[#7A6A5C]">
+                    Channel share &amp; average order value
+                  </p>
+                </div>
               </div>
-              <span className="text-[11px] font-mono font-bold text-[#7A6A5C]">
-                {analytics.validOrdersCount} Total Orders
+              <span className="text-[11px] font-mono font-bold text-[#7A6A5C] bg-[#FFF9F2] px-2.5 py-1 rounded-lg border border-[#F0E4D7]">
+                {analytics.validOrdersCount} Orders
               </span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {analytics.byChannel.map((ch) => {
                 const sharePct =
                   analytics.grossOrderSales > 0
@@ -786,13 +845,13 @@ export default function CashFlowAnalyticsView({
                 return (
                   <div
                     key={ch.label}
-                    className="p-3 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-1.5"
+                    className="p-2.5 rounded-xl bg-[#FFF9F2] border border-[#F0E4D7] space-y-1.5"
                   >
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 font-bold text-[#2B2118]">
+                      <div className="flex items-center gap-1.5 font-bold text-[#2B2118]">
                         <Icon className="w-3.5 h-3.5 text-[#F26B1D]" />
                         <span>{ch.label}</span>
-                        <span className="px-2 py-0.2 rounded-full bg-white border border-[#F0E4D7] text-[10px] font-mono text-[#7A6A5C]">
+                        <span className="px-1.5 py-0.2 rounded-full bg-white border border-[#F0E4D7] text-[10px] font-mono text-[#7A6A5C]">
                           {ch.count} orders
                         </span>
                       </div>
@@ -800,7 +859,7 @@ export default function CashFlowAnalyticsView({
                         {formatPKR(ch.revenue)} ({sharePct}%)
                       </span>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-[#F0E4D7] overflow-hidden">
+                    <div className="w-full h-1.5 rounded-full bg-[#F0E4D7] overflow-hidden">
                       <div
                         className="h-full rounded-full bg-[#F26B1D]"
                         style={{ width: `${Math.max(ch.count > 0 ? 5 : 0, sharePct)}%` }}
@@ -818,6 +877,25 @@ export default function CashFlowAnalyticsView({
             </div>
           </div>
 
+          {/* Compact Payment Mode Pills at bottom of Right Column */}
+          <div className="pt-2 border-t border-[#F0E4D7]">
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#7A6A5C] mb-1.5">
+              Sales by Payment Mode
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-1.5">
+              {analytics.byPaymentMethod.map((pm) => (
+                <div
+                  key={pm.label}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 text-[10px]"
+                >
+                  <div className="text-slate-500 font-bold truncate">{pm.label}</div>
+                  <div className="font-mono font-black text-[#2B2118] text-[11px]">
+                    {formatPKR(pm.amount)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -847,47 +925,61 @@ export default function CashFlowAnalyticsView({
             No dish sales recorded for the selected period yet.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {analytics.topDishes.map((dish, idx) => {
-              const share =
-                analytics.totalDishRevenue > 0
-                  ? Math.round((dish.revenue / analytics.totalDishRevenue) * 100)
-                  : 0;
-              return (
-                <div
-                  key={dish.title}
-                  className="p-3.5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-between gap-3"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-7 h-7 rounded-xl bg-[#F26B1D] text-white font-mono font-black text-xs flex items-center justify-center shrink-0">
-                      #{idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-bold text-xs text-[#2B2118] truncate">{dish.title}</div>
-                      <div className="text-[11px] text-[#7A6A5C] font-mono">
-                        {dish.quantity} sold • {dish.ordersCount}{' '}
-                        {dish.ordersCount === 1 ? 'order' : 'orders'}
+          <div className="space-y-3">
+            <div
+              onScroll={topDishesScroll.handleContainerScroll}
+              className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto pr-1"
+            >
+              {topDishesScroll.visibleItems.map((dish, idx) => {
+                const share =
+                  analytics.totalDishRevenue > 0
+                    ? Math.round((dish.revenue / analytics.totalDishRevenue) * 100)
+                    : 0;
+                return (
+                  <div
+                    key={dish.title}
+                    className="p-3.5 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-7 h-7 rounded-xl bg-[#F26B1D] text-white font-mono font-black text-xs flex items-center justify-center shrink-0">
+                        #{idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs text-[#2B2118] truncate">{dish.title}</div>
+                        <div className="text-[11px] text-[#7A6A5C] font-mono">
+                          {dish.quantity} sold • {dish.ordersCount}{' '}
+                          {dish.ordersCount === 1 ? 'order' : 'orders'}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-mono font-black text-sm text-emerald-800">
-                      {formatPKR(dish.revenue)}
+                    <div className="text-right shrink-0">
+                      <div className="font-mono font-black text-sm text-emerald-800">
+                        {formatPKR(dish.revenue)}
+                      </div>
+                      <div className="text-[10px] font-mono text-[#7A6A5C]">{share}% of dish sales</div>
                     </div>
-                    <div className="text-[10px] font-mono text-[#7A6A5C]">{share}% of dish sales</div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            <InfiniteScrollSentinel
+              hasMore={topDishesScroll.hasMore}
+              onLoadMore={topDishesScroll.loadMore}
+              shownCount={topDishesScroll.visibleCount}
+              totalCount={topDishesScroll.totalCount}
+              initialCount={topDishesScroll.initialCount}
+              itemLabel="dishes"
+              className="rounded-2xl border border-[#F0E4D7]"
+            />
           </div>
         )}
       </div>
 
       {/* Day-by-Day Automatic Owner Earnings & Cash Flow Ledger */}
-      <div className="bg-white border border-[#F0E4D7] rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+      <div className="bg-white border border-[#F0E4D7] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h3 className="font-heading font-extrabold text-base text-[#2B2118]">
+            <h3 className="font-heading font-extrabold text-sm sm:text-base text-[#2B2118]">
               Daily Owner Earnings &amp; Cash Flow Statement
             </h3>
             <p className="text-[11px] text-[#7A6A5C]">
@@ -901,53 +993,26 @@ export default function CashFlowAnalyticsView({
             No daily records found for the selected period.
           </div>
         ) : (
-          <div className="rounded-2xl border border-slate-200 overflow-x-auto bg-white">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-3 text-center">Orders</th>
-                  <th className="py-3 px-3 text-right">Order Sales (Gross)</th>
-                  <th className="py-3 px-3 text-right">Paid Sales</th>
-                  <th className="py-3 px-3 text-right">Other Cash In</th>
-                  <th className="py-3 px-3 text-right">Expenses Out</th>
-                  <th className="py-3 px-4 text-right">Net Owner Profit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {analytics.dailyRows.map((day) => {
+          <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
+            <div
+              onScroll={dailyRowsScroll.handleContainerScroll}
+              className="max-h-[480px] overflow-y-auto overflow-x-auto"
+            >
+              {/* Mobile Daily Cards (< md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {dailyRowsScroll.visibleItems.map((day) => {
                   const dayProfit = day.grossSales + day.otherCashIn - day.expensesOut;
                   return (
-                    <tr key={day.dateKey} className="hover:bg-slate-50/80 transition">
-                      <td className="py-3.5 px-4 font-bold text-[#2B2118] whitespace-nowrap">
-                        <div>{day.displayDate}</div>
-                        <div className="text-[10px] font-mono text-slate-400">{day.dateKey}</div>
-                      </td>
-                      <td className="py-3.5 px-3 text-center font-mono">
-                        <span className="px-2 py-0.5 rounded-lg bg-slate-100 font-bold text-slate-800">
-                          {day.ordersCount}
-                        </span>
-                        <span className="block text-[10px] text-emerald-700 mt-0.5">
-                          {day.completedCount} completed
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-mono font-bold text-[#2B2118] whitespace-nowrap">
-                        {formatPKR(day.grossSales)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">
-                        {formatPKR(day.paidSales)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-mono text-slate-700 whitespace-nowrap">
-                        {day.otherCashIn + day.capitalIn > 0
-                          ? `+${formatPKR(day.otherCashIn + day.capitalIn)}`
-                          : '—'}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-mono font-bold text-rose-700 whitespace-nowrap">
-                        {day.expensesOut > 0 ? `-${formatPKR(day.expensesOut)}` : 'Rs. 0'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-black text-sm whitespace-nowrap">
+                    <div key={day.dateKey} className="p-3.5 space-y-2.5 hover:bg-slate-50/70 transition">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="font-bold text-xs text-[#2B2118]">{day.displayDate}</div>
+                          <div className="text-[10px] font-mono text-slate-500">
+                            {day.ordersCount} {day.ordersCount === 1 ? 'order' : 'orders'} ({day.completedCount} completed)
+                          </div>
+                        </div>
                         <span
-                          className={`px-2.5 py-1 rounded-xl ${
+                          className={`px-2.5 py-1 rounded-xl font-mono font-black text-xs shrink-0 ${
                             dayProfit >= 0
                               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                               : 'bg-rose-50 text-rose-800 border border-rose-200'
@@ -955,16 +1020,109 @@ export default function CashFlowAnalyticsView({
                         >
                           {dayProfit >= 0 ? `+${formatPKR(dayProfit)}` : formatPKR(dayProfit)}
                         </span>
-                      </td>
-                    </tr>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                        <div className="px-2.5 py-1.5 rounded-lg bg-[#FFF9F2] border border-[#F0E4D7]/70 flex items-center justify-between gap-1">
+                          <span className="text-[#7A6A5C]">Gross Sales:</span>
+                          <span className="font-mono font-bold text-[#2B2118]">{formatPKR(day.grossSales)}</span>
+                        </div>
+                        <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-between gap-1">
+                          <span className="text-emerald-800">Paid Sales:</span>
+                          <span className="font-mono font-bold text-emerald-700">{formatPKR(day.paidSales)}</span>
+                        </div>
+                        <div className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center justify-between gap-1">
+                          <span className="text-slate-600">Cash In:</span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {day.otherCashIn + day.capitalIn > 0
+                              ? `+${formatPKR(day.otherCashIn + day.capitalIn)}`
+                              : 'Rs. 0'}
+                          </span>
+                        </div>
+                        <div className="px-2.5 py-1.5 rounded-lg bg-rose-50/60 border border-rose-100 flex items-center justify-between gap-1">
+                          <span className="text-rose-800">Expenses:</span>
+                          <span className="font-mono font-bold text-rose-700">
+                            {day.expensesOut > 0 ? `-${formatPKR(day.expensesOut)}` : 'Rs. 0'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+
+              {/* Desktop Table (md+) */}
+              <table className="hidden md:table w-full text-left text-xs">
+                <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-3 text-center">Orders</th>
+                    <th className="py-3 px-3 text-right">Order Sales (Gross)</th>
+                    <th className="py-3 px-3 text-right">Paid Sales</th>
+                    <th className="py-3 px-3 text-right">Other Cash In</th>
+                    <th className="py-3 px-3 text-right">Expenses Out</th>
+                    <th className="py-3 px-4 text-right">Net Owner Profit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {dailyRowsScroll.visibleItems.map((day) => {
+                    const dayProfit = day.grossSales + day.otherCashIn - day.expensesOut;
+                    return (
+                      <tr key={day.dateKey} className="hover:bg-slate-50/80 transition">
+                        <td className="py-3.5 px-4 font-bold text-[#2B2118] whitespace-nowrap">
+                          <div>{day.displayDate}</div>
+                          <div className="text-[10px] font-mono text-slate-400">{day.dateKey}</div>
+                        </td>
+                        <td className="py-3.5 px-3 text-center font-mono">
+                          <span className="px-2 py-0.5 rounded-lg bg-slate-100 font-bold text-slate-800">
+                            {day.ordersCount}
+                          </span>
+                          <span className="block text-[10px] text-emerald-700 mt-0.5">
+                            {day.completedCount} completed
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono font-bold text-[#2B2118] whitespace-nowrap">
+                          {formatPKR(day.grossSales)}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">
+                          {formatPKR(day.paidSales)}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono text-slate-700 whitespace-nowrap">
+                          {day.otherCashIn + day.capitalIn > 0
+                            ? `+${formatPKR(day.otherCashIn + day.capitalIn)}`
+                            : '—'}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono font-bold text-rose-700 whitespace-nowrap">
+                          {day.expensesOut > 0 ? `-${formatPKR(day.expensesOut)}` : 'Rs. 0'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-black text-sm whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-1 rounded-xl ${
+                              dayProfit >= 0
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-rose-50 text-rose-800 border border-rose-200'
+                            }`}
+                          >
+                            {dayProfit >= 0 ? `+${formatPKR(dayProfit)}` : formatPKR(dayProfit)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <InfiniteScrollSentinel
+                hasMore={dailyRowsScroll.hasMore}
+                onLoadMore={dailyRowsScroll.loadMore}
+                shownCount={dailyRowsScroll.visibleCount}
+                totalCount={dailyRowsScroll.totalCount}
+                initialCount={dailyRowsScroll.initialCount}
+                itemLabel="daily statements"
+              />
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
-

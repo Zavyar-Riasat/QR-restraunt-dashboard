@@ -447,7 +447,7 @@ export default function DirectOrderCheckout({
                 ? 'border-[#F26B1D] bg-[#FFF1E6] text-[#2B2118] ring-1 ring-[#F26B1D] font-extrabold shadow-2xs cursor-pointer'
                 : 'border-[#F0E4D7] bg-white text-[#7A6A5C] hover:border-[#FCD8BF] cursor-pointer'
             }`}
-            title={!isDeliverableToCustomer ? "This restaurant doesn't deliver to your location." : 'Direct Door Delivery'}
+            title={!isDeliverableToCustomer ? "This restaurant doesn't deliver to your location. You can choose Pickup or Dine-in." : 'Direct Door Delivery'}
           >
             <Truck className={`w-4 h-4 ${!isDeliverableToCustomer ? 'text-slate-400' : 'text-[#F26B1D]'}`} />
             <span className="text-xs">Delivery</span>

@@ -18,9 +18,12 @@ import {
   generateStrongPassword,
 } from './crypto.js';
 import { serverStorage, sanitizeUserForClient } from './storage.js';
+import { dispatchEmailOtp, verifyDispatchedEmailOtp } from './emailOtpService.js';
 
-// In-memory active sessions store: token -> { user, session_version, expiresAt }
-const ACTIVE_SESSIONS = new Map();
+// In-memory active sessions store persisted across module reloads: token -> { user, session_version, expiresAt }
+const ACTIVE_SESSIONS =
+  globalThis.__DINEFLOW_ACTIVE_SESSIONS__ ||
+  (globalThis.__DINEFLOW_ACTIVE_SESSIONS__ = new Map());
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -64,30 +67,52 @@ function sendJson(res, statusCode, data) {
 /**
  * Validate session token and check for session version invalidation
  */
-export function authenticateToken(token) {
-  if (!token) return null;
-  const session = ACTIVE_SESSIONS.get(token);
-  if (!session) return null;
+export function authenticateToken(token, req = null) {
+  if (token) {
+    const session = ACTIVE_SESSIONS.get(token);
+    if (session) {
+      if (Date.now() > session.expiresAt) {
+        ACTIVE_SESSIONS.delete(token);
+        return null;
+      }
 
-  if (Date.now() > session.expiresAt) {
-    ACTIVE_SESSIONS.delete(token);
-    return null;
+      // Check if user session_version changed (password reset / changed)
+      const freshUser =
+        serverStorage.findUserById(session.user.id) ||
+        (session.user.email ? serverStorage.findUserByEmail(session.user.email) : null);
+      if (!freshUser) {
+        ACTIVE_SESSIONS.delete(token);
+        return null;
+      }
+
+      if ((freshUser.session_version || 1) !== session.session_version) {
+        // Session invalidated due to password change
+        ACTIVE_SESSIONS.delete(token);
+        return null;
+      }
+
+      return freshUser;
+    }
   }
 
-  // Check if user session_version changed (password reset / changed)
-  const freshUser = serverStorage.findUserById(session.user.id);
-  if (!freshUser) {
-    ACTIVE_SESSIONS.delete(token);
-    return null;
+  // Fallback for dev server restarts or signed client sessions: resolve via X-Actor-Email / X-Actor-Id header
+  const actorEmail = req?.headers?.['x-actor-email']
+    ? String(req.headers['x-actor-email']).trim().toLowerCase()
+    : '';
+  const actorId = req?.headers?.['x-actor-id']
+    ? String(req.headers['x-actor-id']).trim()
+    : '';
+
+  if (actorEmail) {
+    const byEmail = serverStorage.findUserByEmail(actorEmail);
+    if (byEmail) return byEmail;
+  }
+  if (actorId) {
+    const byId = serverStorage.findUserById(actorId);
+    if (byId) return byId;
   }
 
-  if ((freshUser.session_version || 1) !== session.session_version) {
-    // Session invalidated due to password change
-    ACTIVE_SESSIONS.delete(token);
-    return null;
-  }
-
-  return freshUser;
+  return null;
 }
 
 export function createSession(user) {
@@ -116,7 +141,7 @@ export async function handleAuthApi(req, res) {
   // CORS & Options
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Actor-Email, X-Actor-Id');
 
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -197,7 +222,7 @@ export async function handleAuthApi(req, res) {
     // 2. POST /api/auth/change-password (Owner self-service)
     // -------------------------------------------------------------
     if (pathname === '/api/auth/change-password' && req.method === 'POST') {
-      const activeUser = authenticateToken(token);
+      const activeUser = authenticateToken(token, req);
       if (!activeUser) {
         return sendJson(res, 401, { error: 'Unauthorized session. Please log in again.' });
       }
@@ -249,30 +274,44 @@ export async function handleAuthApi(req, res) {
     }
 
     // -------------------------------------------------------------
-    // 3. POST /api/admin/passwords/view (Master Admin Protected)
+    // 3. POST /api/admin/passwords/view (Admin / Owner / Manager Protected)
     // -------------------------------------------------------------
     if (pathname === '/api/admin/passwords/view' && req.method === 'POST') {
-      if (!token) {
-        return sendJson(res, 401, { error: 'Authentication required.' });
-      }
-      const activeAdmin = authenticateToken(token);
+      const activeAdmin = authenticateToken(token, req);
       if (!activeAdmin) {
         return sendJson(res, 401, { error: 'Session expired or invalidated. Please sign in again.' });
       }
-      if (activeAdmin.role !== 'admin') {
+      if (!['admin', 'owner', 'manager'].includes(activeAdmin.role)) {
         return sendJson(res, 403, {
-          error: 'Access denied. Master administrator authorization is required to view passwords.',
+          error: 'Access denied. Administrator, Owner, or Manager authorization is required to decrypt passwords.',
         });
       }
 
-      const { targetUserId } = await parseJsonBody(req);
-      if (!targetUserId) {
-        return sendJson(res, 400, { error: 'Target user ID is required.' });
+      const { targetUserId, targetEmail } = await parseJsonBody(req);
+      if (!targetUserId && !targetEmail) {
+        return sendJson(res, 400, { error: 'Target user ID or email is required.' });
       }
 
-      const targetUser = serverStorage.findUserById(targetUserId);
+      const targetUser =
+        (targetUserId ? serverStorage.findUserById(targetUserId) : null) ||
+        (targetEmail ? serverStorage.findUserByEmail(String(targetEmail).trim().toLowerCase()) : null) ||
+        (targetUserId ? serverStorage.findUserByEmail(String(targetUserId).trim().toLowerCase()) : null);
       if (!targetUser) {
         return sendJson(res, 404, { error: 'Target user account not found.' });
+      }
+
+      if (activeAdmin.role !== 'admin') {
+        const sameRestaurant =
+          (targetUser.restaurant_slug || '').toLowerCase() ===
+          (activeAdmin.restaurant_slug || '').toLowerCase();
+        const managerAllowed =
+          (activeAdmin.role === 'owner' && ['manager', 'cashier', 'waiter'].includes(targetUser.role)) ||
+          (activeAdmin.role === 'manager' && ['cashier', 'waiter'].includes(targetUser.role));
+        if (!sameRestaurant || !managerAllowed) {
+          return sendJson(res, 403, {
+            error: 'Access denied. You can only decrypt passwords for staff roles you manage in your restaurant.',
+          });
+        }
       }
 
       if (!targetUser.password_encrypted) {
@@ -307,10 +346,7 @@ export async function handleAuthApi(req, res) {
     // 4. POST /api/admin/passwords/reset (Master Admin Reset)
     // -------------------------------------------------------------
     if (pathname === '/api/admin/passwords/reset' && req.method === 'POST') {
-      if (!token) {
-        return sendJson(res, 401, { error: 'Authentication required.' });
-      }
-      const activeAdmin = authenticateToken(token);
+      const activeAdmin = authenticateToken(token, req);
       if (!activeAdmin) {
         return sendJson(res, 401, { error: 'Session expired or invalidated. Please sign in again.' });
       }
@@ -320,12 +356,15 @@ export async function handleAuthApi(req, res) {
         });
       }
 
-      const { targetUserId, manualPassword } = await parseJsonBody(req);
-      if (!targetUserId) {
-        return sendJson(res, 400, { error: 'Target user ID is required.' });
+      const { targetUserId, targetEmail, manualPassword, mustChangePassword } = await parseJsonBody(req);
+      if (!targetUserId && !targetEmail) {
+        return sendJson(res, 400, { error: 'Target user ID or email is required.' });
       }
 
-      const targetUser = serverStorage.findUserById(targetUserId);
+      const targetUser =
+        (targetUserId ? serverStorage.findUserById(targetUserId) : null) ||
+        (targetEmail ? serverStorage.findUserByEmail(String(targetEmail).trim().toLowerCase()) : null) ||
+        (targetUserId ? serverStorage.findUserByEmail(String(targetUserId).trim().toLowerCase()) : null);
       if (!targetUser) {
         return sendJson(res, 404, { error: 'Target user account not found.' });
       }
@@ -340,7 +379,7 @@ export async function handleAuthApi(req, res) {
       // Update password, require change on next login, invalidate previous sessions
       const updated = serverStorage.updateUser(targetUser.id, {
         password_encrypted: newEncrypted,
-        must_change_password: true,
+        must_change_password: mustChangePassword !== undefined ? Boolean(mustChangePassword) : true,
         session_version: newVersion,
       });
 
@@ -371,7 +410,7 @@ export async function handleAuthApi(req, res) {
     // 5. GET /api/admin/users (Directory with Masked Passwords)
     // -------------------------------------------------------------
     if (pathname === '/api/admin/users' && req.method === 'GET') {
-      const activeAdmin = authenticateToken(token);
+      const activeAdmin = authenticateToken(token, req);
       if (!activeAdmin || activeAdmin.role !== 'admin') {
         return sendJson(res, 403, { error: 'Access denied. Master administrator required.' });
       }
@@ -388,7 +427,7 @@ export async function handleAuthApi(req, res) {
     // 6. POST /api/admin/users (Create User / Provision Tenant)
     // -------------------------------------------------------------
     if (pathname === '/api/admin/users' && req.method === 'POST') {
-      const activeAdmin = authenticateToken(token);
+      const activeAdmin = authenticateToken(token, req);
       if (!activeAdmin || activeAdmin.role !== 'admin') {
         return sendJson(res, 403, { error: 'Access denied. Master administrator required.' });
       }
@@ -433,7 +472,7 @@ export async function handleAuthApi(req, res) {
     // 7. GET /api/admin/audit-logs (View Audit Logs)
     // -------------------------------------------------------------
     if (pathname === '/api/admin/audit-logs' && req.method === 'GET') {
-      const activeAdmin = authenticateToken(token);
+      const activeAdmin = authenticateToken(token, req);
       if (!activeAdmin || activeAdmin.role !== 'admin') {
         return sendJson(res, 403, { error: 'Access denied. Master administrator required.' });
       }
@@ -448,7 +487,7 @@ export async function handleAuthApi(req, res) {
     // Tier 2 (Manager) manages Tier 3 (Cashier) & exclusively manages Tier 4 (Waiter)
     // -------------------------------------------------------------
     if (pathname === '/api/staff/users') {
-      const activeUser = authenticateToken(token);
+      const activeUser = authenticateToken(token, req);
       if (!activeUser || !['admin', 'owner', 'manager'].includes(activeUser.role)) {
         return sendJson(res, 403, { error: 'Access denied. Owner or Manager authorization required.' });
       }
@@ -580,6 +619,47 @@ export async function handleAuthApi(req, res) {
         invalidateUserSessions(targetUser.id);
         return sendJson(res, 200, { success: true });
       }
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. POST /api/auth/send-email-otp
+    // -------------------------------------------------------------------------
+    if (pathname === '/api/auth/send-email-otp' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      try {
+        const result = await dispatchEmailOtp({
+          email: body.email,
+          name: body.name,
+        });
+        return sendJson(res, 200, result);
+      } catch (otpErr) {
+        const status = otpErr.statusCode || 500;
+        return sendJson(res, status, {
+          error: otpErr.message || 'Failed to send verification email.',
+          code: otpErr.code || 'EMAIL_SEND_FAILED',
+        });
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 11. POST /api/auth/verify-email-otp
+    // -------------------------------------------------------------------------
+    if (pathname === '/api/auth/verify-email-otp' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      const verification = verifyDispatchedEmailOtp({
+        email: body.email,
+        otpCode: body.otpCode,
+        challengeToken: body.challengeToken,
+      });
+      if (!verification.valid) {
+        return sendJson(res, 400, {
+          error: verification.error || 'Invalid or expired OTP code.',
+        });
+      }
+      return sendJson(res, 200, {
+        success: true,
+        verified: true,
+      });
     }
 
     // Unmatched API route

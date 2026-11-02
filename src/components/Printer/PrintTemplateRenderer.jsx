@@ -497,7 +497,8 @@ export default function PrintTemplateRenderer({
             </div>
           )}
 
-          {/* Restaurant Menu & Reorder QR (Only Restaurant QR, never location maps) */}
+          {/* Restaurant Menu & Reorder QR (Only Restaurant QR; digital /rider/ token link is shared via SendToRiderMenu, not printed) */}
+          {order?.rider_token ? null : null}
           <div className="pt-1 text-center space-y-0.5 border-t border-dashed border-slate-300">
             <div className="flex justify-center py-0.5">
               <QRCodeSVG

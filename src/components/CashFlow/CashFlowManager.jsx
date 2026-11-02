@@ -22,6 +22,7 @@ import { orderService } from '../../services/orderService';
 import { formatPKR } from '../../utils/currencyUtils';
 import RecordCashFlowModal from './RecordCashFlowModal';
 import CashFlowAnalyticsView from './CashFlowAnalyticsView';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../Common/InfiniteScrollSentinel';
 
 export default function CashFlowManager({
   restaurant,
@@ -217,6 +218,8 @@ export default function CashFlowManager({
     return result;
   }, [entries, activeTypeFilter, selectedCategory, dateFilter, specificDate, customStartDate, customEndDate, search]);
 
+  const entriesScroll = useInfiniteScroll(filteredEntries, { initialCount: 8, step: 8 });
+
   const filteredTotals = useMemo(() => {
     let cashIn = 0;
     let cashOut = 0;
@@ -267,36 +270,38 @@ export default function CashFlowManager({
   const outCount = useMemo(() => entries.filter((e) => e.type === 'out').length, [entries]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Sub-Navigation Bar: Switch between Cash In/Out Register and Automatic Owner Earnings Analytics */}
-      <div className="bg-white border border-[#F0E4D7] rounded-2xl p-3 sm:p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="bg-white border border-[#F0E4D7] rounded-2xl p-2.5 sm:p-3.5 shadow-2xs">
+        <div className="grid grid-cols-1 sm:flex sm:items-center gap-2">
           <button
             type="button"
             onClick={() => setSubView('register')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-2 cursor-pointer ${
+            className={`w-full sm:w-auto px-3.5 py-2.5 sm:py-2 rounded-xl text-xs font-extrabold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer ${
               subView === 'register'
                 ? 'bg-[#2B2118] text-white shadow-xs'
                 : 'bg-[#FFF9F2] text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7]'
             }`}
           >
-            <Wallet className="w-4 h-4 text-[#F26B1D]" />
+            <Wallet className="w-4 h-4 text-[#F26B1D] shrink-0" />
             <span>Cash In / Out Register</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubView('analytics')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-2 cursor-pointer ${
+            className={`w-full sm:w-auto px-3.5 py-2.5 sm:py-2 rounded-xl text-xs font-extrabold transition flex items-center justify-between sm:justify-start gap-2 cursor-pointer ${
               subView === 'analytics'
                 ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
                 : 'bg-[#FFF9F2] text-[#2B2118] hover:bg-[#FFF1E6] border border-[#F26B1D]/40'
             }`}
           >
-            <BarChart3 className={`w-4 h-4 ${subView === 'analytics' ? 'text-white' : 'text-[#F26B1D]'}`} />
-            <span>Owner Earnings &amp; Analytics</span>
+            <span className="flex items-center gap-2 min-w-0">
+              <BarChart3 className={`w-4 h-4 shrink-0 ${subView === 'analytics' ? 'text-white' : 'text-[#F26B1D]'}`} />
+              <span className="truncate">Owner Earnings &amp; Analytics</span>
+            </span>
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black shrink-0 ${
                 subView === 'analytics'
                   ? 'bg-white/20 text-white'
                   : autoEarnings.netOwnerProfit >= 0
@@ -310,7 +315,6 @@ export default function CashFlowManager({
             </span>
           </button>
         </div>
-
       </div>
 
       {subView === 'analytics' ? (
@@ -329,20 +333,20 @@ export default function CashFlowManager({
         />
       ) : (
         <>
-      {/* Top Summary KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* Top Summary KPI Cards (Compact) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Card 1: Net Cash Balance */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition">
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span className="font-bold uppercase tracking-wider">Net Cash in Register</span>
-            <Wallet className={`w-4 h-4 ${summary.netBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
+        <div className="min-w-0 p-3 sm:p-3.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition">
+          <div className="flex items-center justify-between gap-1 text-[10px] text-slate-500 mb-1">
+            <span className="font-extrabold uppercase tracking-wider truncate">Net Cash in Register</span>
+            <Wallet className={`w-3.5 h-3.5 shrink-0 ${summary.netBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
           </div>
-          <div className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+          <div className={`text-base sm:text-xl font-black font-mono tracking-tight truncate ${
             summary.netBalance >= 0 ? 'text-emerald-800' : 'text-rose-700'
           }`}>
             {formatPKR(summary.netBalance)}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 font-medium">
+          <p className="text-[10px] text-slate-500 mt-1 font-medium truncate">
             Cash In minus Cash Out
           </p>
         </div>
@@ -350,150 +354,142 @@ export default function CashFlowManager({
         {/* Card 2: Total Cash In */}
         <div
           onClick={() => setActiveTypeFilter('in')}
-          className="p-5 rounded-2xl bg-white border border-emerald-200/80 shadow-2xs hover:shadow-xs transition cursor-pointer group"
+          className="min-w-0 p-3 sm:p-3.5 rounded-xl bg-white border border-emerald-200/80 shadow-2xs hover:shadow-xs transition cursor-pointer group"
           title="Filter Cash In entries"
         >
-          <div className="flex items-center justify-between text-xs text-emerald-700 mb-1">
-            <span className="font-bold uppercase tracking-wider">Total Cash In</span>
-            <ArrowDownLeft className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition" />
+          <div className="flex items-center justify-between gap-1 text-[10px] text-emerald-700 mb-1">
+            <span className="font-extrabold uppercase tracking-wider truncate">Total Cash In</span>
+            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition shrink-0" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-800 font-mono tracking-tight">
+          <div className="text-base sm:text-xl font-black text-emerald-800 font-mono tracking-tight truncate">
             +{formatPKR(summary.totalCashIn)}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 font-medium">
-            Owner capital & cash receipts ({inCount})
+          <p className="text-[10px] text-slate-500 mt-1 font-medium truncate">
+            Owner capital &amp; cash receipts ({inCount})
           </p>
         </div>
 
         {/* Card 3: Total Cash Out */}
         <div
           onClick={() => setActiveTypeFilter('out')}
-          className="p-5 rounded-2xl bg-white border border-rose-200/80 shadow-2xs hover:shadow-xs transition cursor-pointer group"
+          className="min-w-0 p-3 sm:p-3.5 rounded-xl bg-white border border-rose-200/80 shadow-2xs hover:shadow-xs transition cursor-pointer group"
           title="Filter Cash Out entries"
         >
-          <div className="flex items-center justify-between text-xs text-rose-700 mb-1">
-            <span className="font-bold uppercase tracking-wider">Total Cash Out</span>
-            <ArrowUpRight className="w-4 h-4 text-rose-600 group-hover:scale-110 transition" />
+          <div className="flex items-center justify-between gap-1 text-[10px] text-rose-700 mb-1">
+            <span className="font-extrabold uppercase tracking-wider truncate">Total Cash Out</span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-rose-600 group-hover:scale-110 transition shrink-0" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-rose-800 font-mono tracking-tight">
+          <div className="text-base sm:text-xl font-black text-rose-800 font-mono tracking-tight truncate">
             -{formatPKR(summary.totalCashOut)}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 font-medium">
+          <p className="text-[10px] text-slate-500 mt-1 font-medium truncate">
             Purchases, utilities, wages ({outCount})
           </p>
         </div>
 
         {/* Card 4: Today's Cash Movement */}
-        <div className="p-5 rounded-2xl bg-white border border-amber-200/80 shadow-2xs hover:shadow-xs transition">
-          <div className="flex items-center justify-between text-xs text-amber-800 mb-1">
-            <span className="font-bold uppercase tracking-wider">Today&apos;s Net Flow</span>
-            <Calendar className="w-4 h-4 text-amber-600" />
+        <div className="min-w-0 p-3 sm:p-3.5 rounded-xl bg-white border border-amber-200/80 shadow-2xs hover:shadow-xs transition">
+          <div className="flex items-center justify-between gap-1 text-[10px] text-amber-800 mb-1">
+            <span className="font-extrabold uppercase tracking-wider truncate">Today&apos;s Net Flow</span>
+            <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           </div>
-          <div className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+          <div className={`text-base sm:text-xl font-black font-mono tracking-tight truncate ${
             summary.todayNet >= 0 ? 'text-slate-900' : 'text-rose-700'
           }`}>
             {summary.todayNet >= 0 ? `+${formatPKR(summary.todayNet)}` : formatPKR(summary.todayNet)}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1 font-medium">
+          <p className="text-[10px] text-slate-500 mt-1 font-medium truncate">
             In: +{formatPKR(summary.todayCashIn)} • Out: -{formatPKR(summary.todayCashOut)}
           </p>
         </div>
       </div>
 
       {/* Main Register Management Card */}
-      <div className="bg-white border border-[#F0E4D7] rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
+      <div className="bg-white border border-[#F0E4D7] rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-xs space-y-4 overflow-hidden">
         {/* Top Control Bar: Quick Add Buttons & Filters */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Filter Pills */}
-          <div className="flex rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-xs font-bold overflow-x-auto">
+          <div className="grid grid-cols-3 sm:inline-flex rounded-xl bg-[#FFF9F2] p-1 border border-[#F0E4D7] text-[11px] sm:text-xs font-bold gap-1 w-full lg:w-auto">
             <button
               type="button"
               onClick={() => setActiveTypeFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap ${
+              className={`px-2 sm:px-3 py-2 sm:py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
                 activeTypeFilter === 'all'
                   ? 'bg-[#2B2118] text-white shadow-xs'
                   : 'text-[#7A6A5C] hover:text-[#2B2118]'
               }`}
             >
-              All Entries ({entries.length})
+              <span>All ({entries.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTypeFilter('in')}
-              className={`px-3 py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              className={`px-2 sm:px-3 py-2 sm:py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
                 activeTypeFilter === 'in'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-emerald-700 hover:text-emerald-900'
               }`}
             >
-              <ArrowDownLeft className="w-3.5 h-3.5" />
+              <ArrowDownLeft className="w-3.5 h-3.5 shrink-0" />
               <span>Cash In ({inCount})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTypeFilter('out')}
-              className={`px-3 py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              className={`px-2 sm:px-3 py-2 sm:py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
                 activeTypeFilter === 'out'
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'text-rose-700 hover:text-rose-900'
               }`}
             >
-              <ArrowUpRight className="w-3.5 h-3.5" />
+              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
               <span>Cash Out ({outCount})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubView('analytics')}
-              className="px-3 py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 text-[#F26B1D] hover:bg-[#FFF1E6] font-extrabold"
-              title="Open Automatic Owner Earnings & Profit Analytics Page"
-            >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span>Earnings Analytics →</span>
             </button>
           </div>
 
-          {/* Action Buttons: Add Cash In & Add Cash Out */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Export CSV */}
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="px-3 py-2 rounded-xl bg-white border border-[#F0E4D7] hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Download Cash Register Ledger CSV"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
-
+          {/* Action Buttons: Add Cash In & Add Cash Out + Export */}
+          <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full lg:w-auto">
             {/* + Cash In Button */}
             <button
               type="button"
               onClick={() => handleOpenAdd('in')}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black shadow-md shadow-emerald-600/20 transition cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-2.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black shadow-md shadow-emerald-600/20 transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap"
             >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>Cash In (Money In)</span>
+              <Plus className="w-3.5 h-3.5 stroke-[3] shrink-0" />
+              <span>Cash In</span>
+              <span className="hidden sm:inline">(Money In)</span>
             </button>
 
             {/* - Cash Out Button */}
             <button
               type="button"
               onClick={() => handleOpenAdd('out')}
-              className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black shadow-md shadow-rose-600/20 transition cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-2.5 sm:py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black shadow-md shadow-rose-600/20 transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap"
             >
-              <Minus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>Cash Out (Expense)</span>
+              <Minus className="w-3.5 h-3.5 stroke-[3] shrink-0" />
+              <span>Cash Out</span>
+              <span className="hidden sm:inline">(Expense)</span>
+            </button>
+
+            {/* Export CSV */}
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl bg-white border border-[#F0E4D7] hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap"
+              title="Download Cash Register Ledger CSV"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>Export CSV</span>
             </button>
           </div>
         </div>
 
         {/* Secondary Filter Bar: Search, Category, Date */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-wrap pt-1">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 pt-1">
           {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -505,13 +501,13 @@ export default function CashFlowManager({
           </div>
 
           {/* Date Filter & Direct Date Picker */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <div className="flex items-center gap-1 bg-[#FFF9F2] px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] text-xs">
-              <Calendar className="w-3.5 h-3.5 text-[#7A6A5C]" />
+          <div className="grid grid-cols-1 sm:flex sm:items-center gap-2 sm:flex-wrap">
+            <div className="flex items-center gap-1.5 bg-[#FFF9F2] px-3 py-2 sm:py-1.5 rounded-xl border border-[#F0E4D7] text-xs w-full sm:w-auto">
+              <Calendar className="w-3.5 h-3.5 text-[#7A6A5C] shrink-0" />
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="bg-transparent font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
+                className="w-full sm:w-auto bg-transparent font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
               >
                 <option value="all">Date: All Time</option>
                 <option value="today">Date: Today</option>
@@ -524,8 +520,8 @@ export default function CashFlowManager({
             </div>
 
             {dateFilter !== 'custom_range' && (
-              <div className="flex items-center gap-1 bg-[#FFF9F2] px-2.5 py-1 rounded-xl border border-[#F0E4D7] text-xs">
-                <span className="text-[10px] font-bold text-[#7A6A5C] uppercase">Pick Date:</span>
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#FFF9F2] px-3 py-2 sm:py-1.5 rounded-xl border border-[#F0E4D7] text-xs w-full sm:w-auto">
+                <span className="text-[10px] font-bold text-[#7A6A5C] uppercase shrink-0">Pick Date:</span>
                 <input
                   type="date"
                   value={specificDate}
@@ -543,21 +539,25 @@ export default function CashFlowManager({
             )}
 
             {dateFilter === 'custom_range' && (
-              <div className="flex items-center gap-1.5 bg-[#FFF9F2] px-2.5 py-1 rounded-xl border border-[#F0E4D7] text-xs flex-wrap">
-                <span className="text-[10px] font-bold text-[#7A6A5C] uppercase">From:</span>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="bg-white px-2 py-0.5 rounded-lg border border-[#F0E4D7] font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
-                />
-                <span className="text-[10px] font-bold text-[#7A6A5C] uppercase">To:</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="bg-white px-2 py-0.5 rounded-lg border border-[#F0E4D7] font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
-                />
+              <div className="grid grid-cols-2 sm:flex items-center gap-1.5 bg-[#FFF9F2] px-3 py-2 sm:py-1 rounded-xl border border-[#F0E4D7] text-xs w-full sm:w-auto">
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-[10px] font-bold text-[#7A6A5C] uppercase shrink-0">From:</span>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full bg-white px-2 py-0.5 rounded-lg border border-[#F0E4D7] font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
+                  />
+                </div>
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-[10px] font-bold text-[#7A6A5C] uppercase shrink-0">To:</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full bg-white px-2 py-0.5 rounded-lg border border-[#F0E4D7] font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
+                  />
+                </div>
               </div>
             )}
 
@@ -565,38 +565,38 @@ export default function CashFlowManager({
               <button
                 type="button"
                 onClick={() => setDateFilter('all')}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer"
+                className="px-3 py-2 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition cursor-pointer text-center"
                 title="Reset date filter to All Time"
               >
                 Reset Date
               </button>
             )}
-          </div>
 
-          {/* Category Filter */}
-          <div className="flex items-center gap-1 bg-[#FFF9F2] px-2.5 py-1.5 rounded-xl border border-[#F0E4D7] text-xs">
-            <Tag className="w-3.5 h-3.5 text-[#7A6A5C]" />
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-transparent font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer"
-            >
-              <option value="all">Category: All</option>
-              <optgroup label="Cash In Categories">
-                {CASH_IN_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Cash Out Categories">
-                {CASH_OUT_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
+            {/* Category Filter */}
+            <div className="flex items-center gap-1.5 bg-[#FFF9F2] px-3 py-2 sm:py-1.5 rounded-xl border border-[#F0E4D7] text-xs w-full sm:w-auto">
+              <Tag className="w-3.5 h-3.5 text-[#7A6A5C] shrink-0" />
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full sm:w-auto bg-transparent font-bold text-[#2B2118] text-xs focus:outline-none cursor-pointer truncate"
+              >
+                <option value="all">Category: All</option>
+                <optgroup label="Cash In Categories">
+                  {CASH_IN_CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Cash Out Categories">
+                  {CASH_OUT_CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -648,69 +648,56 @@ export default function CashFlowManager({
           </div>
         ) : (
           <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-2xs">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-3">Date & Time</th>
-                  <th className="py-3 px-3">Category & Party</th>
-                  <th className="py-3 px-3">Description / Note</th>
-                  <th className="py-3 px-3 text-center">Mode</th>
-                  <th className="py-3 px-4 text-right">Amount (PKR)</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredEntries.map((item) => {
+            <div
+              onScroll={entriesScroll.handleContainerScroll}
+              className="max-h-[520px] overflow-y-auto overflow-x-auto"
+            >
+              {/* Mobile Responsive Card List (< md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {entriesScroll.visibleItems.map((item) => {
                   const isIn = item.type === 'in';
+                  const entryDateObj = new Date(item.date || item.created_at);
                   return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-slate-50/80 transition group"
-                    >
-                      {/* Type Badge */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
+                    <div key={item.id} className="p-3.5 space-y-2 hover:bg-slate-50/70 transition">
+                      {/* Top Row: Type Badge + Mode + Amount */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                              isIn
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-rose-50 text-rose-800 border-rose-300'
+                            }`}
+                          >
+                            {isIn ? (
+                              <>
+                                <ArrowDownLeft className="w-3 h-3 text-emerald-600" />
+                                <span>Cash In</span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowUpRight className="w-3 h-3 text-rose-600" />
+                                <span>Cash Out</span>
+                              </>
+                            )}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold uppercase font-mono">
+                            {item.payment_method?.replace('_', ' ') || 'CASH'}
+                          </span>
+                        </div>
+
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                            isIn
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                              : 'bg-rose-50 text-rose-800 border-rose-300'
+                          className={`font-mono font-black text-sm shrink-0 ${
+                            isIn ? 'text-emerald-700' : 'text-rose-700'
                           }`}
                         >
-                          {isIn ? (
-                            <>
-                              <ArrowDownLeft className="w-3 h-3 text-emerald-600" />
-                              <span>Cash In</span>
-                            </>
-                          ) : (
-                            <>
-                              <ArrowUpRight className="w-3 h-3 text-rose-600" />
-                              <span>Cash Out</span>
-                            </>
-                          )}
+                          {isIn ? '+' : '-'}{formatPKR(item.amount)}
                         </span>
-                      </td>
+                      </div>
 
-                      {/* Date & Time */}
-                      <td className="py-3.5 px-3 font-mono text-[11px] text-slate-600 whitespace-nowrap">
-                        <div>
-                          {new Date(item.date || item.created_at).toLocaleDateString('en-PK', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {new Date(item.date || item.created_at).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </td>
-
-                      {/* Category & Source / Recipient */}
-                      <td className="py-3.5 px-3">
-                        <div className="font-bold text-slate-900 text-xs">
+                      {/* Middle Row: Category, Party & Description */}
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-slate-900 text-xs leading-snug">
                           {item.category_label || item.category}
                         </div>
                         {item.source_recipient && (
@@ -719,64 +706,197 @@ export default function CashFlowManager({
                             <span className="text-[#2B2118] font-semibold">{item.source_recipient}</span>
                           </div>
                         )}
-                      </td>
-
-                      {/* Description & Reference # */}
-                      <td className="py-3.5 px-3 max-w-xs">
-                        <div className="text-slate-700 truncate font-sans">
-                          {item.description || '—'}
-                        </div>
+                        {item.description && (
+                          <div className="text-[11px] text-slate-600 line-clamp-2 pt-0.5">
+                            {item.description}
+                          </div>
+                        )}
                         {item.reference_no && (
-                          <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] font-mono">
+                          <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-mono">
                             Ref: {item.reference_no}
                           </span>
                         )}
-                      </td>
+                      </div>
 
-                      {/* Payment Mode */}
-                      <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold uppercase font-mono">
-                          {item.payment_method?.replace('_', ' ') || 'CASH'}
-                        </span>
-                      </td>
+                      {/* Bottom Row: Date/Time + Edit/Delete Actions */}
+                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100">
+                        <div className="text-[11px] font-mono text-slate-500">
+                          {entryDateObj.toLocaleDateString('en-PK', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}{' '}
+                          •{' '}
+                          {entryDateObj.toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
 
-                      {/* Amount */}
-                      <td className="py-3.5 px-4 text-right font-mono font-black text-sm whitespace-nowrap">
-                        <span
-                          className={
-                            isIn ? 'text-emerald-700' : 'text-rose-700'
-                          }
-                        >
-                          {isIn ? '+' : '-'}{formatPKR(item.amount)}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(item)}
-                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
                             title="Edit entry"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Edit2 className="w-3 h-3" />
+                            <span>Edit</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(item)}
-                            className="p-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 transition cursor-pointer"
+                            className="p-1 rounded-lg bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 transition cursor-pointer"
                             title="Delete entry"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+
+              {/* Desktop Table (md+) */}
+              <table className="hidden md:table w-full text-left text-xs">
+                <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                    <th className="py-3 px-4">Type</th>
+                    <th className="py-3 px-3">Date & Time</th>
+                    <th className="py-3 px-3">Category & Party</th>
+                    <th className="py-3 px-3">Description / Note</th>
+                    <th className="py-3 px-3 text-center">Mode</th>
+                    <th className="py-3 px-4 text-right">Amount (PKR)</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {entriesScroll.visibleItems.map((item) => {
+                    const isIn = item.type === 'in';
+                    return (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-slate-50/80 transition group"
+                      >
+                        {/* Type Badge */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                              isIn
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-rose-50 text-rose-800 border-rose-300'
+                            }`}
+                          >
+                            {isIn ? (
+                              <>
+                                <ArrowDownLeft className="w-3 h-3 text-emerald-600" />
+                                <span>Cash In</span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowUpRight className="w-3 h-3 text-rose-600" />
+                                <span>Cash Out</span>
+                              </>
+                            )}
+                          </span>
+                        </td>
+
+                        {/* Date & Time */}
+                        <td className="py-3.5 px-3 font-mono text-[11px] text-slate-600 whitespace-nowrap">
+                          <div>
+                            {new Date(item.date || item.created_at).toLocaleDateString('en-PK', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {new Date(item.date || item.created_at).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                        </td>
+
+                        {/* Category & Source / Recipient */}
+                        <td className="py-3.5 px-3">
+                          <div className="font-bold text-slate-900 text-xs">
+                            {item.category_label || item.category}
+                          </div>
+                          {item.source_recipient && (
+                            <div className="text-[11px] text-slate-500 font-medium">
+                              {isIn ? 'From: ' : 'To: '}
+                              <span className="text-[#2B2118] font-semibold">{item.source_recipient}</span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Description & Reference # */}
+                        <td className="py-3.5 px-3 max-w-xs">
+                          <div className="text-slate-700 truncate font-sans">
+                            {item.description || '—'}
+                          </div>
+                          {item.reference_no && (
+                            <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] font-mono">
+                              Ref: {item.reference_no}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Payment Mode */}
+                        <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold uppercase font-mono">
+                            {item.payment_method?.replace('_', ' ') || 'CASH'}
+                          </span>
+                        </td>
+
+                        {/* Amount */}
+                        <td className="py-3.5 px-4 text-right font-mono font-black text-sm whitespace-nowrap">
+                          <span
+                            className={
+                              isIn ? 'text-emerald-700' : 'text-rose-700'
+                            }
+                          >
+                            {isIn ? '+' : '-'}{formatPKR(item.amount)}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(item)}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                              title="Edit entry"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item)}
+                              className="p-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 transition cursor-pointer"
+                              title="Delete entry"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <InfiniteScrollSentinel
+                hasMore={entriesScroll.hasMore}
+                onLoadMore={entriesScroll.loadMore}
+                shownCount={entriesScroll.visibleCount}
+                totalCount={entriesScroll.totalCount}
+                initialCount={entriesScroll.initialCount}
+                itemLabel="cash register entries"
+              />
+            </div>
           </div>
         )}
       </div>

@@ -22,6 +22,7 @@ import {
 } from '../utils/dealUtils';
 import DealFlowModal from './DealFlowModal';
 import DishFormModal from './DishFormModal';
+import InfiniteScrollSentinel, { useInfiniteScroll } from './Common/InfiniteScrollSentinel';
 
 function capitalizeWord(str) {
   if (!str) return '';
@@ -180,6 +181,8 @@ export default function MenuItemManager({
 
     return matchesCategory && matchesSearch;
   });
+
+  const menuItemsScroll = useInfiniteScroll(filteredItems, { initialCount: 9, step: 9 });
 
   const getCategoryName = (catId) => {
     const cat = categories.find((c) => c.id === catId);
@@ -355,8 +358,9 @@ export default function MenuItemManager({
           </p>
         </div>
       ) : (
+        <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredItems.map((item) => {
+          {menuItemsScroll.visibleItems.map((item) => {
             const isAvailable = getItemAvailability(item);
             const isSoldOut = !isAvailable;
             const dealInfo = getItemDealInfo(item);
@@ -518,6 +522,16 @@ export default function MenuItemManager({
               </div>
             );
           })}
+        </div>
+        <InfiniteScrollSentinel
+          hasMore={menuItemsScroll.hasMore}
+          onLoadMore={menuItemsScroll.loadMore}
+          shownCount={menuItemsScroll.visibleCount}
+          totalCount={menuItemsScroll.totalCount}
+          initialCount={menuItemsScroll.initialCount}
+          itemLabel="menu items"
+          className="rounded-2xl border border-[#F0E4D7]"
+        />
         </div>
       )}
 

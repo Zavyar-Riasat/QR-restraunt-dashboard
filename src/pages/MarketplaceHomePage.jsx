@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { marketplaceService, SEED_MARKETPLACE_RESTAURANTS } from '../services/marketplaceService.js';
 import { normalizeCustomerLocation } from '../utils/geoValidation.js';
 import { useCustomerAuth } from '../context/CustomerAuthContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import CustomerLocationModal from '../components/Customer/CustomerLocationModal.jsx';
-import CustomerAuthModal from '../components/Customer/CustomerAuthModal.jsx';
-import CustomerCartDrawer from '../components/CustomerCartDrawer.jsx';
+const CustomerLocationModal = lazy(() => import('../components/Customer/CustomerLocationModal.jsx'));
+const CustomerAuthModal = lazy(() => import('../components/Customer/CustomerAuthModal.jsx'));
+const CustomerCartDrawer = lazy(() => import('../components/CustomerCartDrawer.jsx'));
 import CustomerBottomNav from '../components/Customer/CustomerBottomNav.jsx';
+import InstallAppButton from '../components/PWA/InstallAppButton.jsx';
 import BlurUpImage from '../components/Common/BlurUpImage.jsx';
+import InfiniteScrollSentinel from '../components/Common/InfiniteScrollSentinel.jsx';
 import { HeroFoodIllustration, EmptyStateIllustration } from '../components/Common/Illustrations.jsx';
 import { formatPKR } from '../utils/currencyUtils.js';
 import {
@@ -90,10 +92,13 @@ const formatCuisineWords = (store) => {
 
 export default function MarketplaceHomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { customer, favorites, toggleFavorite, addresses: _addresses, isCustomerAuthenticated, saveAddress } = useCustomerAuth();
   const { user: _user } = useAuth();
-  const { t } = useLanguage();
+  const { t, toggleLanguage: _toggleLanguage } = useLanguage();
   const searchInputRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
+  const resultsSectionRef = useRef(null);
   const morePopoverRef = useRef(null);
   const moreButtonRef = useRef(null);
   const categoryRowRef = useRef(null);
@@ -438,6 +443,7 @@ export default function MarketplaceHomePage() {
   // -------------------------------------------------------------
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -452,13 +458,46 @@ export default function MarketplaceHomePage() {
     setFoodCursor(0);
   };
 
+  const focusVisibleSearchInput = useCallback(() => {
+    setIsSearchFocused(true);
+    const mobileEl = mobileSearchInputRef.current;
+    const desktopEl = searchInputRef.current;
+    const target =
+      mobileEl && mobileEl.offsetParent !== null ? mobileEl : desktopEl || mobileEl;
+    if (target) {
+      target.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (location.search.includes('focus=search')) {
+      const timer = setTimeout(() => {
+        focusVisibleSearchInput();
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [location.search, focusVisibleSearchInput]);
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    const trimmed = searchInput.trim();
+    setDebouncedSearch(trimmed);
+    setRestaurantPage(1);
+    setFoodCursor(0);
+    if (mobileSearchInputRef.current) mobileSearchInputRef.current.blur();
+    if (searchInputRef.current) searchInputRef.current.blur();
+    if (resultsSectionRef.current) {
+      resultsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   // Active Category across modes (ALL or specific category)
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
-  const _activeCategoryList = homeMode === 'food' ? FOOD_CATEGORIES : RESTAURANT_CUISINES;
+  const activeCategoryList = homeMode === 'food' ? FOOD_CATEGORIES : RESTAURANT_CUISINES;
   const activeMoreCategoryList = homeMode === 'food' ? MORE_FOOD_CATEGORIES : MORE_RESTAURANT_CUISINES;
 
-  const _handleCategorySelect = (cId) => {
+  const handleCategorySelect = (cId) => {
     setSelectedCategory(cId);
     setRestaurantPage(1);
     setFoodCursor(0);
@@ -473,14 +512,28 @@ export default function MarketplaceHomePage() {
   const [filterFreeDelivery, setFilterFreeDelivery] = useState(false);
 
   const [restaurantPage, setRestaurantPage] = useState(1);
+
+  useEffect(() => {
+    setRestaurantPage(1);
+  }, [
+    customerLocation?.name,
+    customerLocation?.lat,
+    customerLocation?.lng,
+    selectedCategory,
+    debouncedSearch,
+    restaurantSort,
+    filterOpenNow,
+    orderType,
+    filterFreeDelivery,
+  ]);
   const [restaurants, setRestaurants] = useState(() => {
     try {
-      return marketplaceService.getApprovedMarketplaceRestaurantsSync(customerLocation) || [];
+      return (marketplaceService.getApprovedMarketplaceRestaurantsSync(customerLocation) || []).slice(0, 6);
     } catch {
       return [];
     }
   });
-  const [_restaurantTotalCount, setRestaurantTotalCount] = useState(0);
+  const [restaurantTotalCount, setRestaurantTotalCount] = useState(0);
   const [restaurantHasMore, setRestaurantHasMore] = useState(false);
   const [restaurantsLoading, setRestaurantsLoading] = useState(false);
 
@@ -504,7 +557,7 @@ export default function MarketplaceHomePage() {
         dinein: orderType === 'dinein',
         freeDelivery: filterFreeDelivery,
         page: restaurantPage,
-        pageSize: 20,
+        pageSize: 6,
       });
 
       setRestaurants((prev) =>
@@ -576,7 +629,7 @@ export default function MarketplaceHomePage() {
           category: selectedCategory,
           sort: foodSort,
           cursor: cursorToFetch,
-          limit: 24,
+          limit: 9,
           openNow: filterOpenNow,
           vegOnly: foodVegOnly,
           minPrice,
@@ -849,6 +902,7 @@ export default function MarketplaceHomePage() {
   const handleClearFilters = () => {
     setSearchInput('');
     setDebouncedSearch('');
+    setIsSearchFocused(false);
     setSelectedCategory('ALL');
     setFilterOpenNow(false);
     setFilterFreeDelivery(false);
@@ -910,28 +964,39 @@ export default function MarketplaceHomePage() {
 
             {/* Center: Search Box (Desktop) - Placeholder changes with mode */}
             <div className="flex-1 max-w-lg hidden md:block">
-              <div className="relative">
+              <form onSubmit={handleSearchSubmit} className="relative flex items-center">
                 <Search className="w-4 h-4 text-[#7A6A5C] absolute top-1/2 -translate-y-1/2 pointer-events-none left-3" />
                 <input
                   id="marketplace-search-input"
                   ref={searchInputRef}
-                  type="text"
+                  type="search"
                   placeholder={currentSearchPlaceholder}
                   value={searchInput}
+                  onFocus={() => setIsSearchFocused(true)}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full py-2 min-h-[42px] rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-medium text-[#2B2118] dark:text-[#FFF9F2] placeholder-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] transition pl-9 pr-8"
+                  className="w-full py-2 min-h-[42px] rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-medium text-[#2B2118] dark:text-[#FFF9F2] placeholder-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] transition pl-9 pr-20"
                 />
                 {searchInput && (
                   <button
                     type="button"
-                    onClick={() => handleSearchChange('')}
-                    className="absolute top-1/2 -translate-y-1/2 text-[#9E8E81] hover:text-[#2B2118] dark:hover:text-white p-1 cursor-pointer right-2"
+                    onClick={() => {
+                      handleSearchChange('');
+                      setIsSearchFocused(false);
+                    }}
+                    className="absolute top-1/2 -translate-y-1/2 text-[#9E8E81] hover:text-[#2B2118] dark:hover:text-white p-1 cursor-pointer right-15"
                     title="Clear search"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
-              </div>
+                <button
+                  type="submit"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg bg-[#F26B1D] hover:bg-[#D95A12] text-white text-[11px] font-bold transition cursor-pointer shadow-2xs"
+                  title="Search"
+                >
+                  Search
+                </button>
+              </form>
             </div>
 
             {/* Right: Location Chip, Cart Button, Theme Toggle, Account */}
@@ -947,6 +1012,9 @@ export default function MarketplaceHomePage() {
                 <span className="truncate">{customerLocation?.name || 'Location'}</span>
                 <ChevronDown className="w-3 h-3 text-[#7A6A5C] dark:text-[#A8988B] shrink-0" />
               </button>
+
+              {/* Install App Button */}
+              <InstallAppButton appName="Dineflow" />
 
               {/* Cart Button */}
               <button
@@ -1027,25 +1095,58 @@ export default function MarketplaceHomePage() {
 
           {/* Mobile Search Row */}
           <div className="pb-3 md:hidden">
-            <div className="relative">
-              <Search className="w-4 h-4 text-[#7A6A5C] absolute top-1/2 -translate-y-1/2 pointer-events-none left-3" />
-              <input
-                type="text"
-                placeholder={currentSearchPlaceholder}
-                value={searchInput}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="w-full py-2 min-h-[42px] rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-medium text-[#2B2118] dark:text-[#FFF9F2] placeholder-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] pl-9 pr-8"
-              />
-              {searchInput && (
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-[#7A6A5C] absolute top-1/2 -translate-y-1/2 pointer-events-none left-3" />
+                <input
+                  id="marketplace-mobile-search-input"
+                  ref={mobileSearchInputRef}
+                  type="search"
+                  enterKeyHint="search"
+                  placeholder={currentSearchPlaceholder}
+                  value={searchInput}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-full py-2 min-h-[42px] rounded-xl bg-[#FFF9F2] dark:bg-[#281D16] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-medium text-[#2B2118] dark:text-[#FFF9F2] placeholder-[#9E8E81] focus:outline-none focus:ring-2 focus:ring-[#F26B1D] pl-9 pr-16"
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSearchChange('');
+                      setIsSearchFocused(false);
+                    }}
+                    aria-label="Clear search"
+                    className="absolute top-1/2 -translate-y-1/2 text-[#9E8E81] hover:text-[#2B2118] dark:hover:text-[#FFF9F2] p-1 right-14 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  aria-label="Search"
+                  className="absolute top-1/2 -translate-y-1/2 right-1.5 px-2.5 py-1.5 rounded-lg bg-[#F26B1D] hover:bg-[#D95B12] text-white text-[11px] font-bold transition cursor-pointer flex items-center gap-1 shadow-xs"
+                >
+                  <Search className="w-3 h-3" />
+                  <span>Search</span>
+                </button>
+              </div>
+              {(searchInput || isSearchFocused) && (
                 <button
                   type="button"
-                  onClick={() => handleSearchChange('')}
-                  className="absolute top-1/2 -translate-y-1/2 text-[#9E8E81] p-1 right-2"
+                  onClick={() => {
+                    handleSearchChange('');
+                    setIsSearchFocused(false);
+                    if (location.search.includes('focus=search')) {
+                      navigate('/', { replace: true });
+                    }
+                  }}
+                  className="px-2.5 py-2 min-h-[42px] rounded-xl text-xs font-bold text-[#7A6A5C] dark:text-[#CBB8A8] hover:text-[#2B2118] dark:hover:text-[#FFF9F2] shrink-0 cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  Done
                 </button>
               )}
-            </div>
+            </form>
           </div>
         </div>
       </header>
@@ -1053,11 +1154,15 @@ export default function MarketplaceHomePage() {
       {/* ========================================================
           MAIN CONTENT AREA
           ======================================================== */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 space-y-6 sm:space-y-8 scroll-mt-20">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-8 space-y-5 sm:space-y-8 scroll-mt-20">
         {/* ========================================================
-            2. RESTORED FULL-SIZE HERO BANNER
+            2. RESTORED FULL-SIZE HERO BANNER (Collapsed on mobile while searching so results appear immediately)
             ======================================================== */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FFF1E6] via-[#FFF9F2] to-[#FFE6D4] dark:from-[#251A13] dark:via-[#1D150F] dark:to-[#2B1E16] border border-[#FCD8BF] dark:border-[#3E2C20] p-6 sm:p-8 lg:p-10 shadow-[0_4px_24px_rgba(43,33,24,0.06)] transition-all">
+        <section
+          className={`${
+            searchInput.trim() || isSearchFocused ? 'hidden md:block' : ''
+          } relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FFF1E6] via-[#FFF9F2] to-[#FFE6D4] dark:from-[#251A13] dark:via-[#1D150F] dark:to-[#2B1E16] border border-[#FCD8BF] dark:border-[#3E2C20] p-6 sm:p-8 lg:p-10 shadow-[0_4px_24px_rgba(43,33,24,0.06)] transition-all`}
+        >
           {/* Ambient Animated Warm Aura Orbs */}
           <div className="absolute -top-16 -right-16 w-80 h-80 rounded-full bg-gradient-to-br from-[#F26B1D]/20 via-[#F5A623]/25 to-transparent blur-3xl pointer-events-none animate-aurora" />
           <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full bg-gradient-to-tr from-[#F5A623]/15 via-[#FFF1E6]/30 to-transparent blur-2xl pointer-events-none animate-float-reverse" />
@@ -1167,9 +1272,33 @@ export default function MarketplaceHomePage() {
 
 
         {/* ========================================================
+            4. QUICK CATEGORY CHIPS
+            ======================================================== */}
+        <section className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+          {activeCategoryList.map((cat) => {
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => handleCategorySelect(cat.id)}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold shrink-0 border transition cursor-pointer select-none ${
+                  isSelected
+                    ? 'bg-[#F26B1D] text-white border-[#F26B1D] shadow-xs'
+                    : 'bg-white dark:bg-[#241C16] text-[#7A6A5C] dark:text-[#CBB8A8] border-[#F0E4D7] dark:border-[#382B20] hover:border-[#F26B1D]/50 hover:text-[#2B2118] dark:hover:text-[#FFF9F2]'
+                }`}
+              >
+                <span>{cat.emoji}</span>
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
+        </section>
+
+        {/* ========================================================
             5. CONTROLS BAR: Section Title, Quick Toggles, Filters & Sort
             ======================================================== */}
-        <section className="space-y-4">
+        <section ref={resultsSectionRef} className="space-y-4 scroll-mt-28">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
             {/* Section Title */}
             <div>
@@ -1364,6 +1493,23 @@ export default function MarketplaceHomePage() {
                               />
                             </button>
                           </div>
+
+                          {/* Bottom-Left Delivery Status Pill */}
+                          {customerLocation && (
+                            <div className="absolute bottom-2.5 left-3 pointer-events-none z-10">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md shadow-xs ${
+                                  store.delivers_to_user !== false
+                                    ? 'bg-emerald-600/90 text-white'
+                                    : 'bg-amber-600/90 text-white'
+                                }`}
+                              >
+                                {store.delivers_to_user !== false
+                                  ? t('badgeDelivers') || 'Delivers to you'
+                                  : t('badgeOutside') || 'Outside range'}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Content Block */}
@@ -1414,17 +1560,17 @@ export default function MarketplaceHomePage() {
               </div>
             )}
 
-            {/* Load More Button for Restaurants */}
-            {!restaurantsLoading && restaurantHasMore && (
-              <div className="pt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => setRestaurantPage((prev) => prev + 1)}
-                  className="min-h-[44px] px-6 py-2.5 rounded-xl bg-white dark:bg-[#241C16] hover:bg-[#FFF1E6] dark:hover:bg-[#30231B] text-[#2B2118] dark:text-[#FFF9F2] hover:text-[#F26B1D] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold shadow-2xs transition cursor-pointer"
-                >
-                  {t('loadMore') || 'Load more restaurants'}
-                </button>
-              </div>
+            {/* Auto Load More on Scroll for Restaurants */}
+            {!restaurantsLoading && restaurants.length > 0 && (
+              <InfiniteScrollSentinel
+                hasMore={restaurantHasMore}
+                onLoadMore={() => setRestaurantPage((prev) => prev + 1)}
+                shownCount={restaurants.length}
+                totalCount={restaurantTotalCount || restaurants.length}
+                initialCount={6}
+                itemLabel="restaurants"
+                className="rounded-2xl border border-[#F0E4D7]"
+              />
             )}
           </section>
         )}
@@ -1600,17 +1746,17 @@ export default function MarketplaceHomePage() {
               </div>
             )}
 
-            {/* Load More Button for Food */}
-            {!foodLoading && foodHasMore && (
-              <div className="pt-2 text-center">
-                <button
-                  type="button"
-                  onClick={handleLoadMoreFood}
-                  className="min-h-[44px] px-6 py-2.5 rounded-xl bg-white dark:bg-[#241C16] hover:bg-[#FFF1E6] dark:hover:bg-[#30231B] text-[#2B2118] dark:text-[#FFF9F2] hover:text-[#F26B1D] border border-[#F0E4D7] dark:border-[#382B20] text-xs font-bold shadow-2xs transition cursor-pointer"
-                >
-                  {t('loadMoreFood') || 'Load more food'}
-                </button>
-              </div>
+            {/* Auto Load More on Scroll for Food */}
+            {!foodLoading && foodDishes.length > 0 && (
+              <InfiniteScrollSentinel
+                hasMore={foodHasMore}
+                onLoadMore={handleLoadMoreFood}
+                shownCount={foodDishes.length}
+                totalCount={_foodTotalCount || (foodHasMore ? foodDishes.length + 9 : foodDishes.length)}
+                initialCount={9}
+                itemLabel="dishes"
+                className="rounded-2xl border border-[#F0E4D7]"
+              />
             )}
           </section>
         )}
@@ -1901,44 +2047,53 @@ export default function MarketplaceHomePage() {
           12. Mobile Bottom Navigation
           ======================================================== */}
       <CustomerBottomNav
-        onSearchClick={() => {
-          const input = document.getElementById('marketplace-search-input');
-          if (input) {
-            input.focus();
-            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        isSearchActive={Boolean(searchInput.trim()) || isSearchFocused}
+        onSearchClick={focusVisibleSearchInput}
+        onHomeClick={() => {
+          setIsSearchFocused(false);
+          if (searchInput) {
+            handleSearchChange('');
           }
         }}
       />
 
-      {/* Customer Cart Drawer */}
-      <CustomerCartDrawer
-        isOpen={isCartDrawerOpen}
-        onClose={() => setIsCartDrawerOpen(false)}
-        cart={activeCartItems}
-        onUpdateQty={handleUpdateCartQty}
-        onRemoveItem={(idx) => handleUpdateCartQty(idx, -999)}
-        restaurant={activeCartRestaurant}
-        onCartClear={handleClearCart}
-      />
+      <Suspense fallback={null}>
+        {/* Customer Cart Drawer */}
+        {isCartDrawerOpen && (
+          <CustomerCartDrawer
+            isOpen={isCartDrawerOpen}
+            onClose={() => setIsCartDrawerOpen(false)}
+            cart={activeCartItems}
+            onUpdateQty={handleUpdateCartQty}
+            onRemoveItem={(idx) => handleUpdateCartQty(idx, -999)}
+            restaurant={activeCartRestaurant}
+            onCartClear={handleClearCart}
+          />
+        )}
 
-      {/* Location Modal */}
-      <CustomerLocationModal
-        isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
-        onLocationSelect={handleLocationSelect}
-        onSkip={handleSkipLocation}
-        initialView={modalInitialView}
-        currentLocation={customerLocation}
-      />
+        {/* Location Modal */}
+        {isLocationModalOpen && (
+          <CustomerLocationModal
+            isOpen={isLocationModalOpen}
+            onClose={() => setIsLocationModalOpen(false)}
+            onLocationSelect={handleLocationSelect}
+            onSkip={handleSkipLocation}
+            initialView={modalInitialView}
+            currentLocation={customerLocation}
+          />
+        )}
 
-      {/* Sign In Required Modal */}
-      <CustomerAuthModal
-        isOpen={showSignInFavModal}
-        onClose={() => setShowSignInFavModal(false)}
-        onSuccess={() => setShowSignInFavModal(false)}
-        title="Sign In Required to Order"
-        subtitle="Please sign in with your Google account to order food, save favorite restaurants, and track live kitchen updates."
-      />
+        {/* Sign In Required Modal */}
+        {showSignInFavModal && (
+          <CustomerAuthModal
+            isOpen={showSignInFavModal}
+            onClose={() => setShowSignInFavModal(false)}
+            onSuccess={() => setShowSignInFavModal(false)}
+            title="Sign In Required to Order"
+            subtitle="Please sign in with your Google account to order food, save favorite restaurants, and track live kitchen updates."
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

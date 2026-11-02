@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { authService, ROLE_TIERS, getRoleTierConfig } from '../../services/authService';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../Common/InfiniteScrollSentinel';
 
 const ROLE_CARDS = [
   {
@@ -71,6 +72,7 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
   });
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const staffScroll = useInfiniteScroll(staffList, { initialCount: 6, step: 6 });
 
   // Create / Edit Staff Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,6 +85,51 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [revealedPasswords, setRevealedPasswords] = useState({});
+  const [decryptingStaffId, setDecryptingStaffId] = useState(null);
+
+  useEffect(() => {
+    const activeIds = Object.keys(revealedPasswords);
+    if (activeIds.length === 0) return undefined;
+    const timer = setInterval(() => {
+      setRevealedPasswords((prev) => {
+        const next = {};
+        Object.entries(prev).forEach(([id, entry]) => {
+          if (entry.remaining > 1) {
+            next[id] = { ...entry, remaining: entry.remaining - 1 };
+          }
+        });
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [revealedPasswords]);
+
+  const handleToggleRevealPassword = async (staffMember) => {
+    if (revealedPasswords[staffMember.id]) {
+      setRevealedPasswords((prev) => {
+        const copy = { ...prev };
+        delete copy[staffMember.id];
+        return copy;
+      });
+      return;
+    }
+    try {
+      setDecryptingStaffId(staffMember.id);
+      const res = await authService.viewPassword(staffMember.id);
+      setRevealedPasswords((prev) => ({
+        ...prev,
+        [staffMember.id]: {
+          password: res.password,
+          remaining: res.autoHideSeconds || 15,
+        },
+      }));
+    } catch (err) {
+      showToast(err.message || 'Failed to decrypt password.', 'error');
+    } finally {
+      setDecryptingStaffId(null);
+    }
+  };
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -202,8 +249,7 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
   const handleDeleteStaff = async (staffMember) => {
     if (
       !window.confirm(
-        `Remove ${staffMember.name} (${staffMember.email}) from ${
-          ROLE_TIERS[staffMember.role]?.shortLabel || staffMember.role
+        `Remove ${staffMember.name} (${staffMember.email}) from ${ROLE_TIERS[staffMember.role]?.shortLabel || staffMember.role
         } access?`
       )
     ) {
@@ -257,11 +303,10 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
       {/* Status Toast */}
       {toast && (
         <div
-          className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 shadow-xs animate-fadeIn ${
-            toast.type === 'error'
+          className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center justify-between gap-2 shadow-xs animate-fadeIn ${toast.type === 'error'
               ? 'bg-rose-50 border-rose-200 text-rose-700'
               : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2">
             {toast.type === 'error' ? (
@@ -289,9 +334,8 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
           return (
             <div
               key={card.role}
-              className={`rounded-2xl border px-4 py-3.5 flex items-center justify-between gap-3 transition shadow-2xs ${card.cardBorder} ${
-                isCurrentUserRole ? 'ring-1 ring-[#F26B1D]/40' : ''
-              }`}
+              className={`rounded-2xl border px-4 py-3.5 flex items-center justify-between gap-3 transition shadow-2xs ${card.cardBorder} ${isCurrentUserRole ? 'ring-1 ring-[#F26B1D]/40' : ''
+                }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs shrink-0 ${card.iconBg}`}>
@@ -329,96 +373,143 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
         {loading ? (
           <div className="p-8 text-center text-xs text-[#7A6A5C]">Loading staff credentials...</div>
         ) : (
-          <div className="divide-y divide-[#F0E4D7]">
-            {staffList.map((staff) => {
-              const roleInfo = getRoleTierConfig(staff.role);
-              const canManageThisStaff = authService.canActorManageStaffRole(actorRole, staff.role);
-              const isWaiterLockedForOwner = staff.role === 'waiter' && actorRole === 'owner';
+          <div
+            onScroll={staffScroll.handleContainerScroll}
+            className="max-h-[480px] overflow-y-auto"
+          >
+            <div className="divide-y divide-[#F0E4D7]">
+              {staffScroll.visibleItems.map((staff) => {
+                const roleInfo = getRoleTierConfig(staff.role);
+                const canManageThisStaff = authService.canActorManageStaffRole(actorRole, staff.role);
+                const isWaiterLockedForOwner = staff.role === 'waiter' && actorRole === 'owner';
 
-              return (
-                <div
-                  key={staff.id}
-                  className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FFF9F2]/50 transition"
-                >
-                  <div className="flex items-start sm:items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-2xl bg-[#FFF1E6] border border-[#FCD8BF] text-[#F26B1D] font-black text-sm flex items-center justify-center shrink-0">
-                      {(staff.name || staff.role || 'S').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-sm text-[#2B2118] truncate">
-                          {staff.name}
-                        </span>
-                        <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${roleInfo.badgeClass}`}
-                        >
-                          {roleInfo.shortLabel || roleInfo.label}
-                        </span>
-                        {staff.email === currentUser?.email && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-white">
-                            You
-                          </span>
-                        )}
+                return (
+                  <div
+                    key={staff.id}
+                    className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FFF9F2]/50 transition"
+                  >
+                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-[#FFF1E6] border border-[#FCD8BF] text-[#F26B1D] font-black text-sm flex items-center justify-center shrink-0">
+                        {(staff.name || staff.role || 'S').charAt(0).toUpperCase()}
                       </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-sm text-[#2B2118] truncate">
+                            {staff.name}
+                          </span>
+                          <span
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${roleInfo.badgeClass}`}
+                          >
+                            {roleInfo.shortLabel || roleInfo.label}
+                          </span>
+                          {staff.email === currentUser?.email && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-white">
+                              You
+                            </span>
+                          )}
+                        </div>
 
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-[#7A6A5C] font-mono">
-                        <span className="inline-flex items-center gap-1">
-                          <Mail className="w-3 h-3 text-[#9E8E81]" />
-                          {staff.email}
-                        </span>
-                        {staff.phone && (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-[#7A6A5C] font-mono">
                           <span className="inline-flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-[#9E8E81]" />
-                            {staff.phone}
+                            <Mail className="w-3 h-3 text-[#9E8E81]" />
+                            {staff.email}
                           </span>
-                        )}
-                        <span className="inline-flex items-center gap-1 text-slate-400">
-                          <KeyRound className="w-3 h-3" />
-                          ••••••••••••
-                        </span>
+                          {staff.phone && (
+                            <span className="inline-flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-[#9E8E81]" />
+                              {staff.phone}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-1.5 text-slate-500">
+                            <KeyRound className="w-3 h-3 text-[#F26B1D]" />
+                            {revealedPasswords[staff.id] ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-bold">
+                                <span>{revealedPasswords[staff.id].password}</span>
+                                <span className="text-[10px] text-amber-600">
+                                  ({revealedPasswords[staff.id].remaining}s)
+                                </span>
+                              </span>
+                            ) : (
+                              <span>••••••••••••</span>
+                            )}
+                            {canManageThisStaff && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleRevealPassword(staff)}
+                                disabled={decryptingStaffId === staff.id}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#FFF1E6] hover:bg-[#FDE4CF] text-[#D95A12] border border-[#FCD8BF] text-[10px] font-extrabold transition cursor-pointer"
+                                title={
+                                  revealedPasswords[staff.id]
+                                    ? 'Hide decrypted password'
+                                    : 'Decrypt password using .env key'
+                                }
+                              >
+                                {revealedPasswords[staff.id] ? (
+                                  <>
+                                    <EyeOff className="w-2.5 h-2.5" />
+                                    <span>Hide</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="w-2.5 h-2.5" />
+                                    <span>{decryptingStaffId === staff.id ? '...' : 'View'}</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Credential Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {canManageThisStaff ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(staff)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer shadow-2xs"
+                    {/* Credential Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {canManageThisStaff ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(staff)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer shadow-2xs"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-[#F26B1D]" />
+                            <span>Manage Credentials</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStaff(staff)}
+                            className="inline-flex items-center justify-center p-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-[#F0E4D7] hover:border-rose-200 transition cursor-pointer"
+                            title="Remove Staff Account"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : isWaiterLockedForOwner ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFF9F2] text-[#7A6A5C] border border-[#F0E4D7] text-[11px] font-bold"
+                          title="Waiter credentials are managed exclusively by the Manager"
                         >
-                          <Edit2 className="w-3.5 h-3.5 text-[#F26B1D]" />
-                          <span>Manage Credentials</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteStaff(staff)}
-                          className="inline-flex items-center justify-center p-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-[#F0E4D7] hover:border-rose-200 transition cursor-pointer"
-                          title="Remove Staff Account"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    ) : isWaiterLockedForOwner ? (
-                      <span
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFF9F2] text-[#7A6A5C] border border-[#F0E4D7] text-[11px] font-bold"
-                        title="Waiter credentials are managed exclusively by the Manager"
-                      >
-                        <Lock className="w-3 h-3" />
-                        <span>Managed by Manager Only</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 text-slate-500 border border-slate-200 text-[11px] font-bold">
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Protected Account</span>
-                      </span>
-                    )}
+                          <Lock className="w-3 h-3" />
+                          <span>Managed by Manager Only</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 text-slate-500 border border-slate-200 text-[11px] font-bold">
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Protected Account</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            <InfiniteScrollSentinel
+              hasMore={staffScroll.hasMore}
+              onLoadMore={staffScroll.loadMore}
+              shownCount={staffScroll.visibleCount}
+              totalCount={staffScroll.totalCount}
+              initialCount={staffScroll.initialCount}
+              itemLabel="staff accounts"
+            />
           </div>
         )}
       </div>
@@ -475,11 +566,10 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
                           key={rKey}
                           type="button"
                           onClick={() => setFormRole(rKey)}
-                          className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                            isSelected
+                          className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${isSelected
                               ? 'bg-[#FFF1E6] border-[#F26B1D] ring-1 ring-[#F26B1D]'
                               : 'bg-[#FFF9F2] border-[#F0E4D7] hover:bg-white'
-                          }`}
+                            }`}
                         >
                           <div className="text-xs font-black text-[#2B2118]">{tCfg.shortLabel || tCfg.label}</div>
                           <div className="text-[10px] text-[#7A6A5C] truncate">{tCfg.title}</div>
@@ -585,8 +675,8 @@ export default function StaffRoleManager({ restaurant, currentUser }) {
                   {submitting
                     ? 'Saving...'
                     : editingStaff
-                    ? 'Save Credentials'
-                    : 'Create Staff Account'}
+                      ? 'Save Credentials'
+                      : 'Create Staff Account'}
                 </button>
               </div>
             </form>

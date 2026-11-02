@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CustomerAuthProvider } from './context/CustomerAuthContext';
@@ -6,12 +6,13 @@ import { LanguageProvider } from './context/LanguageContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import MarketplaceHomePage from './pages/MarketplaceHomePage';
-import CustomerAccountPage from './pages/CustomerAccountPage';
-import OwnerDashboardPage from './pages/OwnerDashboardPage';
-import CustomerMenuPage from './pages/CustomerMenuPage';
-import LoginPage from './pages/LoginPage';
-import AdminPanelPage from './pages/AdminPanelPage';
-import RiderDeliveryPage from './pages/RiderDeliveryPage';
+const CustomerMenuPage = lazy(() => import('./pages/CustomerMenuPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+
+const CustomerAccountPage = lazy(() => import('./pages/CustomerAccountPage'));
+const OwnerDashboardPage = lazy(() => import('./pages/OwnerDashboardPage'));
+const AdminPanelPage = lazy(() => import('./pages/AdminPanelPage'));
+const RiderDeliveryPage = lazy(() => import('./pages/RiderDeliveryPage'));
 
 function PageLoader() {
   return (

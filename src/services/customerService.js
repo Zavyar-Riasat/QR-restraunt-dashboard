@@ -4,7 +4,7 @@
  * restaurant favorites, preferred language, and account data deletion.
  */
 
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
+import { postgresClient, isPostgresConfigured } from '../lib/postgresClient.js';
 import { orderService } from './orderService.js';
 
 const isUuid = (val) =>
@@ -42,7 +42,13 @@ export const customerService = {
     try {
       // 1. Check active session
       const current = this.getCurrentCustomer();
-      if (current && current.phone && (current.phone === cleanPhone || current.phone.endsWith(cleanPhone) || cleanPhone.endsWith(current.phone))) {
+      if (
+        current &&
+        current.phone &&
+        (current.phone === cleanPhone ||
+          current.phone.endsWith(cleanPhone) ||
+          cleanPhone.endsWith(current.phone))
+      ) {
         return current;
       }
 
@@ -67,7 +73,7 @@ export const customerService = {
   },
 
   /**
-   * Customer Login / Register using phone or email (including Google OAuth)
+   * Customer Login / Register using phone or email (including Google Sign-In)
    */
   async loginOrRegister({ id = null, name, phone, email, avatar = null, preferred_language = 'en' }) {
     const cleanPhone = (phone || '').replace(/\D/g, '');
@@ -108,17 +114,20 @@ export const customerService = {
       name: existing?.name || cleanName || 'Guest Diner',
       phone: cleanPhone || existing?.phone || '',
       email: cleanEmail || existing?.email || `${cleanPhone || 'guest'}@customer.dinehq.pk`,
-      avatar: avatar || existing?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanName)}`,
+      avatar:
+        avatar ||
+        existing?.avatar ||
+        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanName)}`,
       preferred_language: existing?.preferred_language || preferred_language || 'en',
       created_at: existing?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
-    // If Supabase is configured and phone or email is available, upsert into customers table
-    if (isSupabaseConfigured() && (customerObj.phone || customerObj.email)) {
+    // If PostgreSQL is configured and phone or email is available, upsert into customers table
+    if (isPostgresConfigured() && (customerObj.phone || customerObj.email)) {
       try {
         const conflictCol = customerObj.phone ? 'phone' : 'email';
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('customers')
           .upsert(
             {
@@ -137,7 +146,7 @@ export const customerService = {
           customerObj.id = data.id;
         }
       } catch (err) {
-        console.warn('Supabase customer upsert notice:', err.message);
+        console.warn('PostgreSQL customer upsert notice:', err.message);
       }
     }
 
@@ -159,7 +168,7 @@ export const customerService = {
   },
 
   /**
-   * Update Customer Profile (name, email, avatar, preferred_language)
+   * Update Customer Profile (name, phone, email, avatar, preferred_language)
    */
   async updateProfile(customerId, updates = {}) {
     const current = this.getCurrentCustomer();
@@ -167,36 +176,82 @@ export const customerService = {
       throw new Error('Customer session not found.');
     }
 
+    const oldPhone = (current.phone || '').replace(/\D/g, '');
+    const nextPhone =
+      updates.phone !== undefined
+        ? String(updates.phone || '').replace(/\D/g, '')
+        : current.phone || '';
+
     const updated = {
       ...current,
       ...updates,
+      ...(updates.phone !== undefined ? { phone: nextPhone } : {}),
       updated_at: new Date().toISOString(),
     };
 
-    // Update Supabase if configured and customerId is a valid UUID
-    if (isSupabaseConfigured() && isUuid(customerId)) {
+    // Update PostgreSQL if configured and customerId is a valid UUID
+    if (isPostgresConfigured() && isUuid(customerId)) {
       try {
-        await supabase
+        await postgresClient
           .from('customers')
           .update({
             name: updated.name,
+            phone: updated.phone || null,
             email: updated.email,
             avatar: updated.avatar,
           })
           .eq('id', customerId);
       } catch (err) {
-        console.warn('Supabase profile update notice:', err.message);
+        console.warn('PostgreSQL profile update notice:', err.message);
       }
     }
 
-    // Save session & registry
+    // Save session, registry & sync customer orders if phone changed
     try {
       localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(updated));
+      const rawReg = localStorage.getItem(CUSTOMER_REGISTRY_KEY);
+      const registry = rawReg ? JSON.parse(rawReg) : {};
+      if (oldPhone && oldPhone !== updated.phone) {
+        delete registry[oldPhone];
+      }
       if (updated.phone) {
-        const rawReg = localStorage.getItem(CUSTOMER_REGISTRY_KEY);
-        const registry = rawReg ? JSON.parse(rawReg) : {};
         registry[updated.phone] = updated;
-        localStorage.setItem(CUSTOMER_REGISTRY_KEY, JSON.stringify(registry));
+      }
+      if (updated.email) {
+        registry[updated.email.toLowerCase()] = updated;
+      }
+      localStorage.setItem(CUSTOMER_REGISTRY_KEY, JSON.stringify(registry));
+
+      // Keep customer orders linked when phone number is updated
+      if (oldPhone && updated.phone && oldPhone !== updated.phone) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('dineflow_orders_')) {
+            try {
+              const orders = JSON.parse(localStorage.getItem(key) || '[]');
+              let changed = false;
+              const updatedOrders = orders.map((ord) => {
+                const ordPhone = (ord.customer_phone || '').replace(/\D/g, '');
+                if (
+                  ord.customer_id === customerId ||
+                  (ordPhone && (ordPhone === oldPhone || ordPhone.endsWith(oldPhone) || oldPhone.endsWith(ordPhone)))
+                ) {
+                  changed = true;
+                  return {
+                    ...ord,
+                    customer_id: ord.customer_id || customerId,
+                    customer_phone: updated.phone,
+                    customer_name: updated.name || ord.customer_name,
+                  };
+                }
+                return ord;
+              });
+              if (changed) {
+                localStorage.setItem(key, JSON.stringify(updatedOrders));
+              }
+            } catch {}
+          }
+        }
       }
     } catch (e) {
       console.warn('Failed to save updated profile:', e);
@@ -223,14 +278,14 @@ export const customerService = {
     if (!customerId) return;
     const current = this.getCurrentCustomer();
 
-    // 1. Delete from Supabase if configured
-    if (isSupabaseConfigured() && isUuid(customerId)) {
+    // 1. Delete from PostgreSQL if configured
+    if (isPostgresConfigured() && isUuid(customerId)) {
       try {
-        await supabase.from('customer_addresses').delete().eq('customer_id', customerId);
-        await supabase.from('favorites').delete().eq('customer_id', customerId);
-        await supabase.from('customers').delete().eq('id', customerId);
+        await postgresClient.from('customer_addresses').delete().eq('customer_id', customerId);
+        await postgresClient.from('favorites').delete().eq('customer_id', customerId);
+        await postgresClient.from('customers').delete().eq('id', customerId);
       } catch (err) {
-        console.warn('Supabase delete account notice:', err.message);
+        console.warn('PostgreSQL delete account notice:', err.message);
       }
     }
 
@@ -261,10 +316,10 @@ export const customerService = {
   async getAddresses(customerId) {
     if (!customerId) return [];
 
-    // 1. Try Supabase
-    if (isSupabaseConfigured() && isUuid(customerId)) {
+    // 1. Try PostgreSQL
+    if (isPostgresConfigured() && isUuid(customerId)) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('customer_addresses')
           .select('*')
           .eq('customer_id', customerId)
@@ -274,7 +329,7 @@ export const customerService = {
           return data;
         }
       } catch (e) {
-        console.warn('Error loading customer addresses from Supabase:', e.message);
+        console.warn('Error loading customer addresses from PostgreSQL:', e.message);
       }
     }
 
@@ -309,8 +364,6 @@ export const customerService = {
 
   /**
    * Save or Add New Address
-   * Features: Home/Work/Other, map pin, landmark, delivery note, set default.
-   * Crucial rule: Use default address for nearby results and checkout autofill.
    */
   async saveAddress(customerId, addressData) {
     const current = await this.getAddresses(customerId);
@@ -332,7 +385,6 @@ export const customerService = {
 
     let updatedList;
     if (newAddr.is_default) {
-      // Unset previous default
       updatedList = current.map((a) => ({ ...a, is_default: false }));
     } else {
       updatedList = [...current];
@@ -345,10 +397,10 @@ export const customerService = {
       updatedList.unshift(newAddr);
     }
 
-    // Try Supabase insert/update
-    if (isSupabaseConfigured() && isUuid(customerId)) {
+    // Try PostgreSQL insert/update
+    if (isPostgresConfigured() && isUuid(customerId)) {
       try {
-        await supabase.from('customer_addresses').upsert({
+        await postgresClient.from('customer_addresses').upsert({
           ...(isUuid(newAddr.id) ? { id: newAddr.id } : {}),
           customer_id: customerId,
           label: newAddr.label,
@@ -359,17 +411,20 @@ export const customerService = {
           is_default: newAddr.is_default,
         });
       } catch (err) {
-        console.warn('Supabase address save notice:', err.message);
+        console.warn('PostgreSQL address save notice:', err.message);
       }
     }
 
     this.saveAddressesLocally(customerId, updatedList);
 
-    // If marked default, sync to dinehq_customer_location for nearby search results & checkout prefill
     if (newAddr.is_default && newAddr.latitude && newAddr.longitude) {
       try {
         const locObj = {
-          name: newAddr.landmark ? `${newAddr.landmark}, ${newAddr.label}` : (newAddr.address ? newAddr.address.slice(0, 32) : newAddr.label),
+          name: newAddr.landmark
+            ? `${newAddr.landmark}, ${newAddr.label}`
+            : newAddr.address
+            ? newAddr.address.slice(0, 32)
+            : newAddr.label,
           lat: Number(Number(newAddr.latitude).toFixed(3)),
           lng: Number(Number(newAddr.longitude).toFixed(3)),
           address: newAddr.address,
@@ -378,7 +433,6 @@ export const customerService = {
           isDefaultAddress: true,
         };
         localStorage.setItem('dinehq_customer_location', JSON.stringify(locObj));
-        // Remove skip flag if present
         localStorage.removeItem('dinehq_location_skipped');
       } catch {}
     }
@@ -393,20 +447,19 @@ export const customerService = {
     const current = await this.getAddresses(customerId);
     const updated = current.filter((a) => a.id !== addressId);
 
-    // If deleted address was default and others remain, make first one default
     if (updated.length > 0 && !updated.some((a) => a.is_default)) {
       updated[0].is_default = true;
     }
 
-    if (isSupabaseConfigured() && isUuid(customerId) && isUuid(addressId)) {
+    if (isPostgresConfigured() && isUuid(customerId) && isUuid(addressId)) {
       try {
-        await supabase
+        await postgresClient
           .from('customer_addresses')
           .delete()
           .eq('id', addressId)
           .eq('customer_id', customerId);
       } catch (err) {
-        console.warn('Supabase delete address notice:', err.message);
+        console.warn('PostgreSQL delete address notice:', err.message);
       }
     }
 
@@ -428,9 +481,9 @@ export const customerService = {
   async getFavorites(customerId) {
     if (!customerId) return [];
 
-    if (isSupabaseConfigured() && isUuid(customerId)) {
+    if (isPostgresConfigured() && isUuid(customerId)) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('favorites')
           .select('restaurant_id')
           .eq('customer_id', customerId);
@@ -439,7 +492,7 @@ export const customerService = {
           return data.map((f) => f.restaurant_id);
         }
       } catch (e) {
-        console.warn('Supabase favorites load notice:', e.message);
+        console.warn('PostgreSQL favorites load notice:', e.message);
       }
     }
 
@@ -452,7 +505,7 @@ export const customerService = {
       console.warn('Error reading local favorites:', e);
     }
 
-    return ['rest-101']; // Default favorite
+    return ['rest-101'];
   },
 
   /**
@@ -465,22 +518,22 @@ export const customerService = {
       ? current.filter((id) => id !== restaurantId)
       : [...current, restaurantId];
 
-    if (isSupabaseConfigured() && isUuid(customerId) && isUuid(restaurantId)) {
+    if (isPostgresConfigured() && isUuid(customerId) && isUuid(restaurantId)) {
       try {
         if (exists) {
-          await supabase
+          await postgresClient
             .from('favorites')
             .delete()
             .eq('customer_id', customerId)
             .eq('restaurant_id', restaurantId);
         } else {
-          await supabase.from('favorites').insert({
+          await postgresClient.from('favorites').insert({
             customer_id: customerId,
             restaurant_id: restaurantId,
           });
         }
       } catch (err) {
-        console.warn('Supabase toggle favorite notice:', err.message);
+        console.warn('PostgreSQL toggle favorite notice:', err.message);
       }
     }
 
@@ -501,13 +554,16 @@ export const customerService = {
     const allStoredOrders = orderService.getAllOrdersAcrossRestaurants();
 
     return allStoredOrders.filter((o) => {
-      // 1. Match by customer_id
       if (customerId && o.customer_id === customerId) return true;
 
-      // 2. Match by customer_phone
       if (cleanPhone) {
         const orderPhone = (o.customer_phone || '').replace(/\D/g, '');
-        return orderPhone && (orderPhone === cleanPhone || orderPhone.endsWith(cleanPhone) || cleanPhone.endsWith(orderPhone));
+        return (
+          orderPhone &&
+          (orderPhone === cleanPhone ||
+            orderPhone.endsWith(cleanPhone) ||
+            cleanPhone.endsWith(orderPhone))
+        );
       }
 
       return false;

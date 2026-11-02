@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { orderService } from '../services/orderService';
 import { SEED_MARKETPLACE_RESTAURANTS } from '../services/marketplaceService';
 import { formatPKR } from '../utils/currencyUtils';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../components/Common/InfiniteScrollSentinel';
 import {
   Shield,
   UtensilsCrossed,
@@ -52,8 +53,6 @@ export default function AdminPanelPage() {
   const [usersList, setUsersList] = useState(() => getRegisteredUsers());
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [usersPage, setUsersPage] = useState(1);
-  const USERS_PER_PAGE = 25;
   const [adminSection, setAdminSection] = useState('users'); // 'users' | 'audit'
 
   // AES-256-GCM Password Reveal & Auto-hide states
@@ -92,14 +91,21 @@ export default function AdminPanelPage() {
     }
   };
 
-  // Helper to resolve full store details, live revenue, and platform rank for each account
+  // Helper to resolve full store details, live revenue, and platform rank for each account in O(N)
   const restaurantMetricsMap = React.useMemo(() => {
+    const seedBySlug = new Map();
+    const seedById = new Map();
+    for (const r of SEED_MARKETPLACE_RESTAURANTS) {
+      if (r.slug) seedBySlug.set(r.slug.toLowerCase(), r);
+      if (r.id) seedById.set(r.id, r);
+    }
+
     const entries = usersList.map((acct) => {
       const slug = (acct.restaurant_slug || 'burgersmoke').toLowerCase();
       const seedStore =
-        SEED_MARKETPLACE_RESTAURANTS.find(
-          (r) => (r.slug && r.slug.toLowerCase() === slug) || (acct.restaurant_id && r.id === acct.restaurant_id)
-        ) || {};
+        seedBySlug.get(slug) ||
+        (acct.restaurant_id ? seedById.get(acct.restaurant_id) : null) ||
+        {};
       const restId = acct.restaurant_id || seedStore.id || `rest-${slug}`;
       const liveStats = orderService.getOrderStats(restId);
 
@@ -151,10 +157,11 @@ export default function AdminPanelPage() {
       .sort((a, b) => b[1] - a[1])
       .map(([s]) => s);
 
+    const slugRankMap = new Map(sortedSlugs.map((s, idx) => [s, idx + 1]));
     const map = {};
     entries.forEach((e) => {
-      const rank = sortedSlugs.indexOf(e.slug) + 1;
-      map[e.accountId] = { ...e, rank: rank > 0 ? rank : 1, totalRankedStores: sortedSlugs.length };
+      const rank = slugRankMap.get(e.slug) || 1;
+      map[e.accountId] = { ...e, rank, totalRankedStores: sortedSlugs.length };
     });
     return map;
   }, [usersList]);
@@ -512,12 +519,13 @@ export default function AdminPanelPage() {
     return matchesSearch && matchesRole;
   });
 
-  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
-  const safeUsersPage = Math.min(usersPage, totalUserPages);
-  const paginatedUsers = filteredUsers.slice(
-    (safeUsersPage - 1) * USERS_PER_PAGE,
-    safeUsersPage * USERS_PER_PAGE
-  );
+  const usersScroll = useInfiniteScroll(filteredUsers, { initialCount: 8, step: 8 });
+  const auditLogsScroll = useInfiniteScroll(auditLogs, { initialCount: 10, step: 10 });
+  const paginatedUsers = usersScroll.visibleItems;
+
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-[#FFF9F2] text-[#2B2118] flex flex-col font-sans selection:bg-[#F26B1D] selection:text-white">
@@ -940,9 +948,12 @@ export default function AdminPanelPage() {
           </div>
 
           {/* Responsive Table (Fits Laptop View with Zero Horizontal Scroll) */}
-          <div className="w-full">
+          <div
+            onScroll={usersScroll.handleContainerScroll}
+            className="w-full max-h-[520px] overflow-y-auto"
+          >
             <table className="w-full text-left text-xs table-auto">
-              <thead className="bg-[#FFF9F2] text-[#7A6A5C] uppercase tracking-wider font-bold border-b border-[#F0E4D7] text-[11px]">
+              <thead className="sticky top-0 z-10 bg-[#FFF9F2] text-[#7A6A5C] uppercase tracking-wider font-bold border-b border-[#F0E4D7] text-[11px] shadow-2xs">
                 <tr>
                   <th className="px-3.5 py-3">Restaurant & Rank</th>
                   <th className="px-3 py-3">Manager & Contact</th>
@@ -1175,37 +1186,15 @@ export default function AdminPanelPage() {
                 )}
               </tbody>
             </table>
+            <InfiniteScrollSentinel
+              hasMore={usersScroll.hasMore}
+              onLoadMore={usersScroll.loadMore}
+              shownCount={usersScroll.visibleCount}
+              totalCount={usersScroll.totalCount}
+              initialCount={usersScroll.initialCount}
+              itemLabel="accounts"
+            />
           </div>
-
-          {totalUserPages > 1 && (
-            <div className="px-6 py-3.5 border-t border-[#F0E4D7] bg-[#FFF9F2]/60 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <span className="text-[#7A6A5C] font-semibold">
-                Showing {(safeUsersPage - 1) * USERS_PER_PAGE + 1}–{Math.min(safeUsersPage * USERS_PER_PAGE, filteredUsers.length)} of{' '}
-                <strong className="text-[#2B2118]">{filteredUsers.length}</strong> accounts
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={safeUsersPage <= 1}
-                  onClick={() => setUsersPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-white hover:bg-[#FFF1E6] font-bold text-[#2B2118] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <span className="font-mono font-bold text-[#2B2118] px-2">
-                  Page {safeUsersPage} / {totalUserPages}
-                </span>
-                <button
-                  type="button"
-                  disabled={safeUsersPage >= totalUserPages}
-                  onClick={() => setUsersPage((p) => Math.min(totalUserPages, p + 1))}
-                  className="px-3 py-1.5 rounded-xl border border-[#F0E4D7] bg-white hover:bg-[#FFF1E6] font-bold text-[#2B2118] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
         </section>
       </div>
     )}
@@ -1237,9 +1226,12 @@ export default function AdminPanelPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div
+              onScroll={auditLogsScroll.handleContainerScroll}
+              className="max-h-[520px] overflow-y-auto overflow-x-auto"
+            >
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#FFF9F2] text-[#7A6A5C] uppercase tracking-wider font-bold border-b border-[#F0E4D7]">
+                <thead className="sticky top-0 z-10 bg-[#FFF9F2] text-[#7A6A5C] uppercase tracking-wider font-bold border-b border-[#F0E4D7] shadow-2xs">
                   <tr>
                     <th className="px-6 py-3.5">Timestamp</th>
                     <th className="px-6 py-3.5">Action</th>
@@ -1257,7 +1249,7 @@ export default function AdminPanelPage() {
                       </td>
                     </tr>
                   ) : (
-                    auditLogs.map((log) => {
+                    auditLogsScroll.visibleItems.map((log) => {
                       const dateStr = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Just now';
                       const actionBadge =
                         log.action === 'VIEW_PASSWORD'
@@ -1297,6 +1289,14 @@ export default function AdminPanelPage() {
                   )}
                 </tbody>
               </table>
+              <InfiniteScrollSentinel
+                hasMore={auditLogsScroll.hasMore}
+                onLoadMore={auditLogsScroll.loadMore}
+                shownCount={auditLogsScroll.visibleCount}
+                totalCount={auditLogsScroll.totalCount}
+                initialCount={auditLogsScroll.initialCount}
+                itemLabel="audit logs"
+              />
             </div>
           </section>
         )}

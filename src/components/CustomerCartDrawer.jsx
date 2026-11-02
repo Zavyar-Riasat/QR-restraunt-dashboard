@@ -15,6 +15,7 @@ export default function CustomerCartDrawer({
   _onRemoveItem,
   restaurant,
   onCartClear,
+  onOrderPlaced: onOrderPlacedProp,
   isDeliverableToCustomer = true,
   devRangeBypass = false,
   deliveryAreas = [],
@@ -39,6 +40,9 @@ export default function CustomerCartDrawer({
   const handleOrderPlaced = (newOrder) => {
     setPlacedOrder(newOrder);
     setStep('tracker');
+    if (onOrderPlacedProp) {
+      onOrderPlacedProp(newOrder);
+    }
     if (onCartClear) {
       onCartClear();
     }

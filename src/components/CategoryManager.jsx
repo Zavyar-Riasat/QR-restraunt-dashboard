@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Plus, Trash2, Tag, FolderPlus, Edit2, Check, X } from 'lucide-react';
+import InfiniteScrollSentinel, { useInfiniteScroll } from './Common/InfiniteScrollSentinel';
 
 export default function CategoryManager({
   categories = [],
@@ -17,6 +18,7 @@ export default function CategoryManager({
   // Editing state
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
+  const categoriesScroll = useInfiniteScroll(categories, { initialCount: 9, step: 9 });
 
   const handleAddCategory = async (e) => {
     if (e) e.preventDefault();
@@ -135,85 +137,96 @@ export default function CategoryManager({
           <p className="text-xs text-[#7A6A5C] mt-1">Type a name above (e.g. "Burgers") to create your first category.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {categories.map((cat) => {
-            const count = getItemCount(cat.id);
-            const isEditing = editingId === cat.id;
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {categoriesScroll.visibleItems.map((cat) => {
+              const count = getItemCount(cat.id);
+              const isEditing = editingId === cat.id;
 
-            return (
-              <div
-                key={cat.id}
-                className="group flex items-center justify-between p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] hover:border-[#F26B1D]/40 hover:bg-white transition shadow-sm"
-              >
-                {isEditing ? (
-                  <div className="flex items-center gap-2 w-full">
-                    <input
-                      type="text"
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveEdit(cat.id);
-                        if (e.key === 'Escape') cancelEditing();
-                      }}
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-[#F26B1D] text-[#2B2118] text-xs font-bold focus:outline-none"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleSaveEdit(cat.id)}
-                      className="p-1.5 rounded-lg bg-[#1F9D55] text-white hover:bg-[#188045] cursor-pointer"
-                      title="Save name"
-                    >
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEditing}
-                      className="p-1.5 rounded-lg bg-[#F0E4D7] text-[#7A6A5C] hover:bg-[#E5D7C7] cursor-pointer"
-                      title="Cancel"
-                    >
-                      <X className="w-3.5 h-3.5 stroke-[3]" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-[#FFF1E6] border border-[#FCD8BF] flex items-center justify-center text-[#F26B1D] shrink-0">
-                        <Tag className="w-4 h-4" />
-                      </div>
-                      <div className="truncate">
-                        <p className="text-sm font-bold text-[#2B2118] truncate">{cat.name}</p>
-                        <p className="text-[11px] text-[#7A6A5C] font-medium">
-                          {count} {count === 1 ? 'dish' : 'dishes'} listed
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => startEditing(cat)}
-                        title="Rename category"
-                        className="opacity-70 group-hover:opacity-100 p-2 rounded-lg hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] transition cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete "${cat.name}" category? This will also remove dishes in this category.`)) {
-                            onDeleteCategory(cat.id);
-                          }
+              return (
+                <div
+                  key={cat.id}
+                  className="group flex items-center justify-between p-4 rounded-2xl bg-[#FFF9F2] border border-[#F0E4D7] hover:border-[#F26B1D]/40 hover:bg-white transition shadow-sm"
+                >
+                  {isEditing ? (
+                    <div className="flex items-center gap-2 w-full">
+                      <input
+                        type="text"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEdit(cat.id);
+                          if (e.key === 'Escape') cancelEditing();
                         }}
-                        title="Delete category"
-                        className="opacity-70 group-hover:opacity-100 p-2 rounded-lg hover:bg-[#FEE4E2] hover:text-[#D92D20] text-[#9E8E81] transition cursor-pointer"
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-[#F26B1D] text-[#2B2118] text-xs font-bold focus:outline-none"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSaveEdit(cat.id)}
+                        className="p-1.5 rounded-lg bg-[#1F9D55] text-white hover:bg-[#188045] cursor-pointer"
+                        title="Save name"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEditing}
+                        className="p-1.5 rounded-lg bg-[#F0E4D7] text-[#7A6A5C] hover:bg-[#E5D7C7] cursor-pointer"
+                        title="Cancel"
+                      >
+                        <X className="w-3.5 h-3.5 stroke-[3]" />
                       </button>
                     </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-[#FFF1E6] border border-[#FCD8BF] flex items-center justify-center text-[#F26B1D] shrink-0">
+                          <Tag className="w-4 h-4" />
+                        </div>
+                        <div className="truncate">
+                          <p className="text-sm font-bold text-[#2B2118] truncate">{cat.name}</p>
+                          <p className="text-[11px] text-[#7A6A5C] font-medium">
+                            {count} {count === 1 ? 'dish' : 'dishes'} listed
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => startEditing(cat)}
+                          title="Rename category"
+                          className="opacity-70 group-hover:opacity-100 p-2 rounded-lg hover:bg-[#FFF1E6] text-[#7A6A5C] hover:text-[#2B2118] transition cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete "${cat.name}" category? This will also remove dishes in this category.`)) {
+                              onDeleteCategory(cat.id);
+                            }
+                          }}
+                          title="Delete category"
+                          className="opacity-70 group-hover:opacity-100 p-2 rounded-lg hover:bg-[#FEE4E2] hover:text-[#D92D20] text-[#9E8E81] transition cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <InfiniteScrollSentinel
+            hasMore={categoriesScroll.hasMore}
+            onLoadMore={categoriesScroll.loadMore}
+            shownCount={categoriesScroll.visibleCount}
+            totalCount={categoriesScroll.totalCount}
+            initialCount={categoriesScroll.initialCount}
+            itemLabel="categories"
+            className="rounded-2xl border border-[#F0E4D7]"
+          />
         </div>
       )}
     </div>

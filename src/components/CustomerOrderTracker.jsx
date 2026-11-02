@@ -106,7 +106,13 @@ export default function CustomerOrderTracker({
     };
 
     const handleStorage = (e) => {
-      if (e.key && e.key.includes('dinehq_orders') && isMounted) {
+      if (
+        (!e.key ||
+          e.key.includes('dinehq_orders') ||
+          e.key.includes('dineflow_orders') ||
+          e.key === 'dinehq_active_order') &&
+        isMounted
+      ) {
         fetchUpdatedOrder();
       }
     };
@@ -255,14 +261,26 @@ export default function CustomerOrderTracker({
         {/* Live Stepper Tracker */}
         <div className="p-5 sm:p-6 bg-white">
         {isCancelled ? (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-3">
-            <XCircle className="w-6 h-6 text-rose-600 shrink-0" />
-            <div>
-              <p className="text-sm font-extrabold text-rose-900">This order was cancelled</p>
-              <p className="text-xs text-rose-700 font-normal mt-0.5">
-                Please contact the kitchen directly if you have any questions.
-              </p>
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-3">
+            <div className="flex items-start gap-3">
+              <XCircle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-extrabold text-rose-900">This order was cancelled by the restaurant</p>
+                <p className="text-xs text-rose-700 font-normal mt-0.5">
+                  Please contact the kitchen directly if you have any questions.
+                </p>
+              </div>
             </div>
+            {order.cancellation_reason && (
+              <div className="p-3 rounded-xl bg-white border border-rose-200/90 text-rose-950 shadow-2xs">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 block">
+                  Cancellation Reason
+                </span>
+                <p className="text-xs sm:text-sm font-bold text-rose-900 mt-0.5">
+                  &ldquo;{order.cancellation_reason}&rdquo;
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

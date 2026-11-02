@@ -147,7 +147,7 @@ export const cashFlowService = {
           if (migrated) {
             try {
               localStorage.setItem(key, JSON.stringify(parsed));
-            } catch  {}
+            } catch { }
           }
           return parsed.sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
         }
@@ -159,7 +159,7 @@ export const cashFlowService = {
     // Seed default starter entries
     try {
       localStorage.setItem(key, JSON.stringify(DEFAULT_STARTER_ENTRIES));
-    } catch  {}
+    } catch { }
     return [...DEFAULT_STARTER_ENTRIES].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   },
 
@@ -178,6 +178,11 @@ export const cashFlowService = {
       categoryLabel = found ? found.label : (entry.category || 'General');
     }
 
+    const requestedDateMs = entry.date ? new Date(entry.date).getTime() : Date.now();
+    if (requestedDateMs > Date.now() + 60 * 1000) {
+      throw new Error('Cannot record an expense or cash entry for a future date.');
+    }
+
     const newRecord = {
       id: `cf-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       type: entry.type === 'in' ? 'in' : 'out', // 'in' | 'out'
@@ -190,7 +195,7 @@ export const cashFlowService = {
       payment_method: entry.payment_method || 'cash',
       reference_no: (entry.reference_no || '').trim(),
       recorded_by: entry.recorded_by || 'Manager',
-      date: entry.date ? new Date(entry.date).toISOString() : new Date().toISOString(),
+      date: new Date(Math.min(requestedDateMs, Date.now())).toISOString(),
       created_at: new Date().toISOString(),
     };
 
@@ -216,6 +221,10 @@ export const cashFlowService = {
       const allCats = (updatedFields.type || existing.type) === 'in' ? CASH_IN_CATEGORIES : CASH_OUT_CATEGORIES;
       const found = allCats.find((c) => c.id === updatedFields.category);
       if (found) categoryLabel = found.label;
+    }
+
+    if (updatedFields.date && new Date(updatedFields.date).getTime() > Date.now() + 60 * 1000) {
+      throw new Error('Cannot set a future date for an expense or cash entry.');
     }
 
     const merged = {

@@ -95,6 +95,7 @@ export const customerKhataService = {
         total_spent_paisa: 0,
         total_paid_paisa: 0,
         balance_due_paisa: 0,
+        _hasKhataTracking: true,
         orders: [],
         first_order_at: null,
         last_order_at: null,
@@ -136,11 +137,25 @@ export const customerKhataService = {
 
       if (order.status !== 'cancelled') {
         const paymentState = computeOrderPaymentState(order);
+        const orderHasKhata = Boolean(
+          order.has_khata_tracking ||
+          order.payment_status === 'partial' ||
+          (Array.isArray(order.payments) &&
+            order.payments.some((p) => Array.isArray(p.edit_history) || p.is_void))
+        );
+        if (orderHasKhata) {
+          c._hasKhataTracking = true;
+        }
 
         c.total_orders_count += 1;
         c.total_spent_paisa += paymentState.totalPayablePaisa;
-        c.total_paid_paisa += paymentState.totalPayablePaisa;
-        c.balance_due_paisa = 0;
+        if (c._hasKhataTracking) {
+          c.total_paid_paisa += paymentState.amountPaidPaisa;
+          c.balance_due_paisa += paymentState.remainingBalancePaisa;
+        } else {
+          c.total_paid_paisa += paymentState.totalPayablePaisa;
+          c.balance_due_paisa = 0;
+        }
 
         c.orders.push({
           ...order,
@@ -176,13 +191,13 @@ export const customerKhataService = {
 
       return {
         ...c,
-        balance_due_paisa: 0,
-        is_overdue: false,
-        is_credit_limit_exceeded: false,
-        balance_due: 0,
+        balance_due_paisa: c._hasKhataTracking ? c.balance_due_paisa : 0,
+        is_overdue: c._hasKhataTracking ? _isOverdue : false,
+        is_credit_limit_exceeded: c._hasKhataTracking ? _isCreditLimitExceeded : false,
+        balance_due: c._hasKhataTracking ? toRupees(c.balance_due_paisa) : 0,
         total_spent: toRupees(c.total_spent_paisa),
-        total_paid: toRupees(c.total_spent_paisa),
-        credit_limit: 0,
+        total_paid: toRupees(c._hasKhataTracking ? c.total_paid_paisa : c.total_spent_paisa),
+        credit_limit: c._hasKhataTracking ? toRupees(c.credit_limit_paisa) : 0,
       };
     });
 
@@ -274,6 +289,8 @@ export const customerKhataService = {
       payments: updatedPayments,
       total_payable_paisa: nextState.totalPayablePaisa,
       payment_status: nextState.paymentStatus,
+      explicit_paid: nextState.paymentStatus === 'paid',
+      has_khata_tracking: true,
       amount_received: nextState.amountPaid,
       updated_at: new Date().toISOString(),
     };
@@ -282,6 +299,7 @@ export const customerKhataService = {
 
     try {
       localStorage.setItem(`dinehq_orders_${restaurantId}`, JSON.stringify(orders));
+      orderService._ordersCache?.delete(restaurantId);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('dinehq_order_status_updated', {
@@ -371,6 +389,8 @@ export const customerKhataService = {
       ...order,
       payments,
       payment_status: nextState.paymentStatus,
+      explicit_paid: nextState.paymentStatus === 'paid',
+      has_khata_tracking: true,
       amount_received: nextState.amountPaid,
       updated_at: new Date().toISOString(),
     };
@@ -379,6 +399,7 @@ export const customerKhataService = {
 
     try {
       localStorage.setItem(`dinehq_orders_${restaurantId}`, JSON.stringify(orders));
+      orderService._ordersCache?.delete(restaurantId);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('dinehq_order_status_updated', {
@@ -446,6 +467,8 @@ export const customerKhataService = {
       ...order,
       payments,
       payment_status: nextState.paymentStatus,
+      explicit_paid: nextState.paymentStatus === 'paid',
+      has_khata_tracking: true,
       amount_received: nextState.amountPaid,
       updated_at: new Date().toISOString(),
     };
@@ -454,6 +477,7 @@ export const customerKhataService = {
 
     try {
       localStorage.setItem(`dinehq_orders_${restaurantId}`, JSON.stringify(orders));
+      orderService._ordersCache?.delete(restaurantId);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('dinehq_order_status_updated', {

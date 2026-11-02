@@ -15,6 +15,7 @@ import {
 } from '../../utils/currencyUtils';
 import { customerKhataService } from '../../services/customerKhataService';
 import CustomerFormModal from './CustomerFormModal';
+import InfiniteScrollSentinel, { useInfiniteScroll } from '../Common/InfiniteScrollSentinel';
 
 export default function CustomerDetailModal({
   customer,
@@ -26,11 +27,12 @@ export default function CustomerDetailModal({
   onViewOrder,
 }) {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const pastOrders = customer?.orders || [];
+  const pastOrdersScroll = useInfiniteScroll(pastOrders, { initialCount: 6, step: 6 });
 
   if (!isOpen || !customer) return null;
 
   const restId = restaurant?.id || 'rest-101';
-  const pastOrders = customer.orders || [];
 
   return (
     <div
@@ -128,10 +130,10 @@ export default function CustomerDetailModal({
             <span className="text-xs font-bold text-slate-800 block mt-1">
               {customer.first_order_at
                 ? new Date(customer.first_order_at).toLocaleDateString('en-PK', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
                 : 'N/A'}
             </span>
             <span className="text-[10px] text-slate-400 font-medium">
@@ -147,10 +149,10 @@ export default function CustomerDetailModal({
             <span className="text-xs font-bold text-slate-800 block mt-1">
               {customer.last_order_at
                 ? new Date(customer.last_order_at).toLocaleDateString('en-PK', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
                 : 'N/A'}
             </span>
             <span className="text-[10px] text-slate-400 font-medium">
@@ -181,7 +183,10 @@ export default function CustomerDetailModal({
         </div>
 
         {/* Content Body: Order History */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-3">
+        <div
+          onScroll={pastOrdersScroll.handleContainerScroll}
+          className="p-5 overflow-y-auto flex-1 space-y-3"
+        >
           {pastOrders.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-2" />
@@ -189,61 +194,72 @@ export default function CustomerDetailModal({
               <p className="text-xs text-slate-400 mt-0.5">Orders placed with this phone number will appear here automatically.</p>
             </div>
           ) : (
-            pastOrders.map((ord) => (
-              <div
-                key={ord.id}
-                className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-[#F26B1D]/40 transition shadow-2xs flex items-center justify-between gap-3 flex-wrap"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono font-black text-sm text-[#2B2118]">
-                      Order #{ord.id}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
-                      {ord.order_type}
-                    </span>
-                    {ord.payment_method && (
-                      <span className="text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                        {ord.payment_method.toUpperCase()}
+            <>
+              {pastOrdersScroll.visibleItems.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-[#F26B1D]/40 transition shadow-2xs flex items-center justify-between gap-3 flex-wrap"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-black text-sm text-[#2B2118]">
+                        Order #{ord.id}
                       </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                        {ord.order_type}
+                      </span>
+                      {ord.payment_method && (
+                        <span className="text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                          {ord.payment_method.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      <span>
+                        {new Date(ord.created_at).toLocaleDateString('en-PK', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      <span>•</span>
+                      <span>{ord.items?.length || 0} item(s)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-right">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Amount Paid</span>
+                      <span className="font-mono font-black text-base text-[#2B2118]">
+                        {formatPKR(ord.total_payable)}
+                      </span>
+                    </div>
+                    {onViewOrder && (
+                      <button
+                        type="button"
+                        onClick={() => onViewOrder(ord)}
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer"
+                      >
+                        View Order
+                      </button>
                     )}
                   </div>
-
-                  <div className="text-[11px] text-slate-500 flex items-center gap-2">
-                    <Clock className="w-3 h-3 text-slate-400" />
-                    <span>
-                      {new Date(ord.created_at).toLocaleDateString('en-PK', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    <span>•</span>
-                    <span>{ord.items?.length || 0} item(s)</span>
-                  </div>
                 </div>
-
-                <div className="flex items-center gap-3 text-right">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Amount Paid</span>
-                    <span className="font-mono font-black text-base text-[#2B2118]">
-                      {formatPKR(ord.total_payable)}
-                    </span>
-                  </div>
-                  {onViewOrder && (
-                    <button
-                      type="button"
-                      onClick={() => onViewOrder(ord)}
-                      className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer"
-                    >
-                      View Order
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
+              ))}
+              <InfiniteScrollSentinel
+                hasMore={pastOrdersScroll.hasMore}
+                onLoadMore={pastOrdersScroll.loadMore}
+                shownCount={pastOrdersScroll.visibleCount}
+                totalCount={pastOrdersScroll.totalCount}
+                initialCount={pastOrdersScroll.initialCount}
+                itemLabel="customer orders"
+                className="rounded-2xl border border-[#F0E4D7]"
+              />
+            </>
           )}
         </div>
 

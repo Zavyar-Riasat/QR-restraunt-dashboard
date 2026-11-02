@@ -131,10 +131,20 @@ export const tableService = {
         return oNum && tNum && oNum.toLowerCase() === tNum.toLowerCase();
       });
 
-      // Filter active (non-completed, non-cancelled) orders
-      const openOrders = tableOrders.filter(
-        (o) => o.status !== 'completed' && o.status !== 'cancelled'
-      );
+      // Filter active (non-completed, non-cancelled, non-freed) orders
+      const openOrders = tableOrders.filter((o) => {
+        if (o.status === 'completed' || o.status === 'cancelled' || o.table_closed) {
+          return false;
+        }
+        if (tbl.freed_at && o.created_at) {
+          const freedTs = new Date(tbl.freed_at).getTime();
+          const orderTs = new Date(o.created_at).getTime();
+          if (Number.isFinite(freedTs) && Number.isFinite(orderTs) && orderTs <= freedTs) {
+            return false;
+          }
+        }
+        return true;
+      });
 
       let status = TABLE_STATUS.FREE;
       let activeOrder = null;
@@ -221,6 +231,7 @@ export const tableService = {
           occupied_by: waiterDetails?.name || occupiedBy,
           waiter_details: waiterDetails || t.waiter_details || null,
           occupied_at: new Date().toISOString(),
+          freed_at: null,
         };
       }
       return t;
@@ -304,21 +315,24 @@ export const tableService = {
    */
   closeTable(restaurantId, tableNumber, orderService) {
     const tStr = String(tableNumber || '').replace(/^Table\s*/i, '').trim();
+    const nowIso = new Date().toISOString();
 
     if (orderService) {
       const orders = orderService.getOrders(restaurantId);
       orders.forEach((o) => {
         const oTable = String(o.table_number || o.table || '').replace(/^Table\s*/i, '').trim();
         if (
-          o.order_type === 'dine_in' &&
           o.status !== 'completed' &&
           o.status !== 'cancelled' &&
-          oTable === tStr
+          oTable &&
+          oTable.toLowerCase() === tStr.toLowerCase()
         ) {
           orderService.updateOrderStatus(restaurantId, o.id, 'completed', {
-            closed_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
+            closed_at: nowIso,
+            completed_at: nowIso,
             payment_status: 'paid',
+            explicit_paid: true,
+            table_closed: true,
           });
         }
       });
@@ -328,7 +342,7 @@ export const tableService = {
     const tables = this.getTables(restaurantId);
     const updatedTables = tables.map((t) => {
       const tNum = String(t.table_number || '').replace(/^Table\s*/i, '').trim();
-      if (tNum === tStr) {
+      if (tNum.toLowerCase() === tStr.toLowerCase()) {
         return {
           ...t,
           status: TABLE_STATUS.FREE,
@@ -339,6 +353,7 @@ export const tableService = {
           occupied_by: '',
           waiter_details: null,
           occupied_at: null,
+          freed_at: nowIso,
         };
       }
       return t;

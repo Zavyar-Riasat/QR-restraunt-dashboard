@@ -7,6 +7,22 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Strip malformed sourceMappingURL comment in leaflet-geoman.css to prevent CSS sourcemap warnings
+function fixLeafletGeomanCssPlugin() {
+  return {
+    name: 'vite-plugin-fix-leaflet-geoman-css',
+    transform(code, id) {
+      if (id.includes('leaflet-geoman.css')) {
+        return {
+          code: code.replace(/\/\*#\s*sourceMappingURL=.*\*\//g, ''),
+          map: null,
+        };
+      }
+      return null;
+    },
+  };
+}
+
 // Nominatim Geocoding proxy plugin with proper User-Agent and Referer headers
 function nominatimGeocodePlugin() {
   return {
@@ -114,13 +130,50 @@ function nearbyDishesPlugin() {
   };
 }
 
+
+// Coolify PostgreSQL Database API plugin (/api/db/*)
+function postgresDbPlugin() {
+  const handler = async (req, res, next) => {
+    if (req.url && req.url.startsWith('/api/db')) {
+      try {
+        const { handleDbApi } = await import('./server/dbHandler.js');
+        return await handleDbApi(req, res);
+      } catch (err) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: err.message || 'Internal database error' }));
+        return;
+      }
+    }
+    next();
+  };
+
+  return {
+    name: 'vite-plugin-postgres-db',
+    configureServer(server) {
+      server.middlewares.use(handler);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(handler);
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
+  envPrefix: ['VITE_', 'PASSWORD_ENCRYPTION_KEY'],
+  server: {
+    watch: {
+      ignored: ['**/data/**', '**/server/**'],
+    },
+  },
   plugins: [
+    fixLeafletGeomanCssPlugin(),
     react(),
     tailwindcss(),
     nominatimGeocodePlugin(),
     authApiPlugin(),
+    postgresDbPlugin(),
     nearbyDishesPlugin(),
   ],
   resolve: {
@@ -145,6 +198,6 @@ export default defineConfig({
   build: {
     target: 'es2020',
     cssCodeSplit: true,
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 2000,
   },
 });

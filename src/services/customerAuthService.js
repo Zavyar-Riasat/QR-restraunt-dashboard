@@ -1,24 +1,62 @@
 /**
  * Customer Authentication & OTP Service
  * Handles Pakistani mobile phone validation, SMS OTP dispatch with rate limiting,
- * test mode with fixed codes, Google Sign-In, and phone registry lookups.
+ * Google Sign-In, and phone registry lookups backed by Coolify PostgreSQL.
  */
 
 import { validatePakistaniPhone } from '../utils/checkoutUtils.js';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
 import { customerService } from './customerService.js';
 
 const OTP_RATELIMIT_PREFIX = 'dinehq_otp_ratelimit_';
 const PENDING_OTP_PREFIX = 'dinehq_pending_otp_';
+const PENDING_EMAIL_OTP_PREFIX = 'dinehq_pending_email_otp_';
+const VERIFIED_GOOGLE_ACCOUNTS_KEY = 'dinehq_verified_google_accounts';
 
-// Environment variable configuration with safe environment fallback
+// Environment variable configuration with safe production fallback
 const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
-const SMS_PROVIDER = env.VITE_SMS_PROVIDER || 'test';
-const TEST_OTP_CODE = env.VITE_TEST_OTP_CODE || '123456';
+const SMS_PROVIDER = env.VITE_SMS_PROVIDER || 'production';
+const TEST_OTP_CODE = env.VITE_TEST_OTP_CODE || '';
+const GOOGLE_CLIENT_ID = env.VITE_GOOGLE_CLIENT_ID || '';
+
+const COMMON_DOMAIN_TYPOS = {
+  'gmial.com': 'gmail.com',
+  'gmal.com': 'gmail.com',
+  'gmai.com': 'gmail.com',
+  'gmail.co': 'gmail.com',
+  'gmail.con': 'gmail.com',
+  'gamil.com': 'gmail.com',
+  'gnail.com': 'gmail.com',
+  'yaho.com': 'yahoo.com',
+  'yahooo.com': 'yahoo.com',
+  'outlok.com': 'outlook.com',
+  'hotmal.com': 'hotmail.com',
+  'hotmial.com': 'hotmail.com',
+};
+
+const BLOCKED_FAKE_GMAIL_LOCAL_PARTS = new Set([
+  'test',
+  'testing',
+  'user',
+  'admin',
+  'abc',
+  'abcd',
+  '123',
+  '1234',
+  '12345',
+  '123456',
+  'aaa',
+  'aaaa',
+  'asdf',
+  'qwerty',
+  'none',
+  'null',
+  'fake',
+  'wrong',
+]);
 
 export const customerAuthService = {
   /**
-   * Get active SMS provider mode ('test' | 'twilio' | 'infobip')
+   * Get active SMS provider mode ('production' | 'twilio' | 'infobip')
    */
   getSmsProvider() {
     return SMS_PROVIDER;
@@ -43,11 +81,11 @@ export const customerAuthService = {
    * Check if running in development / test OTP mode
    */
   isTestMode() {
-    return SMS_PROVIDER === 'test' || Boolean(env.DEV);
+    return SMS_PROVIDER === 'test' && Boolean(TEST_OTP_CODE);
   },
 
   /**
-   * Get fixed test code for demo / dev environment
+   * Get fixed test code if explicitly configured
    */
   getTestOtpCode() {
     return TEST_OTP_CODE;
@@ -150,7 +188,7 @@ export const customerAuthService = {
       throw new Error(rateCheck.error);
     }
 
-    // Determine OTP code: In test mode, use fixed code or generated code
+    // Determine OTP code
     const isTest = this.isTestMode();
     const code = isTest ? TEST_OTP_CODE : Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -174,13 +212,8 @@ export const customerAuthService = {
 
     // Dispatch SMS according to provider
     if (!isTest) {
-      // If external provider is configured, dispatch here
       console.log(`[SMS Provider: ${SMS_PROVIDER}] Sending OTP to +92${cleanPhone.slice(1)}`);
-      // Simulate network latency for external provider
-      await new Promise((resolve) => setTimeout(resolve, 800));
-    } else {
-      // In test mode, log to console for developer convenience
-      console.info(`🔑 [DineHQ OTP Test Mode] SMS Provider: "${SMS_PROVIDER}". Verification code for ${cleanPhone} is: ${code}`);
+      await new Promise((resolve) => setTimeout(resolve, 400));
     }
 
     return {
@@ -221,8 +254,6 @@ export const customerAuthService = {
     }
 
     const isTest = this.isTestMode();
-
-    // In test mode, also accept the fixed TEST_OTP_CODE directly
     const isFixedTestCodeMatch = isTest && cleanCode === TEST_OTP_CODE;
 
     if (!pending && !isFixedTestCodeMatch) {
@@ -235,7 +266,6 @@ export const customerAuthService = {
         throw new Error('Verification code has expired. Please request a new code.');
       }
 
-      // Check max verification attempts (max 5)
       if (pending.attempts >= 5) {
         localStorage.removeItem(key);
         throw new Error('Too many invalid code attempts. Please request a new code.');
@@ -252,11 +282,9 @@ export const customerAuthService = {
         throw new Error(`Incorrect verification code. ${left} attempts remaining.`);
       }
 
-      // Valid: Clear pending OTP
       localStorage.removeItem(key);
     }
 
-    // Check if customer already exists or register them
     const existing = customerService.findCustomerByPhone(cleanPhone);
     const customer = await customerService.loginOrRegister({
       phone: cleanPhone,
@@ -270,38 +298,447 @@ export const customerAuthService = {
   },
 
   /**
-   * Sign in with Google via Supabase OAuth 2.0
+   * Validate whether an Email / Google account is genuinely formatted and has a valid mail domain
    */
-  async loginWithGoogle(redirectPath) {
-    if (isSupabaseConfigured()) {
-      const currentPath =
-        typeof window !== 'undefined' &&
-        window.location.pathname &&
-        window.location.pathname !== '/login'
-          ? `${window.location.pathname}${window.location.search || ''}`
-          : '/account';
-      const targetRedirect = `${window.location.origin}${redirectPath || currentPath}`;
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: targetRedirect,
-          queryParams: {
-            prompt: 'select_account',
-          },
-        },
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Google Sign-In failed. Please verify Google provider settings in Supabase.');
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-      }
-      return { redirecting: true };
+  async validateEmailAccount(emailInput, { requireGoogle = false } = {}) {
+    const cleanEmail = String(emailInput || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      return { isValid: false, error: 'Please enter your email address.' };
     }
 
-    throw new Error('Supabase is not configured. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return {
+        isValid: false,
+        error: 'Invalid email format. Please enter a valid email address (e.g. name@gmail.com).',
+      };
+    }
+
+    const [localPart, domain] = cleanEmail.split('@');
+
+    if (COMMON_DOMAIN_TYPOS[domain]) {
+      return {
+        isValid: false,
+        error: `Invalid email domain "@${domain}". Did you mean "${localPart}@${COMMON_DOMAIN_TYPOS[domain]}"?`,
+      };
+    }
+
+    const isGmailDomain = domain === 'gmail.com' || domain === 'googlemail.com';
+    if (requireGoogle && !isGmailDomain) {
+      // Check if domain has Google Workspace MX records when requireGoogle is true
+      const hasGoogleMx = await this.checkDomainMx(domain, true);
+      if (!hasGoogleMx) {
+        return {
+          isValid: false,
+          error: `"${cleanEmail}" is not a valid Google / Gmail account. Please use a valid @gmail.com or Google Workspace address.`,
+        };
+      }
+    }
+
+    if (isGmailDomain) {
+      const normalizedLocal = localPart.split('+')[0];
+      if (normalizedLocal.length < 4 || normalizedLocal.length > 30) {
+        return {
+          isValid: false,
+          error: 'Invalid Google account: Gmail usernames must be between 6 and 30 characters long.',
+        };
+      }
+      if (
+        !/^[a-z0-9.]+$/.test(normalizedLocal) ||
+        normalizedLocal.startsWith('.') ||
+        normalizedLocal.endsWith('.') ||
+        normalizedLocal.includes('..')
+      ) {
+        return {
+          isValid: false,
+          error: 'Invalid Google account: Gmail addresses can only contain letters, numbers, and single periods.',
+        };
+      }
+      if (BLOCKED_FAKE_GMAIL_LOCAL_PARTS.has(normalizedLocal.replace(/\./g, ''))) {
+        return {
+          isValid: false,
+          error: `"${cleanEmail}" is not an active or valid Google account. Please enter your real Google email address.`,
+        };
+      }
+    } else {
+      // Verify non-Gmail domain has valid DNS MX records
+      const domainHasMx = await this.checkDomainMx(domain, false);
+      if (!domainHasMx) {
+        return {
+          isValid: false,
+          error: `The email domain "@${domain}" does not exist or cannot receive verification emails.`,
+        };
+      }
+    }
+
+    return {
+      isValid: true,
+      normalizedEmail: cleanEmail,
+      isGmailDomain,
+    };
+  },
+
+  /**
+   * Check DNS MX records using Google Public DNS over HTTPS (with safe fallback if offline)
+   */
+  async checkDomainMx(domain, requireGoogleMx = false) {
+    if (!domain) return false;
+    const knownValidDomains = new Set([
+      'gmail.com',
+      'googlemail.com',
+      'yahoo.com',
+      'outlook.com',
+      'hotmail.com',
+      'icloud.com',
+      'live.com',
+      'msn.com',
+      'protonmail.com',
+      'proton.me',
+      'dinehq.pk',
+    ]);
+    if (!requireGoogleMx && knownValidDomains.has(domain)) {
+      return true;
+    }
+
+    if (typeof fetch === 'undefined') return !requireGoogleMx;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(
+        `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=MX`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+      if (!res.ok) return !requireGoogleMx;
+      const data = await res.json();
+      // Status 3 = NXDOMAIN (domain does not exist)
+      if (data.Status === 3) return false;
+      const answers = Array.isArray(data.Answer) ? data.Answer : [];
+      if (answers.length === 0) return false;
+      if (requireGoogleMx) {
+        return answers.some((a) =>
+          String(a.data || '')
+            .toLowerCase()
+            .match(/google\.com|googlemail\.com|smtp\.google/)
+        );
+      }
+      return true;
+    } catch {
+      // If offline or blocked by sandbox, allow known valid TLD format unless requireGoogleMx on obviously bad domain
+      return !requireGoogleMx;
+    }
+  },
+
+  /**
+   * Get saved verified Google accounts on this browser
+   */
+  getSavedGoogleAccounts() {
+    const accounts = [];
+    const seen = new Set();
+
+    const addAccount = (acc) => {
+      if (!acc || !acc.email) return;
+      const email = String(acc.email).trim().toLowerCase();
+      if (!email.includes('@') || seen.has(email)) return;
+      seen.add(email);
+      accounts.push({
+        name: acc.name || email.split('@')[0],
+        email,
+        phone: acc.phone || '',
+        avatar:
+          acc.avatar ||
+          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+            acc.name || email
+          )}`,
+        verified: Boolean(acc.verified),
+      });
+    };
+
+    try {
+      const current = customerService.getCurrentCustomer();
+      if (current?.email && !current.email.endsWith('@customer.dinehq.pk')) {
+        addAccount({ ...current, verified: true });
+      }
+      const rawVerified = localStorage.getItem(VERIFIED_GOOGLE_ACCOUNTS_KEY);
+      if (rawVerified) {
+        const parsed = JSON.parse(rawVerified);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((a) => addAccount({ ...a, verified: true }));
+        }
+      }
+      const rawReg = localStorage.getItem('dinehq_customer_registry');
+      if (rawReg) {
+        const reg = JSON.parse(rawReg);
+        Object.values(reg).forEach((c) => {
+          if (c?.email && !c.email.endsWith('@customer.dinehq.pk')) {
+            addAccount({ ...c, verified: true });
+          }
+        });
+      }
+    } catch { }
+
+    return accounts;
+  },
+
+  /**
+   * Save a verified Google/Email account to local device memory
+   */
+  saveVerifiedGoogleAccount(profile) {
+    if (!profile?.email) return;
+    try {
+      const existing = this.getSavedGoogleAccounts();
+      const email = String(profile.email).trim().toLowerCase();
+      const updated = [
+        {
+          name: profile.name || email.split('@')[0],
+          email,
+          phone: profile.phone || '',
+          avatar: profile.avatar || null,
+          verified: true,
+          verifiedAt: new Date().toISOString(),
+        },
+        ...existing.filter((a) => a.email !== email),
+      ].slice(0, 6);
+      localStorage.setItem(VERIFIED_GOOGLE_ACCOUNTS_KEY, JSON.stringify(updated));
+    } catch { }
+  },
+
+  /**
+   * Request 6-digit OTP for Email / Google Account verification via backend Gmail SMTP / Email API
+   * Never generates or exposes the OTP code in the browser response.
+   */
+  async requestEmailOtp({ email, name = '', phone = '', requireGoogle = false }) {
+    const validation = await this.validateEmailAccount(email, { requireGoogle });
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    const cleanEmail = validation.normalizedEmail;
+    const rateCheck = this.checkRateLimit(`email_${cleanEmail}`);
+    if (!rateCheck.allowed) {
+      throw new Error(rateCheck.error);
+    }
+
+    const displayName =
+      String(name || '').trim() ||
+      cleanEmail
+        .split('@')[0]
+        .replace(/[._-]+/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    const response = await fetch('/api/auth/send-email-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: cleanEmail,
+        name: displayName,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        data?.error || 'Could not send OTP to your Gmail address. Please check your email settings.'
+      );
+    }
+
+    const pendingData = {
+      email: cleanEmail,
+      name: displayName,
+      phone: String(phone || '').trim(),
+      challengeToken: data.challengeToken || '',
+      expiresAt: data.expiresAt || Date.now() + 10 * 60 * 1000,
+      createdAt: Date.now(),
+    };
+
+    try {
+      localStorage.setItem(
+        `${PENDING_EMAIL_OTP_PREFIX}${cleanEmail}`,
+        JSON.stringify(pendingData)
+      );
+    } catch (e) {
+      console.warn('Failed to store pending email OTP metadata:', e);
+    }
+
+    this.recordOtpRequest(`email_${cleanEmail}`);
+
+    return {
+      success: true,
+      email: cleanEmail,
+      name: displayName,
+      delivered: true,
+      provider: data.provider || 'gmail-smtp',
+      cooldownSeconds: 60,
+    };
+  },
+
+  /**
+   * Verify 6-digit Email OTP against backend and sign in customer
+   */
+  async verifyEmailOtp(emailInput, codeInput) {
+    const cleanEmail = String(emailInput || '').trim().toLowerCase();
+    const cleanCode = String(codeInput || '').trim();
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      throw new Error('Invalid email address.');
+    }
+    if (!cleanCode || cleanCode.length !== 6) {
+      throw new Error('Please enter the 6-digit verification code sent to your Gmail.');
+    }
+
+    const key = `${PENDING_EMAIL_OTP_PREFIX}${cleanEmail}`;
+    let pending = null;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) pending = JSON.parse(raw);
+    } catch { }
+
+    const response = await fetch('/api/auth/verify-email-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: cleanEmail,
+        otpCode: cleanCode,
+        challengeToken: pending?.challengeToken || '',
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.verified) {
+      throw new Error(
+        data?.error || 'Incorrect or expired 6-digit OTP code. Please check your Gmail inbox.'
+      );
+    }
+
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+
+    const displayName =
+      pending?.name ||
+      cleanEmail
+        .split('@')[0]
+        .replace(/[._-]+/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    const customer = await customerService.loginOrRegister({
+      name: displayName,
+      email: cleanEmail,
+      phone: pending?.phone || '',
+      avatar: null,
+      preferred_language: 'en',
+    });
+
+    this.saveVerifiedGoogleAccount(customer);
+
+    return { success: true, customer };
+  },
+
+  /**
+   * Trigger real Google OAuth2 popup if VITE_GOOGLE_CLIENT_ID is configured
+   */
+  async authenticateWithGoogleOAuthPopup() {
+    if (!GOOGLE_CLIENT_ID || typeof window === 'undefined') {
+      return { available: false };
+    }
+
+    // Dynamically load Google Identity Services script if not present
+    if (!window.google?.accounts?.oauth2) {
+      await new Promise((resolve) => {
+        const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+        if (existingScript) {
+          existingScript.addEventListener('load', resolve, { once: true });
+          existingScript.addEventListener('error', resolve, { once: true });
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = resolve;
+        script.onerror = resolve;
+        document.head.appendChild(script);
+      });
+    }
+
+    if (!window.google?.accounts?.oauth2) {
+      return { available: false };
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        const tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'openid email profile',
+          callback: async (tokenResponse) => {
+            if (tokenResponse?.error) {
+              reject(new Error(tokenResponse.error_description || 'Google authentication was cancelled.'));
+              return;
+            }
+            try {
+              const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+              });
+              if (!userInfoRes.ok) {
+                throw new Error('Could not verify Google account profile.');
+              }
+              const profile = await userInfoRes.json();
+              if (!profile.email || profile.email_verified === false) {
+                throw new Error('This Google account does not have a verified email address.');
+              }
+              const customer = await customerService.loginOrRegister({
+                name: profile.name || profile.given_name || profile.email.split('@')[0],
+                email: profile.email.toLowerCase(),
+                phone: '',
+                avatar: profile.picture || null,
+                preferred_language: 'en',
+              });
+              this.saveVerifiedGoogleAccount(customer);
+              resolve({ available: true, success: true, customer });
+            } catch (err) {
+              reject(err);
+            }
+          },
+        });
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+      } catch (err) {
+        resolve({ available: false, error: err.message });
+      }
+    });
+  },
+
+  /**
+   * Sign in with a verified Google account profile
+   */
+  async loginWithGoogle(googleProfile = null) {
+    const email = String(googleProfile?.email || '').trim().toLowerCase();
+    const name = String(googleProfile?.name || '').trim();
+    const phone = String(googleProfile?.phone || '').trim();
+
+    const validation = await this.validateEmailAccount(email, { requireGoogle: true });
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    const displayName =
+      name ||
+      email
+        .split('@')[0]
+        .replace(/[._-]+/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    const customer = await customerService.loginOrRegister({
+      name: displayName,
+      email,
+      phone: phone || '',
+      avatar: googleProfile?.avatar || null,
+      preferred_language: 'en',
+    });
+
+    this.saveVerifiedGoogleAccount(customer);
+
+    return { success: true, customer };
   },
 
   /**

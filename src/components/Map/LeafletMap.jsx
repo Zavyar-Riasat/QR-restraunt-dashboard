@@ -224,7 +224,7 @@ export default function LeafletMap({
       resizeObserver.observe(mapContainerRef.current);
     }
 
-    // 2. Single fallback timer for modal transition completion (avoids repeated forced reflows)
+    // 2. Single fallback timer for modal transition completion (replaces staggered [50, 150, 300, 500, 1000] timers to avoid forced reflows)
     const timerId = setTimeout(() => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.invalidateSize({ pan: false });

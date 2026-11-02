@@ -34,6 +34,7 @@ import PrintersSection from './Printer/PrintersSection';
 import PrintTemplatesSection from './Printer/PrintTemplatesSection';
 import LocationDeliverySection from './LocationDeliverySection';
 import { compressImageFile } from '../utils/imageUtils';
+import InfiniteScrollSentinel, { useInfiniteScroll } from './Common/InfiniteScrollSentinel';
 
 const BRAND_PRESET_COLORS = [
   { name: 'Warm Orange (Default)', value: '#F26B1D' },
@@ -61,6 +62,7 @@ export default function StoreSettings({
   const [riders, setRiders] = useState(() =>
     riderService.getRiders(restaurant?.id || 'rest-101')
   );
+  const ridersScroll = useInfiniteScroll(riders, { initialCount: 6, step: 6 });
   const [newRiderName, setNewRiderName] = useState('');
   const [newRiderPhone, setNewRiderPhone] = useState('');
   const [riderError, setRiderError] = useState('');
@@ -1181,57 +1183,72 @@ export default function StoreSettings({
               <span>Available for 1-click assignment</span>
             </div>
 
-            <div className="divide-y divide-slate-100 rounded-2xl bg-white border border-[#F0E4D7] overflow-hidden shadow-2xs">
+            <div
+              onScroll={ridersScroll.handleContainerScroll}
+              className="rounded-2xl bg-white border border-[#F0E4D7] overflow-hidden shadow-2xs max-h-[380px] overflow-y-auto"
+            >
               {riders.length === 0 ? (
                 <div className="text-center py-10 text-slate-400 text-xs">
                   No riders added yet. Register your delivery riders on the left.
                 </div>
               ) : (
-                riders.map((r) => (
-                  <div
-                    key={r.id}
-                    className="p-4 flex items-center justify-between gap-3 hover:bg-[#FFF9F2]/50 transition"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-[#FFF1E6] text-[#F26B1D] font-extrabold text-sm flex items-center justify-center shadow-2xs">
-                        <Bike className="w-5 h-5 stroke-[2.5]" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-[#2B2118] flex items-center gap-2">
-                          <span>{r.name}</span>
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
-                            Active
-                          </span>
-                        </h4>
-                        <a
-                          href={`tel:${r.phone}`}
-                          className="text-xs font-mono text-[#7A6A5C] hover:text-[#2B2118] flex items-center gap-1.5 mt-0.5"
-                        >
-                          <Phone className="w-3 h-3 text-emerald-600" />
-                          <span>{r.phone}</span>
-                        </a>
-                      </div>
-                    </div>
+                <>
+                  <div className="divide-y divide-slate-100">
+                    {ridersScroll.visibleItems.map((r) => (
+                      <div
+                        key={r.id}
+                        className="p-4 flex items-center justify-between gap-3 hover:bg-[#FFF9F2]/50 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-[#FFF1E6] text-[#F26B1D] font-extrabold text-sm flex items-center justify-center shadow-2xs">
+                            <Bike className="w-5 h-5 stroke-[2.5]" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-[#2B2118] flex items-center gap-2">
+                              <span>{r.name}</span>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">
+                                Active
+                              </span>
+                            </h4>
+                            <a
+                              href={`tel:${r.phone}`}
+                              className="text-xs font-mono text-[#7A6A5C] hover:text-[#2B2118] flex items-center gap-1.5 mt-0.5"
+                            >
+                              <Phone className="w-3 h-3 text-emerald-600" />
+                              <span>{r.phone}</span>
+                            </a>
+                          </div>
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`tel:${r.phone}`}
-                        className="px-3 py-1.5 rounded-xl bg-white border border-[#F0E4D7] text-xs font-bold text-[#2B2118] hover:bg-slate-50 transition"
-                        title="Call rider"
-                      >
-                        Call
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteRider(r.id)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                        title="Remove rider"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`tel:${r.phone}`}
+                            className="px-3 py-1.5 rounded-xl bg-white border border-[#F0E4D7] text-xs font-bold text-[#2B2118] hover:bg-slate-50 transition"
+                            title="Call rider"
+                          >
+                            Call
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRider(r.id)}
+                            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Remove rider"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))
+                  <InfiniteScrollSentinel
+                    hasMore={ridersScroll.hasMore}
+                    onLoadMore={ridersScroll.loadMore}
+                    shownCount={ridersScroll.visibleCount}
+                    totalCount={ridersScroll.totalCount}
+                    initialCount={ridersScroll.initialCount}
+                    itemLabel="riders"
+                  />
+                </>
               )}
             </div>
           </div>

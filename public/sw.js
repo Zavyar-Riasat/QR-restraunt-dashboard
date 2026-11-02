@@ -22,7 +22,6 @@ function isLocalhostOrigin() {
 
 // Domains and endpoints that must NEVER be cached (strictly Live / Network Only)
 const LIVE_NETWORK_PATTERNS = [
-  'supabase.co',
   '/api/',
   '/src/',
   '/@vite/',
@@ -94,7 +93,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // RULE A: API calls, Supabase endpoints, dev modules, orders, and geocoding MUST NEVER BE CACHED.
+  // RULE A: API calls, database endpoints, dev modules, orders, and geocoding MUST NEVER BE CACHED.
   if (isLiveNetworkRequest(url)) {
     event.respondWith(
       fetch(request).catch(() => {

@@ -5,7 +5,8 @@
  * STRICT RULE: Only restaurants with listing_status = 'approved' AND listed_publicly = true appear on the Marketplace.
  */
 
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient.js';
+import { postgresClient, isPostgresConfigured } from '../lib/postgresClient.js';
+import { ALL_SEED_RESTAURANTS } from './restaurantService.js';
 import { checkRestaurantDeliveryCoverage, normalizeCustomerLocation } from '../utils/geoValidation.js';
 
 const isUuid = (val) =>
@@ -718,23 +719,52 @@ export const marketplaceService = {
     try {
       if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') return list;
 
-      // 1. Registered owners from authService
+      const idIdxMap = new Map();
+      const slugIdxMap = new Map();
+
+      // 1. Registered owners from authService or bulk custom restaurants
       const storedUsers = localStorage.getItem('dinehq_registered_users');
       if (storedUsers) {
         const users = JSON.parse(storedUsers);
         if (Array.isArray(users)) {
           for (const u of users) {
             if (u.restaurant_name && u.restaurant_slug) {
-              const restId = u.restaurant_id || `rest-${u.restaurant_slug}`;
+              const restId = u.restaurant_id || u.id || `rest-${u.restaurant_slug}`;
+              const idx = list.length;
               list.push({
+                ...u,
                 id: restId,
                 name: u.restaurant_name,
                 slug: u.restaurant_slug,
                 phone: u.phone || u.whatsapp_number || '923001234567',
                 whatsapp_number: u.phone || u.whatsapp_number || '923001234567',
-                listing_status: 'approved',
-                listed_publicly: true,
+                listing_status: u.listing_status || 'approved',
+                listed_publicly: u.listed_publicly !== false,
               });
+              idIdxMap.set(restId, idx);
+              slugIdxMap.set(u.restaurant_slug, idx);
+            }
+          }
+        }
+      }
+
+      const storedCustom = localStorage.getItem('dinehq_custom_restaurants');
+      if (storedCustom) {
+        const customArr = JSON.parse(storedCustom);
+        if (Array.isArray(customArr)) {
+          for (const cr of customArr) {
+            if (cr && (cr.id || cr.slug)) {
+              const existingIdx =
+                (cr.id && idIdxMap.has(cr.id) ? idIdxMap.get(cr.id) : undefined) ??
+                (cr.slug && slugIdxMap.has(cr.slug) ? slugIdxMap.get(cr.slug) : -1);
+              if (existingIdx >= 0) {
+                list[existingIdx] = { ...list[existingIdx], ...cr };
+              } else {
+                const newIdx = list.length;
+                list.push(cr);
+                if (cr.id) idIdxMap.set(cr.id, newIdx);
+                if (cr.slug) slugIdxMap.set(cr.slug, newIdx);
+              }
             }
           }
         }
@@ -749,13 +779,16 @@ export const marketplaceService = {
             if (raw) {
               const parsed = JSON.parse(raw);
               if (parsed && (parsed.id || parsed.slug)) {
-                const existingIdx = list.findIndex(
-                  (r) => (parsed.id && r.id === parsed.id) || (parsed.slug && r.slug === parsed.slug)
-                );
+                const existingIdx =
+                  (parsed.id && idIdxMap.has(parsed.id) ? idIdxMap.get(parsed.id) : undefined) ??
+                  (parsed.slug && slugIdxMap.has(parsed.slug) ? slugIdxMap.get(parsed.slug) : -1);
                 if (existingIdx >= 0) {
                   list[existingIdx] = { ...list[existingIdx], ...parsed };
                 } else {
+                  const newIdx = list.length;
                   list.push(parsed);
+                  if (parsed.id) idIdxMap.set(parsed.id, newIdx);
+                  if (parsed.slug) slugIdxMap.set(parsed.slug, newIdx);
                 }
               }
             }
@@ -868,18 +901,17 @@ export const marketplaceService = {
     } else {
       const overridesMap = this._readListingOverridesOnce();
 
-      // 1. Query Supabase if configured (single joined query with delivery_areas to avoid N+1)
-      if (isSupabaseConfigured()) {
+      // 1. Query PostgreSQL if configured (single joined query with delivery_areas to avoid N+1)
+      if (isPostgresConfigured()) {
         try {
-          let { data, error } = await supabase
+          let { data, error } = await postgresClient
             .from('restaurants')
             .select('*, delivery_areas(*)')
             .eq('listing_status', 'approved')
             .eq('listed_publicly', true);
 
           if (error) {
-            // Fallback if delivery_areas foreign key relation or listing_status column is not yet in PostgREST cache
-            const fallbackRes = await supabase.from('restaurants').select('*');
+            const fallbackRes = await postgresClient.from('restaurants').select('*');
             data = fallbackRes.data;
             error = fallbackRes.error;
           }
@@ -888,7 +920,7 @@ export const marketplaceService = {
             rawRestaurants = data.map((r) => this._normalizeRestaurant(r, overridesMap));
           }
         } catch (err) {
-          console.warn('Supabase marketplace fetch notice:', err.message);
+          console.warn('PostgreSQL marketplace fetch notice:', err.message);
         }
       }
 
@@ -947,11 +979,27 @@ export const marketplaceService = {
       };
     }
 
-    // Re-apply latest local overrides & delivery areas on every read so changes reflect immediately
+    // Re-apply latest local listing status overrides on warm cache reads
     const liveOverridesMap = this._readListingOverridesOnce();
-    let restaurants = rawRestaurants
-      .map((r) => this._normalizeRestaurant(r, liveOverridesMap))
-      .filter((r) => !r.deleted && r.listing_status === 'approved' && r.listed_publicly === true);
+    const hasLiveOverrides = liveOverridesMap && Object.keys(liveOverridesMap).length > 0;
+    let restaurants = [];
+    for (let i = 0; i < rawRestaurants.length; i++) {
+      let r = rawRestaurants[i];
+      if (hasLiveOverrides) {
+        const ov = liveOverridesMap[r.slug] || liveOverridesMap[r.id];
+        if (ov) {
+          r = {
+            ...r,
+            deleted: ov.deleted !== undefined ? Boolean(ov.deleted) : r.deleted,
+            listing_status: ov.listing_status !== undefined ? ov.listing_status : r.listing_status,
+            listed_publicly: ov.listed_publicly !== undefined ? ov.listed_publicly : r.listed_publicly,
+          };
+        }
+      }
+      if (!r.deleted && r.listing_status === 'approved' && r.listed_publicly === true) {
+        restaurants.push(r);
+      }
+    }
 
     // 4. Resolve customer location (from params or saved customer location in localStorage)
     const now = new Date();
@@ -980,30 +1028,72 @@ export const marketplaceService = {
           }
         : null;
 
-    restaurants = restaurants.map((r) => {
-      const isOpen = this.computeIsOpenNow(r.opening_hours, now);
+    const filterByRange = Boolean(customerLocation || deliversToMe);
+    const evaluatedRestaurants = [];
+    for (let i = 0; i < restaurants.length; i++) {
+      const r = restaurants[i];
+      // Fast O(1) bounding-box pre-filter (~60km) when filtering by delivery range at 10,000+ restaurants
+      if (
+        filterByRange &&
+        customerLocation &&
+        r.latitude != null &&
+        r.longitude != null &&
+        (Math.abs(customerLocation.lat - r.latitude) > 0.55 ||
+          Math.abs(customerLocation.lng - r.longitude) > 0.65)
+      ) {
+        continue;
+      }
+
+      let activeRest = r;
+      try {
+        if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+          const ovRaw =
+            (r.slug && localStorage.getItem(`dinehq_restaurant_overrides_${r.slug}`)) ||
+            (r.id && localStorage.getItem(`dinehq_restaurant_overrides_${r.id}`));
+          if (ovRaw) {
+            const ovParsed = JSON.parse(ovRaw);
+            if (ovParsed && typeof ovParsed === 'object') {
+              activeRest = {
+                ...r,
+                ...ovParsed,
+                id: r.id,
+                slug: r.slug,
+                deleted: r.deleted,
+                listing_status: r.listing_status,
+                listed_publicly: r.listed_publicly,
+              };
+            }
+          }
+        }
+      } catch {}
+
       let distanceKm = null;
-      if (customerLocation && r.latitude != null && r.longitude != null) {
+      if (customerLocation && activeRest.latitude != null && activeRest.longitude != null) {
         distanceKm = this.haversineDistanceKm(
           customerLocation.lat,
           customerLocation.lng,
-          r.latitude,
-          r.longitude
+          activeRest.latitude,
+          activeRest.longitude
         );
       }
 
-      const areas = this._resolveDeliveryAreasSync(r);
-      const coverage = checkRestaurantDeliveryCoverage(customerLocation, r, areas);
+      const areas = this._resolveDeliveryAreasSync(activeRest);
+      const coverage = checkRestaurantDeliveryCoverage(customerLocation, activeRest, areas);
+      if (filterByRange && !coverage.deliversToUser) {
+        continue;
+      }
 
-      return {
-        ...r,
+      const isOpen = this.computeIsOpenNow(activeRest.opening_hours, now);
+      evaluatedRestaurants.push({
+        ...activeRest,
         delivery_areas: areas,
         is_open_now: isOpen,
         distance_km: distanceKm,
         delivers_to_user: coverage.deliversToUser,
         delivery_fee_effective: coverage.fee ?? r.delivery_fee,
-      };
-    });
+      });
+    }
+    restaurants = evaluatedRestaurants;
 
     // 5. Filter by Cuisine Tag
     if (cuisine && cuisine !== 'ALL') {
@@ -1026,7 +1116,26 @@ export const marketplaceService = {
         const inArea = (r.area || '').toLowerCase().includes(q);
         const inCity = (r.city || '').toLowerCase().includes(q);
         const inCuisines = Array.isArray(r.cuisines) && r.cuisines.some((c) => c.toLowerCase().includes(q));
-        return inName || inArea || inCity || inCuisines;
+        if (inName || inArea || inCity || inCuisines) return true;
+
+        // Also match if any dish in this restaurant's menu matches the search query
+        let menuItems = ALL_SEED_RESTAURANTS[r.slug]?.menuItems || [];
+        try {
+          if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+            const rawMenu = localStorage.getItem(`foodbypass_demo_data_${r.slug}`);
+            if (rawMenu) {
+              const parsedMenu = JSON.parse(rawMenu);
+              if (Array.isArray(parsedMenu?.menuItems) && parsedMenu.menuItems.length > 0) {
+                menuItems = parsedMenu.menuItems;
+              }
+            }
+          }
+        } catch {}
+        return menuItems.some(
+          (item) =>
+            (item.title || '').toLowerCase().includes(q) ||
+            (item.description || '').toLowerCase().includes(q)
+        );
       });
     }
 
@@ -1075,8 +1184,12 @@ export const marketplaceService = {
         if (a.distance_km != null) return -1;
         if (b.distance_km != null) return 1;
 
-        // If location is unknown: sort by city, then open now
-        if (a.city !== b.city) return (a.city || '').localeCompare(b.city || '');
+        // If location is unknown: sort by city (Islamabad primary hub first, then alphabetical), then open now
+        if (a.city !== b.city) {
+          if (a.city === 'Islamabad') return -1;
+          if (b.city === 'Islamabad') return 1;
+          return (a.city || '').localeCompare(b.city || '');
+        }
         return (b.is_open_now ? 1 : 0) - (a.is_open_now ? 1 : 0);
       });
     }
@@ -1129,9 +1242,6 @@ export const marketplaceService = {
 
     const activeRestaurants = restResult.restaurants || [];
     let allFoodItems = [];
-
-    // Dynamically import ALL_SEED_RESTAURANTS from restaurantService
-    const { ALL_SEED_RESTAURANTS } = await import('./restaurantService.js');
 
     for (const rest of activeRestaurants) {
       let items = [];
@@ -1213,13 +1323,21 @@ export const marketplaceService = {
     // 3. Filter by Search Query (dish title, description, category, or restaurant name)
     if (search && search.trim()) {
       const q = search.trim().toLowerCase();
-      allFoodItems = allFoodItems.filter((f) => {
-        const inTitle = (f.title || '').toLowerCase().includes(q);
-        const inDesc = (f.description || '').toLowerCase().includes(q);
-        const inCat = (f.category_name || '').toLowerCase().includes(q);
-        const inRest = (f.restaurant_name || '').toLowerCase().includes(q);
-        return inTitle || inDesc || inCat || inRest;
-      });
+      const exactRestPrefixMatches = allFoodItems.filter((f) =>
+        (f.restaurant_name || '').toLowerCase().startsWith(q)
+      );
+      const genericFoodKeywords = ['burger', 'pizza', 'biryani', 'sushi', 'karahi', 'fries', 'pasta', 'chicken', 'beef', 'mutton', 'roll', 'shake', 'tea', 'chai'];
+      if (exactRestPrefixMatches.length > 0 && !genericFoodKeywords.includes(q)) {
+        allFoodItems = exactRestPrefixMatches;
+      } else {
+        allFoodItems = allFoodItems.filter((f) => {
+          const inTitle = (f.title || '').toLowerCase().includes(q);
+          const inDesc = (f.description || '').toLowerCase().includes(q);
+          const inCat = (f.category_name || '').toLowerCase().includes(q);
+          const inRest = (f.restaurant_name || '').toLowerCase().includes(q);
+          return inTitle || inDesc || inCat || inRest;
+        });
+      }
     }
 
     if (vegOnly) {
@@ -1313,10 +1431,10 @@ export const marketplaceService = {
     if (!slug) return null;
     const cleanSlug = slug.toLowerCase().trim();
 
-    // 1. Try Supabase
-    if (isSupabaseConfigured()) {
+    // 1. Try PostgreSQL
+    if (isPostgresConfigured()) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('restaurants')
           .select('*')
           .eq('slug', cleanSlug)
@@ -1326,7 +1444,7 @@ export const marketplaceService = {
           return this._normalizeRestaurant(data);
         }
       } catch (e) {
-        console.warn('Error fetching restaurant by slug from Supabase:', e.message);
+        console.warn('Error fetching restaurant by slug from PostgreSQL:', e.message);
       }
     }
 
@@ -1357,9 +1475,9 @@ export const marketplaceService = {
       return syncResolved;
     }
 
-    if (isSupabaseConfigured() && isUuid(restaurantId)) {
+    if (isPostgresConfigured() && isUuid(restaurantId)) {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await postgresClient
           .from('delivery_areas')
           .select('*')
           .eq('restaurant_id', restaurantId);
@@ -1368,7 +1486,7 @@ export const marketplaceService = {
           return data;
         }
       } catch (e) {
-        console.warn('Error loading delivery areas from Supabase:', e.message);
+        console.warn('Error loading delivery areas from PostgreSQL:', e.message);
       }
     }
 
@@ -1404,11 +1522,11 @@ export const marketplaceService = {
 
     this.invalidateCache();
 
-    if (isSupabaseConfigured() && isUuid(restaurantId)) {
+    if (isPostgresConfigured() && isUuid(restaurantId)) {
       try {
-        await supabase.from('delivery_areas').delete().eq('restaurant_id', restaurantId);
+        await postgresClient.from('delivery_areas').delete().eq('restaurant_id', restaurantId);
         if (stampedAreas.length > 0) {
-          await supabase.from('delivery_areas').insert(
+          await postgresClient.from('delivery_areas').insert(
             stampedAreas.map((a) => ({
               restaurant_id: restaurantId,
               type: a.type || 'radius',
@@ -1419,7 +1537,7 @@ export const marketplaceService = {
           );
         }
       } catch (err) {
-        console.warn('Supabase delivery areas save notice:', err.message);
+        console.warn('PostgreSQL delivery areas save notice:', err.message);
       }
     }
 
@@ -1434,12 +1552,12 @@ export const marketplaceService = {
     let all = [];
     const overridesMap = this._readListingOverridesOnce();
 
-    // 1. Try Supabase with single joined query
-    if (isSupabaseConfigured()) {
+    // 1. Try PostgreSQL with single joined query
+    if (isPostgresConfigured()) {
       try {
-        let { data, error } = await supabase.from('restaurants').select('*, delivery_areas(*)');
+        let { data, error } = await postgresClient.from('restaurants').select('*, delivery_areas(*)');
         if (error) {
-          const fallbackRes = await supabase.from('restaurants').select('*');
+          const fallbackRes = await postgresClient.from('restaurants').select('*');
           data = fallbackRes.data;
           error = fallbackRes.error;
         }
@@ -1447,7 +1565,7 @@ export const marketplaceService = {
           all = data.map((r) => this._normalizeRestaurant(r, overridesMap));
         }
       } catch (e) {
-        console.warn('Error fetching admin restaurants from Supabase:', e.message);
+        console.warn('Error fetching admin restaurants from PostgreSQL:', e.message);
       }
     }
 
@@ -1532,10 +1650,10 @@ export const marketplaceService = {
     // Invalidate public restaurants cache
     this.invalidateCache();
 
-    // Also update Supabase if configured
-    if (isSupabaseConfigured() && isUuid(restaurantId)) {
+    // Also update PostgreSQL if configured
+    if (isPostgresConfigured() && isUuid(restaurantId)) {
       try {
-        await supabase.from('restaurants').delete().eq('id', restaurantId);
+        await postgresClient.from('restaurants').delete().eq('id', restaurantId);
       } catch {}
     }
 
@@ -1565,10 +1683,10 @@ export const marketplaceService = {
       console.warn('Failed to save listing overrides:', e);
     }
 
-    // Also update Supabase if configured
-    if (isSupabaseConfigured() && isUuid(restaurantId)) {
+    // Also update PostgreSQL if configured
+    if (isPostgresConfigured() && isUuid(restaurantId)) {
       try {
-        await supabase
+        await postgresClient
           .from('restaurants')
           .update({
             listing_status: status,
@@ -1577,7 +1695,7 @@ export const marketplaceService = {
           })
           .eq('id', restaurantId);
       } catch (e) {
-        console.warn('Supabase update listing status notice:', e.message);
+        console.warn('PostgreSQL update listing status notice:', e.message);
       }
     }
 
@@ -1629,7 +1747,7 @@ export const marketplaceService = {
   },
 
   /**
-   * Normalizer to ensure consistent field names across Supabase & local seed
+   * Normalizer to ensure consistent field names across PostgreSQL & local seed
    */
   _normalizeRestaurant(baseRest, preloadedOverrides = null) {
     let r = { ...baseRest };

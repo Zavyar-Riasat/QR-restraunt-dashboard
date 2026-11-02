@@ -282,7 +282,7 @@ export default function OwnerDashboardPage() {
     loadRestaurantsList();
   }, [user?.role]);
 
-  // Load data for the active restaurant tenant (hydrates live Supabase data if configured)
+  // Load data for the active restaurant tenant (hydrates live PostgreSQL data if configured)
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
@@ -417,6 +417,7 @@ export default function OwnerDashboardPage() {
   };
 
   const handleSelectRestaurant = (restId) => {
+    if (user?.role !== 'admin') return;
     setSelectedRestaurantId(restId);
     const target = allRestaurants.find((r) => r.id === restId);
     if (target) {
@@ -435,7 +436,7 @@ export default function OwnerDashboardPage() {
   };
 
   const handleUpdateRestaurant = async (updates) => {
-    if (!restaurant) return;
+    if (!restaurant || !tierConfig.canAccessSettings) return;
     const updated = await restaurantService.updateRestaurant(restaurant.id, updates);
     const merged = { ...restaurant, ...updated };
     setRestaurant(merged);
@@ -449,7 +450,7 @@ export default function OwnerDashboardPage() {
   };
 
   const handleCreateCategory = async (name) => {
-    if (!restaurant) return null;
+    if (!restaurant || !tierConfig.allowedTabs.includes('categories')) return null;
     const newCat = await restaurantService.createCategory(restaurant.id, name);
     const updatedCats = [...categories, newCat];
     setCategories(updatedCats);
@@ -458,6 +459,7 @@ export default function OwnerDashboardPage() {
   };
 
   const handleUpdateCategory = async (categoryId, name) => {
+    if (!tierConfig.allowedTabs.includes('categories')) return;
     await restaurantService.updateCategory(categoryId, name);
     const updatedCats = categories.map((c) => (c.id === categoryId ? { ...c, name } : c));
     setCategories(updatedCats);
@@ -465,6 +467,7 @@ export default function OwnerDashboardPage() {
   };
 
   const handleDeleteCategory = async (categoryId) => {
+    if (!tierConfig.allowedTabs.includes('categories')) return;
     await restaurantService.deleteCategory(categoryId);
     const updatedCats = categories.filter((c) => c.id !== categoryId);
     const updatedItems = menuItems.filter((i) => i.category_id !== categoryId);
@@ -474,7 +477,7 @@ export default function OwnerDashboardPage() {
   };
 
   const handleCreateMenuItem = async (itemData) => {
-    if (!restaurant) return null;
+    if (!restaurant || !tierConfig.allowedTabs.includes('items')) return null;
     const newItem = await restaurantService.createMenuItem({
       ...itemData,
       restaurant_id: restaurant.id,
@@ -486,6 +489,7 @@ export default function OwnerDashboardPage() {
   };
 
   const handleUpdateMenuItem = async (itemId, itemData) => {
+    if (!tierConfig.allowedTabs.includes('items')) return;
     const updated = await restaurantService.updateMenuItem(itemId, itemData);
     const updatedItems = menuItems.map((i) => (i.id === itemId ? { ...i, ...updated } : i));
     setMenuItems(updatedItems);
@@ -493,16 +497,17 @@ export default function OwnerDashboardPage() {
   };
 
   const handleDeleteMenuItem = async (itemId) => {
+    if (!tierConfig.allowedTabs.includes('items')) return;
     await restaurantService.deleteMenuItem(itemId);
     const updatedItems = menuItems.filter((i) => i.id !== itemId);
     setMenuItems(updatedItems);
     persistChanges(restaurant, categories, updatedItems);
   };
 
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
+  const handleUpdateOrderStatus = (orderId, newStatus, additionalUpdates = {}) => {
     if (!restaurant?.id) return;
     const existingOrder = orders.find((o) => o.id === orderId);
-    const updated = orderService.updateOrderStatus(restaurant.id, orderId, newStatus);
+    const updated = orderService.updateOrderStatus(restaurant.id, orderId, newStatus, additionalUpdates);
     setOrders(updated);
     setOrderStats(orderService.getOrderStats(restaurant.id));
 
@@ -696,10 +701,10 @@ export default function OwnerDashboardPage() {
 
         {/* Top Executive ROI KPI Cards & Role-Aware Shift Overview */}
         <section className="no-print space-y-3">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white/70 backdrop-blur-xs p-3.5 sm:p-4 rounded-2xl border border-[#F0E4D7]">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-[#F0E4D7] shadow-2xs">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight truncate">
                   {user?.role === 'waiter'
                     ? 'Floor & Table Service Station'
                     : user?.role === 'cashier'
@@ -707,7 +712,7 @@ export default function OwnerDashboardPage() {
                     : 'Business Performance & Shift Overview'}
                 </h2>
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 leading-snug">
                 {user?.role === 'waiter'
                   ? 'Occupy tables according to customer need, punch dine-in orders, and manage floor seating'
                   : user?.role === 'cashier'
@@ -717,53 +722,61 @@ export default function OwnerDashboardPage() {
             </div>
 
             {/* Quick Shift & Store Action Controls */}
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
-              {user?.role !== 'waiter' && (
-                <PrinterStatusBadge onOpenSettings={() => setIsPrinterModalOpen(true)} />
-              )}
-
-              {tierConfig.canViewRevenue && (
-                <button
-                  type="button"
-                  onClick={handleCopyMenuUrl}
-                  className="inline-flex items-center gap-1.5 h-8 sm:h-9 px-2.5 rounded-xl bg-white hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer whitespace-nowrap shrink-0 shadow-2xs"
-                  title="Copy customer menu URL to share with customers"
-                >
-                  {menuUrlCopied ? (
-                    <Check className="w-3.5 h-3.5 text-[#1F9D55] shrink-0" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5 text-[#7A6A5C] shrink-0" />
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 shrink-0">
+              {/* Row 1 on Mobile: Printer Status + Secondary Utilities */}
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 flex-wrap">
+                {user?.role !== 'waiter' && (
+                  <PrinterStatusBadge onOpenSettings={() => setIsPrinterModalOpen(true)} />
+                )}
+                <div className="flex items-center gap-1.5">
+                  <InstallAppButton />
+                  {tierConfig.canViewRevenue && (
+                    <button
+                      type="button"
+                      onClick={handleCopyMenuUrl}
+                      className="inline-flex items-center gap-1.5 h-8 sm:h-9 px-2.5 rounded-xl bg-[#FFF9F2] hover:bg-[#FFF1E6] text-[#2B2118] text-xs font-bold border border-[#F0E4D7] transition cursor-pointer whitespace-nowrap shrink-0"
+                      title="Copy customer menu URL to share with customers"
+                    >
+                      {menuUrlCopied ? (
+                        <Check className="w-3.5 h-3.5 text-[#1F9D55] shrink-0" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5 text-[#7A6A5C] shrink-0" />
+                      )}
+                      <span>{menuUrlCopied ? 'Copied!' : 'Copy URL'}</span>
+                    </button>
                   )}
-                  <span>{menuUrlCopied ? 'Copied!' : 'Copy Menu URL'}</span>
-                </button>
-              )}
+                </div>
+              </div>
 
-              <InstallAppButton />
+              {/* Row 2 on Mobile: Primary Actions (Reports + New Order) */}
+              <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                {tierConfig.canViewReports && (
+                  <button
+                    id="print-today-summary-navbar-btn"
+                    type="button"
+                    disabled={isPrintingSummary}
+                    onClick={handlePrintTodaySalesSummary}
+                    className="h-9 sm:h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold border border-slate-800 transition cursor-pointer shadow-2xs whitespace-nowrap shrink-0 disabled:opacity-50"
+                    title="View Sales Reports & Order History"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>{isPrintingSummary ? 'Loading...' : 'Reports'}</span>
+                  </button>
+                )}
 
-              {tierConfig.canViewReports && (
                 <button
-                  id="print-today-summary-navbar-btn"
+                  id="new-order-navbar-btn"
                   type="button"
-                  disabled={isPrintingSummary}
-                  onClick={handlePrintTodaySalesSummary}
-                  className="h-8 sm:h-9 inline-flex items-center gap-1.5 px-2.5 sm:px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold border border-slate-800 transition cursor-pointer shadow-2xs whitespace-nowrap shrink-0 disabled:opacity-50"
-                  title="View Sales Reports & Order History"
+                  onClick={() => handleOpenNewOrder(null, 'dine_in')}
+                  className={`${
+                    tierConfig.canViewReports ? '' : 'col-span-2'
+                  } h-9 sm:h-9 inline-flex items-center justify-center gap-1.5 px-3.5 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#F5A623] hover:from-[#E05A0C] hover:to-[#E59512] active:scale-95 text-white text-xs sm:text-sm font-black shadow-md shadow-orange-500/25 transition cursor-pointer border border-amber-300/30 whitespace-nowrap shrink-0`}
+                  title="Open In-Store POS to place a new Dine-in, Takeaway, or Delivery order"
                 >
-                  <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>{isPrintingSummary ? 'Loading...' : 'Reports'}</span>
+                  <Plus className="w-4 h-4 stroke-[3] shrink-0" />
+                  <span>New Order</span>
                 </button>
-              )}
-
-              <button
-                id="new-order-navbar-btn"
-                type="button"
-                onClick={() => handleOpenNewOrder(null, 'dine_in')}
-                className="h-8 sm:h-9 inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 rounded-xl bg-gradient-to-r from-[#F26B1D] to-[#F5A623] hover:from-[#E05A0C] hover:to-[#E59512] active:scale-95 text-white text-xs sm:text-sm font-black shadow-md shadow-orange-500/25 transition cursor-pointer border border-amber-300/30 whitespace-nowrap shrink-0"
-                title="Open In-Store POS to place a new Dine-in, Takeaway, or Delivery order"
-              >
-                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3] shrink-0" />
-                <span>New Order</span>
-              </button>
+              </div>
             </div>
           </div>
 
@@ -788,155 +801,360 @@ export default function OwnerDashboardPage() {
           )}
         </section>
 
-        {/* Tab Navigation */}
-        <div className="no-print flex items-center gap-1 sm:gap-1.5 border-b border-[#F0E4D7] pb-2 sm:pb-2.5 overflow-x-auto no-scrollbar scrollbar-none -mx-3 px-3 sm:-mx-0 sm:px-0">
-          {tierConfig.allowedTabs.includes('orders') && (
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'orders'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                }`}
-            >
-              <Bell className="w-3.5 h-3.5 text-amber-300" />
-              <span>Orders</span>
-              {activeOrdersCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse">
-                  {activeOrdersCount}
-                </span>
+        {/* ========================================================
+            TAB NAVIGATION: Structured Mobile Grid + Desktop Pill Dock
+            ======================================================== */}
+        <nav aria-label="Dashboard sections" className="no-print">
+          {/* MOBILE TAB NAVIGATION (< md): Segmented Order Switcher + 4-Column Icon Tile Grid */}
+          <div className="md:hidden bg-white p-2.5 rounded-2xl border border-[#F0E4D7] shadow-xs space-y-2">
+            {/* Primary Order Segment Row */}
+            {(tierConfig.allowedTabs.includes('orders') || tierConfig.allowedTabs.includes('completed')) && (
+              <div className="grid grid-cols-2 gap-2">
+                {tierConfig.allowedTabs.includes('orders') && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('orders')}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                      activeTab === 'orders'
+                        ? 'bg-gradient-to-r from-[#F26B1D] to-[#E05A0C] text-white shadow-sm shadow-orange-500/25'
+                        : 'bg-[#FFF9F2] text-[#5C4D42] border border-[#F0E4D7]'
+                    }`}
+                  >
+                    <Bell className={`w-4 h-4 shrink-0 ${activeTab === 'orders' ? 'text-amber-200' : 'text-[#F26B1D]'}`} />
+                    <span>Orders</span>
+                    {activeOrdersCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse leading-none">
+                        {activeOrdersCount}
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {tierConfig.allowedTabs.includes('completed') && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('completed')}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                      activeTab === 'completed'
+                        ? 'bg-gradient-to-r from-[#F26B1D] to-[#E05A0C] text-white shadow-sm shadow-orange-500/25'
+                        : 'bg-[#FFF9F2] text-[#5C4D42] border border-[#F0E4D7]'
+                    }`}
+                  >
+                    <CheckCircle2 className={`w-4 h-4 shrink-0 ${activeTab === 'completed' ? 'text-white' : 'text-emerald-600'}`} />
+                    <span>Completed</span>
+                    {completedOrdersCount > 0 && (
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono leading-none ${
+                          activeTab === 'completed' ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {completedOrdersCount}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Management Tabs 4-Column Uniform Tile Grid */}
+            <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-[#F0E4D7]">
+              {tierConfig.allowedTabs.includes('customers') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('customers');
+                    setKhataFilter('all');
+                  }}
+                  className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    activeTab === 'customers'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#5C4D42] hover:text-[#2B2118] border border-[#F0E4D7]'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-full">Customers</span>
+                </button>
               )}
-            </button>
-          )}
 
-          {tierConfig.allowedTabs.includes('completed') && (
-            <button
-              onClick={() => setActiveTab('completed')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'completed'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                }`}
-            >
-              <CheckCircle2 className={`w-3.5 h-3.5 ${activeTab === 'completed' ? 'text-white' : 'text-emerald-500'}`} />
-              <span className="inline xl:hidden">Completed</span>
-              <span className="hidden xl:inline">Completed Orders</span>
-              {completedOrdersCount > 0 && (
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono ${
-                  activeTab === 'completed' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
-                }`}>
-                  {completedOrdersCount}
-                </span>
+              {tierConfig.allowedTabs.includes('cashflow') && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('cashflow')}
+                  className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    activeTab === 'cashflow'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#5C4D42] hover:text-[#2B2118] border border-[#F0E4D7]'
+                  }`}
+                >
+                  <Wallet className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-full">Cash Flow</span>
+                </button>
               )}
-            </button>
-          )}
 
-          {tierConfig.allowedTabs.includes('customers') && (
-            <button
-              onClick={() => {
-                setActiveTab('customers');
-                setKhataFilter('all');
-              }}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'customers'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Customers</span>
-            </button>
-          )}
+              {tierConfig.allowedTabs.includes('items') && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('items')}
+                  className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    activeTab === 'items'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#5C4D42] hover:text-[#2B2118] border border-[#F0E4D7]'
+                  }`}
+                >
+                  <Utensils className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-full">Menu ({menuItems.length})</span>
+                </button>
+              )}
 
-          {tierConfig.allowedTabs.includes('cashflow') && (
-            <button
-              onClick={() => setActiveTab('cashflow')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'cashflow'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                }`}
-            >
-              <Wallet className="w-3.5 h-3.5" />
-              <span>Cash In / Out</span>
-            </button>
-          )}
+              {tierConfig.allowedTabs.includes('categories') && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('categories')}
+                  className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    activeTab === 'categories'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#5C4D42] hover:text-[#2B2118] border border-[#F0E4D7]'
+                  }`}
+                >
+                  <Layers className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-full">Categories ({categories.length})</span>
+                </button>
+              )}
 
-          {tierConfig.allowedTabs.includes('items') && (
-            <button
-              onClick={() => setActiveTab('items')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'items'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                }`}
-            >
-              <Utensils className="w-3.5 h-3.5" />
-              <span className="inline xl:hidden">Menu ({menuItems.length})</span>
-              <span className="hidden xl:inline">Menu Items ({menuItems.length})</span>
-            </button>
-          )}
+              {tierConfig.allowedTabs.includes('tables') && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('tables')}
+                  className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    activeTab === 'tables'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#5C4D42] hover:text-[#2B2118] border border-[#F0E4D7]'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-full">Tables</span>
+                </button>
+              )}
 
-          {tierConfig.allowedTabs.includes('categories') && (
-            <button
-              onClick={() => setActiveTab('categories')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'categories'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Categories ({categories.length})</span>
-            </button>
-          )}
+              {tierConfig.allowedTabs.includes('qr') && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('qr')}
+                  className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    activeTab === 'qr'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#5C4D42] hover:text-[#2B2118] border border-[#F0E4D7]'
+                  }`}
+                >
+                  <Printer className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-full">Print QR</span>
+                </button>
+              )}
 
-          {tierConfig.allowedTabs.includes('tables') && (
-            <button
-              onClick={() => setActiveTab('tables')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'tables'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Tables</span>
-            </button>
-          )}
+              {tierConfig.allowedTabs.includes('staff') && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('staff')}
+                  className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    activeTab === 'staff'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#5C4D42] hover:text-[#2B2118] border border-[#F0E4D7]'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-full">Staff</span>
+                </button>
+              )}
 
-          {tierConfig.allowedTabs.includes('qr') && (
-            <button
-              onClick={() => setActiveTab('qr')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'qr'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
-                }`}
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print QR</span>
-            </button>
-          )}
+              {tierConfig.canAccessSettings && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl text-[11px] font-bold transition cursor-pointer ${
+                    activeTab === 'settings'
+                      ? 'bg-[#F26B1D] text-white shadow-xs'
+                      : 'bg-[#FFF9F2] text-[#5C4D42] hover:text-[#2B2118] border border-[#F0E4D7]'
+                  }`}
+                >
+                  <Store className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-full">Settings</span>
+                </button>
+              )}
+            </div>
+          </div>
 
-          {tierConfig.allowedTabs.includes('staff') && (
-            <button
-              onClick={() => setActiveTab('staff')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'staff'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+          {/* DESKTOP TAB NAVIGATION (md+): Unified Pill Dock */}
+          <div className="hidden md:flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-[#F0E4D7] shadow-2xs flex-wrap">
+            {tierConfig.allowedTabs.includes('orders') && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('orders')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'orders'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
                 }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Staff & Roles</span>
-            </button>
-          )}
+              >
+                <Bell className="w-3.5 h-3.5 text-amber-300" />
+                <span>Orders</span>
+                {activeOrdersCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-[#E5484D] text-white text-[10px] font-bold font-mono animate-pulse">
+                    {activeOrdersCount}
+                  </span>
+                )}
+              </button>
+            )}
 
-          {tierConfig.canAccessSettings && (
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${activeTab === 'settings'
-                  ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
-                  : 'bg-white text-[#7A6A5C] hover:text-[#2B2118] border border-[#F0E4D7] hover:bg-[#FFF1E6]/50'
+            {tierConfig.allowedTabs.includes('completed') && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('completed')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'completed'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
                 }`}
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>Settings</span>
-            </button>
-          )}
-        </div>
+              >
+                <CheckCircle2 className={`w-3.5 h-3.5 ${activeTab === 'completed' ? 'text-white' : 'text-emerald-500'}`} />
+                <span className="inline xl:hidden">Completed</span>
+                <span className="hidden xl:inline">Completed Orders</span>
+                {completedOrdersCount > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono ${
+                      activeTab === 'completed' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {completedOrdersCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {tierConfig.allowedTabs.includes('customers') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('customers');
+                  setKhataFilter('all');
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'customers'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Customers</span>
+              </button>
+            )}
+
+            {tierConfig.allowedTabs.includes('cashflow') && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('cashflow')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'cashflow'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
+                }`}
+              >
+                <Wallet className="w-3.5 h-3.5" />
+                <span>Cash In / Out</span>
+              </button>
+            )}
+
+            {tierConfig.allowedTabs.includes('items') && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('items')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'items'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
+                }`}
+              >
+                <Utensils className="w-3.5 h-3.5" />
+                <span className="inline xl:hidden">Menu ({menuItems.length})</span>
+                <span className="hidden xl:inline">Menu Items ({menuItems.length})</span>
+              </button>
+            )}
+
+            {tierConfig.allowedTabs.includes('categories') && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('categories')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'categories'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Categories ({categories.length})</span>
+              </button>
+            )}
+
+            {tierConfig.allowedTabs.includes('tables') && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('tables')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'tables'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Tables</span>
+              </button>
+            )}
+
+            {tierConfig.allowedTabs.includes('qr') && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('qr')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'qr'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
+                }`}
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print QR</span>
+              </button>
+            )}
+
+            {tierConfig.allowedTabs.includes('staff') && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('staff')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'staff'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Staff & Roles</span>
+              </button>
+            )}
+
+            {tierConfig.canAccessSettings && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                  activeTab === 'settings'
+                    ? 'bg-[#F26B1D] text-white shadow-sm shadow-orange-500/20'
+                    : 'text-[#7A6A5C] hover:text-[#2B2118] hover:bg-[#FFF9F2]'
+                }`}
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Settings</span>
+              </button>
+            )}
+          </div>
+        </nav>
 
         {/* Tab View Panels */}
         <div>

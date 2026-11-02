@@ -9,9 +9,9 @@
     "phone": "923001234567",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "752cd78ad585f62e49d44f2adc",
-      "iv": "d918f65c1259ae4015fc55d6",
-      "authTag": "868c641b22ed696eada141bc8a17d08b"
+      "ciphertext": "a44461aa17d38f03bb93aa5415",
+      "iv": "e547e689d10b59681754f21e",
+      "authTag": "aefa97291702bd21a4b538745b880409"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -28,13 +28,14 @@
     "phone": "923001234567",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "f1950bcdf487895154c9e87667",
-      "iv": "5609944a941d4ddcaeaf2bc2",
-      "authTag": "e8c30b75c081ebe57f650a118cce50e9"
+      "ciphertext": "a9cea29eb187fc0e86e204e269",
+      "iv": "c27ea02fc7d012cd027dc82a",
+      "authTag": "c8f0a377ca69d91147670638c5bc3aad"
     },
     "must_change_password": false,
-    "session_version": 1,
-    "created_at": "2026-10-05T12:00:00.000Z"
+    "session_version": 4,
+    "created_at": "2026-10-05T12:00:00.000Z",
+    "updated_at": "2026-11-02T06:07:23.404Z"
   },
   {
     "id": "user-owner-02",
@@ -47,9 +48,9 @@
     "phone": "923005551234",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "cf14eff4e17d5c781e133d9d63",
-      "iv": "d1e2f3793f99c22d21a2a955",
-      "authTag": "f89a13864ed328f304bd0a62f5944e6b"
+      "ciphertext": "d0e452c552cdd2f7346c1470b9",
+      "iv": "f543dbb781f009f582008889",
+      "authTag": "dbf7a57ec768173da1f521970aecc451"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -66,9 +67,9 @@
     "phone": "923019887766",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "ef49a5b87122db27651f3db6c4fbecc5",
-      "iv": "6b18ae88dd33034f5615d252",
-      "authTag": "08f1125dcff30f8485c142604608dcef"
+      "ciphertext": "6ee554ba2b5a22ee88c76f9fda283ef1",
+      "iv": "58748f75ec8de01bdf33bd05",
+      "authTag": "0e9017adb151e1e9a618751a475a6117"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -85,9 +86,9 @@
     "phone": "923023344556",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "b1f32bea588e6e2bda6853a49c",
-      "iv": "19a4c6a6e2e2203bb4dc1cc2",
-      "authTag": "d03e9efb0019f8a51e4df71390ad1fdc"
+      "ciphertext": "11b8f746104e82bc02b76cc17c",
+      "iv": "130cd04669ca324f81d7ba92",
+      "authTag": "b5b54d12660b2d68545fed360b7bade6"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -104,9 +105,9 @@
     "phone": "923035566778",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "9dbf168f5b6cf1509a34713f5f",
-      "iv": "8dabff1f69e3189334bfc2df",
-      "authTag": "7a7978d08329230a61ef00f676820105"
+      "ciphertext": "602c503ee0236845731fd412c3",
+      "iv": "f84e01c26106a447fa79cadf",
+      "authTag": "71ee6d5f4cd7ac58fe1ec6659292f34f"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -123,9 +124,9 @@
     "phone": "923046677889",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "7dd232c9a8adcdd3677164",
-      "iv": "f4468f76d452a9f80fe90bfb",
-      "authTag": "6ea445f5e36dadacfb0dd0cb6005f470"
+      "ciphertext": "d834059bbbbe10dd037de4",
+      "iv": "d6655208f8dba18886aa3f1f",
+      "authTag": "35c5d40e69061cab676dd07414874a1d"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -142,9 +143,9 @@
     "phone": "923057788990",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "3fbab2e3cb7deba867597a8d1f0e",
-      "iv": "fe062270ca1dd92340f9f1d6",
-      "authTag": "db87a74749986b05321bf275521d4152"
+      "ciphertext": "5998a4e2e4c4af7c7d88f19beb62",
+      "iv": "d3b17c5f73c9031bc12587ec",
+      "authTag": "fb44182d5d1bb37d0f08306c0edee9a3"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -161,9 +162,9 @@
     "phone": "923068899001",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "23294593c1729f5f491c866634fc58",
-      "iv": "7beea5221dfb8cb58694be0e",
-      "authTag": "fec28ede83bd439c0dde80371ec31099"
+      "ciphertext": "115591869ea42d66619f89e35b2463",
+      "iv": "6773c46a479449eb15560f6b",
+      "authTag": "19de7a579681ba98b6930e101fd13d35"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -180,9 +181,9 @@
     "phone": "923079900112",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "b7cd10cf91b02f87745d7527",
-      "iv": "b46c0498489745216746ff12",
-      "authTag": "47a4c4c44b2db75ecfa4866c08442766"
+      "ciphertext": "88a11e955df33575bcd9a9a5",
+      "iv": "83b51d3b5f6bfa4d54262be0",
+      "authTag": "38ec74ff6f5d66fffc6ee2edd7bfa31e"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -194,14 +195,14 @@
     "name": "Stone Oven Manager",
     "role": "owner",
     "restaurant_id": "rest-110",
-    "restaurant_name": "stoneove",
+    "restaurant_name": "Stone Oven Pizzeria",
     "restaurant_slug": "stoneove",
     "phone": "923001111111",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "089b91d98da8bb9ea164ccbf4b",
-      "iv": "b492193b439c24b49b48e804",
-      "authTag": "c268cb9fccfc66debd3759a93379bfc7"
+      "ciphertext": "dd2ff84279721cdacd8f24653c",
+      "iv": "ffad02d9ac298b4498a6f001",
+      "authTag": "9b7f7691e866faf6994dcfa3d82f4dc8"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -218,9 +219,9 @@
     "phone": "923002223344",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "f9d1c13441cf5c6b0fee393bac862c",
-      "iv": "dd7cab376cbd9421f1f3a8f0",
-      "authTag": "83d5ee2b86627c457a72a2060275aafd"
+      "ciphertext": "0537d1b516dbc07cee7a7846b9b8f0",
+      "iv": "9b12de07f3af4f2e260600b8",
+      "authTag": "239cdef86becfed4b16f6034856c5579"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -238,9 +239,9 @@
     "phone": "923003334455",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "eeb590218ca8872e5c62",
-      "iv": "3ba52f62bbbb1b535a11fac4",
-      "authTag": "6eba2f5bacde31bb611bc90b374909c9"
+      "ciphertext": "39fc2aac0465fc0498ccc5173fda44",
+      "iv": "381cfcac758e12d24b015aea",
+      "authTag": "ce13e8390a1284938f3dde3b9eb59d64"
     },
     "must_change_password": false,
     "session_version": 2,
@@ -251,17 +252,17 @@
   {
     "id": "user-waiter-01",
     "email": "waiter@burgersmoke.com",
-    "name": "Floor Waiter",
+    "name": "Hamza Ali",
     "role": "waiter",
     "restaurant_id": "rest-101",
     "restaurant_name": "Burger & Smoke Co.",
     "restaurant_slug": "burgersmoke",
-    "phone": "923004445566",
+    "phone": "0300-9876541",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "3341ca5f5ea332db66b94943c6fc",
-      "iv": "3afab69778599ab3578bb77b",
-      "authTag": "ba3299eaf0c7e4a9ee2e3ae8b9cb418d"
+      "ciphertext": "b0cd77c6e9a10a1fbdc9281efc13",
+      "iv": "7fb32fb6b9bb43c44e613984",
+      "authTag": "8a1b81c7b9b89df0122fad953c6b1188"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -279,9 +280,9 @@
     "phone": "923004112233",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "38d040a8ae0ea75b7be3d32707",
-      "iv": "35a19fc84d1a515ac01345eb",
-      "authTag": "dca5ed954a88eb8a400990f24b681e65"
+      "ciphertext": "c0bcefcfda0ec3b4d07749617e",
+      "iv": "a7f882b8559354642b337a3e",
+      "authTag": "ae42f96ef1e60e0460f4a1393afb073e"
     },
     "must_change_password": false,
     "session_version": 1,
@@ -298,12 +299,75 @@
     "phone": "923004114455",
     "password_encrypted": {
       "algorithm": "aes-256-gcm",
-      "ciphertext": "77367e2ab9671b31c8fd6f819e",
-      "iv": "6e64ea5b450a80b117125cb3",
-      "authTag": "e10d7618f5174576f1e87c97d6695329"
+      "ciphertext": "7ba81b34bea6427839cf9538b1",
+      "iv": "1862852587b77527964ef330",
+      "authTag": "6044d503553207f4d86c2d4c5631f59b"
     },
     "must_change_password": false,
     "session_version": 1,
     "created_at": "2026-10-16T12:00:00.000Z"
+  },
+  {
+    "id": "waiter-burgersmoke-1",
+    "staff_code": "WTR-101",
+    "email": "hamza.waiter@burgersmoke.com",
+    "name": "Hamza Ali",
+    "role": "waiter",
+    "restaurant_id": "rest-101",
+    "restaurant_name": "Burger & Smoke Co.",
+    "restaurant_slug": "burgersmoke",
+    "phone": "0300-9876541",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "4ab0ba44e9311cc688f90700f8d3",
+      "iv": "6cdbd0a89c049055b9c7efbe",
+      "authTag": "a04d1f4b85188afbb862b1e2c405471f"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_by_role": "manager",
+    "created_at": "2026-10-05T12:45:00.000Z"
+  },
+  {
+    "id": "waiter-burgersmoke-2",
+    "staff_code": "WTR-102",
+    "email": "usman.waiter@burgersmoke.com",
+    "name": "Usman Raza",
+    "role": "waiter",
+    "restaurant_id": "rest-101",
+    "restaurant_name": "Burger & Smoke Co.",
+    "restaurant_slug": "burgersmoke",
+    "phone": "0321-4567892",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "5af37fae12150c6f882ac1d47507",
+      "iv": "6f70d1e4f970099001257003",
+      "authTag": "0e9fd83d283bc4928fc120fccfb89874"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_by_role": "manager",
+    "created_at": "2026-10-05T12:46:00.000Z"
+  },
+  {
+    "id": "waiter-burgersmoke-3",
+    "staff_code": "WTR-103",
+    "email": "bilal.waiter@burgersmoke.com",
+    "name": "Bilal Tariq",
+    "role": "waiter",
+    "restaurant_id": "rest-101",
+    "restaurant_name": "Burger & Smoke Co.",
+    "restaurant_slug": "burgersmoke",
+    "phone": "0333-1122334",
+    "password_encrypted": {
+      "algorithm": "aes-256-gcm",
+      "ciphertext": "e6088c5bf66e80b3761e422d0d78",
+      "iv": "a08897b9dd21b3d0da3fc663",
+      "authTag": "49a9d93c5cccab479e7a6a4d7835872f"
+    },
+    "must_change_password": false,
+    "session_version": 1,
+    "created_by_role": "manager",
+    "created_at": "2026-10-05T12:47:00.000Z"
   }
 ]
